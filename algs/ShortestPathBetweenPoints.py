@@ -2,13 +2,13 @@ import os
 from qgis.core import QgsProcessing, QgsWkbTypes, QgsProcessingParameterNumber
 from PyQt5.QtGui import QIcon
 
-from processing.algs.qgis.QgisAlgorithm import QgisFeatureBasedAlgorithm
+from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
 from QNEAT3.QneatFramework import *
 
 pluginPath = os.path.split(os.path.dirname(__file__))[0]
 
-class ShortestPathUndirected(QgisAlgorithm):
+class ShortestPathBetweenPoints(QgisAlgorithm):
     
     INPUT = 'INPUT'
     START_POINT = 'START_POINT'
@@ -120,10 +120,6 @@ class ShortestPathUndirected(QgisAlgorithm):
                                                             self.tr('Shortest path'),
                                                             QgsProcessing.TypeVectorLine))
     def prepareAlgorithm(self, parameters, context, feedback):
-        self.percentage = self.parameterAsDouble(parameters, self.PERCENTAGE,
-                                                 context)
-        self.segments = self.parameterAsInt(parameters, self.SEGMENTS, context)
-
         return True
 
     def processFeature(self, feature, context, feedback):

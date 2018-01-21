@@ -9,9 +9,8 @@
 """
 from qgis.core import *
 from qgis.analysis import *
-from qgis.networkanalysis import *
 
-from PyQt4.QtCore import QVariant
+from PyQt5.QtCore import QVariant
 
 def AssignAnalysisCrs(vlayer):
     logPanel("Setting analysis CRS")

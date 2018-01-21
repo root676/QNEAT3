@@ -29,7 +29,7 @@ from qgis.core import QgsProcessingProvider
 from PyQt5.QtGui import QIcon
 
 from .algs import (
-    DistanceMatrixUndirected 
+    ShortestPathBetweenPoints 
     )
 
 pluginPath = os.path.split(os.path.dirname(__file__))[0]
@@ -38,7 +38,7 @@ class Qneat3Provider(QgsProcessingProvider):
     def __init__(self):
         super().__init__()
         self.alglist = [
-            DistanceMatrixUndirected.DistanceMatrixUndirected()
+            ShortestPathBetweenPoints.ShortestPathBetweenPoints()
         ]
 
     def getAlgs(self):

@@ -12,11 +12,10 @@
 
 from qgis.core import *
 from qgis.analysis import *
-from qgis.networkanalysis import *
 
-from PyQt4.QtCore import QVariant
+from PyQt5.QtCore import QVariant
 
-from QneatUtilities import *
+from QNEAT3.QneatUtilities import *
 
 from processing.tools.vector import resolveFieldIndex
 
@@ -70,7 +69,7 @@ class QneatNetwork():
             if self.directedAnalysis == True:
                 logPanel("...Analysis is directed")
                 logPanel("...setting up Director")
-                self.director = QgsLineVectorLayerDirector(self.input_network,
+                self.director = QgsVectorLayerDirector(self.input_network,
                                             resolveFieldIndex(self.input_network, input_directionFieldName),
                                             input_directDirectionValue,
                                             input_reverseDirectionValue,
@@ -79,7 +78,7 @@ class QneatNetwork():
             else:
                 logPanel("...Analysis is undirected")
                 logPanel("...defaulting to normal director")
-                self.director = QgsLineVectorLayerDirector(self.input_network,
+                self.director = QgsVectorLayerDirector(self.input_network,
                                                          -1,
                                                          '',
                                                          '',
@@ -93,9 +92,10 @@ class QneatNetwork():
         
             #Use distance as cost-strategy pattern.
             logPanel("...Setting distance as cost property")
-            self.properter = QgsDistanceArcProperter()
-            #add the properter to the QgsGraphDirector
-            self.director.addProperter(self.properter)
+            self.strategy = QgsNetworkDistanceStrategy()
+            """TODO: implement QgsNetworkSpeedStrategy()"""
+            #add the strategy to the QgsGraphDirector
+            self.director.addStrategy(self.strategy)
             logPanel("...Setting the graph builders spatial reference")
             self.builder = QgsGraphBuilder(self.AnalysisCrs)
             #tell the graph-director to make the graph using the builder object and tie the start point geometry to the graph
