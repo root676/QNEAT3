@@ -1,15 +1,68 @@
+# -*- coding: utf-8 -*-
+
+"""
+***************************************************************************
+    ShortestPathPointToPoint.py
+    ---------------------
+    Date                 : November 2016
+    Copyright            : (C) 2016 by Alexander Bruy
+    Email                : alexander dot bruy at gmail dot com
+***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+***************************************************************************
+"""
+
+__author__ = 'Alexander Bruy'
+__date__ = 'November 2016'
+__copyright__ = '(C) 2016, Alexander Bruy'
+
+# This will get replaced with a git SHA1 when you do a git archive
+
+__revision__ = '$Format:%H$'
+
 import os
-from qgis.core import QgsProcessing, QgsWkbTypes, QgsProcessingParameterNumber
-from PyQt5.QtGui import QIcon
+from collections import OrderedDict
+
+from qgis.PyQt.QtCore import QVariant
+from qgis.PyQt.QtGui import QIcon
+
+from qgis.core import (QgsWkbTypes,
+                       QgsUnitTypes,
+                       QgsFeature,
+                       QgsFeatureSink,
+                       QgsGeometry,
+                       QgsFields,
+                       QgsField,
+                       QgsProcessing,
+                       QgsProcessingException,
+                       QgsProcessingOutputNumber,
+                       QgsProcessingParameterEnum,
+                       QgsProcessingParameterPoint,
+                       QgsProcessingParameterField,
+                       QgsProcessingParameterNumber,
+                       QgsProcessingParameterString,
+                       QgsProcessingParameterFeatureSource,
+                       QgsProcessingParameterFeatureSink,
+                       QgsProcessingParameterDefinition)
+from qgis.analysis import (QgsVectorLayerDirector,
+                           QgsNetworkDistanceStrategy,
+                           QgsNetworkSpeedStrategy,
+                           QgsGraphBuilder,
+                           QgsGraphAnalyzer
+                           )
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
-from QNEAT3.QneatFramework import *
+pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
-pluginPath = os.path.split(os.path.dirname(__file__))[0]
 
 class ShortestPathBetweenPoints(QgisAlgorithm):
-    
+
     INPUT = 'INPUT'
     START_POINT = 'START_POINT'
     END_POINT = 'END_POINT'
@@ -25,35 +78,17 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
     TRAVEL_COST = 'TRAVEL_COST'
     OUTPUT = 'OUTPUT'
 
-    def __init__(self):
-        super().__init__()
-
-    def name(self):
-        return 'ShortestPathUndirected'
-
-    def displayName(self, *args, **kwargs):
-        return 'Undirected Shortest Path between two points'
-
-    def shortHelpString(self):
-        return 'Help for the QNEAT-Shortest Path between Points Algorithm.'
+    def icon(self):
+        return QIcon(os.path.join(pluginPath, 'images', 'networkanalysis.svg'))
 
     def group(self):
-        return self.tr('Shortest Paths')
+        return self.tr('Network analysis')
 
-    def icon(self):
-        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'algs', 'icon_matrix.svg'))
+    def groupId(self):
+        return 'networkanalysis'
 
-    def inputLayerTypes(self):
-        return [QgsProcessing.TypeVectorLine, QgsProcessing.TypeVectorPoint]
-
-    def outputName(self):
-        return self.tr('Shortest_Path')
-
-    def outputType(self):
-        return QgsProcessing.TypeVectorPolygon
-
-    def outputWkbType(self, input_wkb_type):
-        return QgsWkbTypes.MultiLineString
+    def __init__(self):
+        super().__init__()
 
     def initAlgorithm(self, config=None):
         self.DIRECTIONS = OrderedDict([
@@ -119,10 +154,58 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT,
                                                             self.tr('Shortest path'),
                                                             QgsProcessing.TypeVectorLine))
-    def prepareAlgorithm(self, parameters, context, feedback):
-        return True
 
-    def processFeature(self, feature, context, feedback):
-        input_geometry = feature.geometry()
-        if input_geometry:
-            return feature
+    def name(self):
+        return 'shortestpathpointtopoint'
+
+    def displayName(self):
+        return self.tr('Shortest path (point to point)')
+    
+    def msg(self, var):
+        return "Type:"+str(type(var))+" repr: "+var.__str__()
+
+    def processAlgorithm(self, parameters, context, feedback):
+        feedback.pushInfo(self.tr('This is a QNEAT Plugin'))
+        network = self.parameterAsSource(parameters, self.INPUT, context)
+        startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs())
+        endPoint = self.parameterAsPoint(parameters, self.END_POINT, context, network.sourceCrs())
+        strategy = self.parameterAsEnum(parameters, self.STRATEGY, context)
+
+        directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context)
+        forwardValue = self.parameterAsString(parameters, self.VALUE_FORWARD, context)
+        backwardValue = self.parameterAsString(parameters, self.VALUE_BACKWARD, context)
+        bothValue = self.parameterAsString(parameters, self.VALUE_BOTH, context)
+        defaultDirection = self.parameterAsEnum(parameters, self.DEFAULT_DIRECTION, context)
+        speedFieldName = self.parameterAsString(parameters, self.SPEED_FIELD, context)
+        defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context)
+        tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context)
+
+        
+        feedback.pushInfo("network "+self.msg(network))
+        feedback.pushInfo("startPoint "+self.msg(startPoint))
+        feedback.pushInfo("endPoint "+self.msg(endPoint))
+        feedback.pushInfo("strategy "+self.msg(strategy))
+        feedback.pushInfo("directionFieldName "+self.msg(directionFieldName))
+        feedback.pushInfo("forwardValue "+self.msg(forwardValue))
+        feedback.pushInfo("backwardValue "+self.msg(backwardValue))
+        feedback.pushInfo("bothValue "+self.msg(bothValue))
+        feedback.pushInfo("defaultDirection "+self.msg(defaultDirection))
+        feedback.pushInfo("speedFieldName "+self.msg(speedFieldName))
+        feedback.pushInfo("defaultSpeed "+self.msg(defaultSpeed))
+        feedback.pushInfo("tolerance "+self.msg(tolerance))
+        
+        
+        """
+        if directionField:
+            directionField = network.fields().lookupField(directionFieldName)
+        else:
+            directionField = -1
+        
+        if speedFieldName:
+            speedField = network.fields().lookupField(speedFieldName)
+        else:
+            speedField = -1
+        """
+        results = {}
+        return results
+

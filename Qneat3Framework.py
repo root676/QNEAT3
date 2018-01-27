@@ -28,32 +28,17 @@ class QneatNetwork():
     Provides basic logic for more advanced network analysis algorithms
     """
 
-    def __init__(self,
-                 input_network,
-                 input_points, # must be qgsvectorlayer (either form disc or built from coord)
-                 input_directionFieldName=None,
-                 input_directDirectionValue=None,
-                 input_reverseDirectionValue=None,
-                 input_bothDirectionValue=None, 
-                 input_defaultDirection=None):
+    def __init__(self, 
+                 input_network, 
+                 input_points, 
+                 input_directionFieldName, 
+                 input_directDirectionValue, 
+                 input_reverseDirectionValue,
+                 input_bothDirectionValue, 
+                 input_defaultDirection):
 
         logPanel("__init__[QneatBaseCalculator]: setting up parameters")
-
-
         logPanel("__init__[QneatBaseCalculator]: setting up datasets")
-        
-        #init datasets and check for right geometry
-        if isGeometryType(input_network, QGis.Line):
-            self.input_network = input_network
-        else:
-            logPanel("ERROR: Network layer should be dataset layer")
-            raise QneatGeometryException(input_network.geometryType(), QGis.Line)
-        
-        if isGeometryType(input_points, QGis.Point):
-            self.input_points = input_points
-        else:
-            logPanel("ERROR: Point layer should be point dataset")
-            raise QneatGeometryException(input_points.geometryType(), QGis.Point)
         
         #init computabiliyt and crs
         logPanel("__init__[QneatBaseCalculator]: checking computability")
@@ -133,12 +118,6 @@ class QneatNetwork():
             logPanel("...Point-dataset: {}".format(input_points_srid))
             logPanel("...Please reproject input datasets so that they share the same spatial reference!")
             raise QneatCrsException(input_network_srid, input_points_srid)
-    
-    def checkIfDirected(self, directionArgs):
-        if directionArgs.count(None) == 0:
-            return True
-        else:
-            return False
         
     def setAnalysisCrs(self):
         return self.input_network.crs()
