@@ -1,6 +1,6 @@
 """
 ***************************************************************************
-    QneatFramework.py
+    Qneat3Framework.py
     ---------------------
     Date                 : January 2018
     Copyright            : (C) 2018 by Clemens Raffler
@@ -40,56 +40,51 @@ class QneatNetwork():
         logPanel("__init__[QneatBaseCalculator]: setting up parameters")
         logPanel("__init__[QneatBaseCalculator]: setting up datasets")
         
-        #init computabiliyt and crs
-        logPanel("__init__[QneatBaseCalculator]: checking computability")
-        self.ComputabilityStatus = self.checkComputabilityStatus()
+
+        logPanel("__init__[QneatBaseCalculator]: setting up network analysis parameters")
+        self.AnalysisCrs = self.setAnalysisCrs()
         
-        if self.ComputabilityStatus == True:
-            logPanel("__init__[QneatBaseCalculator]: computability OK")
-            logPanel("__init__[QneatBaseCalculator]: setting up network analysis parameters")
-            self.AnalysisCrs = self.setAnalysisCrs()
-            
-            #init direction fields
-            self.directedAnalysis = self.checkIfDirected((input_directDirectionValue, input_reverseDirectionValue, input_bothDirectionValue, input_defaultDirection))
-            if self.directedAnalysis == True:
-                logPanel("...Analysis is directed")
-                logPanel("...setting up Director")
-                self.director = QgsVectorLayerDirector(self.input_network,
-                                            resolveFieldIndex(self.input_network, input_directionFieldName),
-                                            input_directDirectionValue,
-                                            input_reverseDirectionValue,
-                                            input_bothDirectionValue,
-                                            input_defaultDirection)
-            else:
-                logPanel("...Analysis is undirected")
-                logPanel("...defaulting to normal director")
-                self.director = QgsVectorLayerDirector(self.input_network,
-                                                         -1,
-                                                         '',
-                                                         '',
-                                                         '',
-                                                         3)
-            
-            #init graph analysis
-            logPanel("__init__[QneatBaseCalculator]: setting up network analysis")
-            logPanel("...getting all analysis points")
-            self.list_input_points = self.input_points.getFeatures(QgsFeatureRequest().setFilterFids(self.input_points.allFeatureIds()))
+        #init direction fields
+        self.directedAnalysis = self.checkIfDirected((input_directDirectionValue, input_reverseDirectionValue, input_bothDirectionValue, input_defaultDirection))
+        if self.directedAnalysis == True:
+            logPanel("...Analysis is directed")
+            logPanel("...setting up Director")
+            self.director = QgsVectorLayerDirector(self.input_network,
+                                        resolveFieldIndex(self.input_network, input_directionFieldName),
+                                        input_directDirectionValue,
+                                        input_reverseDirectionValue,
+                                        input_bothDirectionValue,
+                                        input_defaultDirection)
+        else:
+            logPanel("...Analysis is undirected")
+            logPanel("...defaulting to normal director")
+            self.director = QgsVectorLayerDirector(self.input_network,
+                                                     -1,
+                                                     '',
+                                                     '',
+                                                     '',
+                                                     3)
         
-            #Use distance as cost-strategy pattern.
-            logPanel("...Setting distance as cost property")
-            self.strategy = QgsNetworkDistanceStrategy()
-            """TODO: implement QgsNetworkSpeedStrategy()"""
-            #add the strategy to the QgsGraphDirector
-            self.director.addStrategy(self.strategy)
-            logPanel("...Setting the graph builders spatial reference")
-            self.builder = QgsGraphBuilder(self.AnalysisCrs)
-            #tell the graph-director to make the graph using the builder object and tie the start point geometry to the graph
-            logPanel("...Tying input_points to the graph")
-            self.list_tiedPoints = self.director.makeGraph(self.builder, getListOfPoints(self.input_points))
-            #get the graph
-            logPanel("...Build the graph")
-            self.network = self.builder.graph()
-            logPanel("__init__[QneatBaseCalculator]: init complete")
+        #init graph analysis
+        logPanel("__init__[QneatBaseCalculator]: setting up network analysis")
+        logPanel("...getting all analysis points")
+        self.list_input_points = self.input_points.getFeatures(QgsFeatureRequest().setFilterFids(self.input_points.allFeatureIds()))
+    
+        #Use distance as cost-strategy pattern.
+        logPanel("...Setting distance as cost property")
+        self.strategy = QgsNetworkDistanceStrategy()
+        """TODO: implement QgsNetworkSpeedStrategy()"""
+        #add the strategy to the QgsGraphDirector
+        self.director.addStrategy(self.strategy)
+        logPanel("...Setting the graph builders spatial reference")
+        self.builder = QgsGraphBuilder(self.AnalysisCrs)
+        #tell the graph-director to make the graph using the builder object and tie the start point geometry to the graph
+        logPanel("...Tying input_points to the graph")
+        self.list_tiedPoints = self.director.makeGraph(self.builder, getListOfPoints(self.input_points))
+        #get the graph
+        logPanel("...Build the graph")
+        self.network = self.builder.graph()
+        logPanel("__init__[QneatBaseCalculator]: init complete")
                 
             
     def calcDijkstra(self, startpoint_id, criterion):
@@ -103,21 +98,6 @@ class QneatNetwork():
     def calcShortestTree(self, startpoint_id, criterion):
         tree = QgsGraphAnalyzer.shortestTree(self.network, startpoint_id, criterion)
         return tree
-        
-    
-    def checkComputabilityStatus(self):
-        input_network_srid = self.input_network.crs().authid()
-        input_points_srid = self.input_points.crs().authid()
-        if input_network_srid == input_points_srid:
-            logPanel("...Input datasets match in spatial reference:")
-            logPanel("...NetworkCRS == PointCRS: {} == {}".format(input_network_srid, input_points_srid))
-            return True     
-        else:
-            logPanel("...Input datasets do not have the same spatial reference:")
-            logPanel("...Network-dataset: {}".format(input_network_srid))
-            logPanel("...Point-dataset: {}".format(input_points_srid))
-            logPanel("...Please reproject input datasets so that they share the same spatial reference!")
-            raise QneatCrsException(input_network_srid, input_points_srid)
         
     def setAnalysisCrs(self):
         return self.input_network.crs()

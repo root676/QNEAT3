@@ -1,6 +1,6 @@
 """
 ***************************************************************************
-    QneatUtilities.py
+    Qneat3Utilities.py
     ---------------------
     Date                 : November 2017
     Copyright            : (C) 2017 by Clemens Raffler
