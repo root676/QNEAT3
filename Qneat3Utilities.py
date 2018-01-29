@@ -18,7 +18,7 @@ def AssignAnalysisCrs(vlayer):
     return AnalysisCrs
 
 def logPanel(message):
-    QgsMessageLog.logMessage(message, "QNEAT")
+    QgsMessageLog.logMessage(message, "QNEAT3")
     
 def isGeometryType(vlayer, type_obj):
     geom_type = vlayer.geometryType()
@@ -51,10 +51,16 @@ def buildQgsVectorLayer(string_geomtype, string_layername, crs, list_geometry, l
 
     return vector_layer
 
-def getFeatures(vlayer):
+
+def getFeaturesFromLayer(vlayer):
     fRequest = QgsFeatureRequest().setFilterFids(vlayer.allFeatureIds())
     return vlayer.getFeatures(fRequest)
 
+def getFieldIndexFromQgsProcessingFeatureSource(feature_source, field_name):
+    if field_name != "":
+        return feature_source.fields().lookupField(field_name)
+    else:
+        return -1
 
 def getListOfPoints(vlayer):
     fRequest = QgsFeatureRequest().setFilterFids(vlayer.allFeatureIds())

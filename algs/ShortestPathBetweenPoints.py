@@ -16,6 +16,7 @@
 *                                                                         *
 ***************************************************************************
 """
+from email.policy import default
 
 __author__ = 'Alexander Bruy'
 __date__ = 'November 2016'
@@ -55,6 +56,9 @@ from qgis.analysis import (QgsVectorLayerDirector,
                            QgsGraphBuilder,
                            QgsGraphAnalyzer
                            )
+
+from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
+
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
@@ -166,20 +170,23 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Plugin'))
-        network = self.parameterAsSource(parameters, self.INPUT, context)
-        startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs())
-        endPoint = self.parameterAsPoint(parameters, self.END_POINT, context, network.sourceCrs())
-        strategy = self.parameterAsEnum(parameters, self.STRATEGY, context)
+        network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
+        startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs()) #QgsPointXY
+        endPoint = self.parameterAsPoint(parameters, self.END_POINT, context, network.sourceCrs()) #QgsPointXY
+        strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
 
-        directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context)
-        forwardValue = self.parameterAsString(parameters, self.VALUE_FORWARD, context)
-        backwardValue = self.parameterAsString(parameters, self.VALUE_BACKWARD, context)
-        bothValue = self.parameterAsString(parameters, self.VALUE_BOTH, context)
-        defaultDirection = self.parameterAsEnum(parameters, self.DEFAULT_DIRECTION, context)
-        speedFieldName = self.parameterAsString(parameters, self.SPEED_FIELD, context)
-        defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context)
-        tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context)
+        directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
+        forwardValue = self.parameterAsString(parameters, self.VALUE_FORWARD, context) #str
+        backwardValue = self.parameterAsString(parameters, self.VALUE_BACKWARD, context) #str
+        bothValue = self.parameterAsString(parameters, self.VALUE_BOTH, context) #str
+        defaultDirection = self.parameterAsEnum(parameters, self.DEFAULT_DIRECTION, context) #int
+        speedFieldName = self.parameterAsString(parameters, self.SPEED_FIELD, context) #str
+        defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) #float
+        tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
 
+        analysisCrs = context.project().crs()
+
+        
         
         feedback.pushInfo("network "+self.msg(network))
         feedback.pushInfo("startPoint "+self.msg(startPoint))
@@ -193,6 +200,15 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         feedback.pushInfo("speedFieldName "+self.msg(speedFieldName))
         feedback.pushInfo("defaultSpeed "+self.msg(defaultSpeed))
         feedback.pushInfo("tolerance "+self.msg(tolerance))
+        
+        if directionFieldName == None:
+            feedback.pushInfo("value is none")
+        elif directionFieldName == "":
+            feedback.pushInfo("emptyString")
+        else:
+            feedback.pushInfo(self.msg(directionFieldName))
+        
+        net = Qneat3Network(network, [startPoint,endPoint], strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         
         
         """
