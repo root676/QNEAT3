@@ -7,10 +7,10 @@
     Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
 """
-from qgis.core import *
-from qgis.analysis import *
+from qgis.core import QgsWkbTypes, QgsMessageLog, QgsVectorLayer, QgsFeature, QgsFeatureRequest
 
 from PyQt5.QtCore import QVariant
+
 
 def AssignAnalysisCrs(vlayer):
     logPanel("Setting analysis CRS")
@@ -72,4 +72,7 @@ def getListOfPoints(qgs_feature_storage): #qgs_feature_storage can be any vector
     else:
         raise Qneat3GeometryException(given_geom_type, expected_geom_type)
         
-
+def getFieldDatatype(qgs_feature_storage, fieldname):
+    fields_list = qgs_feature_storage.fields()
+    qvariant_type = fields_list.field(fieldname).type()
+    return qvariant_type

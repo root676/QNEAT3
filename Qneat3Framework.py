@@ -10,12 +10,12 @@
 
 
 
-from qgis.core import *
-from qgis.analysis import *
+from qgis.core import QgsGeometry, QgsUnitTypes
+from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder
 
-from PyQt5.QtCore import QVariant
+from qgis.PyQt.QtCore import QVariant
 
-from QNEAT3.Qneat3Utilities import *
+from QNEAT3.Qneat3Utilities import getFieldIndexFromQgsProcessingFeatureSource, getListOfPoints
 
 from processing.tools.vector import resolveFieldIndex
 
@@ -51,7 +51,7 @@ class Qneat3Network():
         
         #init direction fields
         feedback.pushInfo("__init__[QneatBaseCalculator]: setting up network direction parameters")
-        self.directedAnalysis = self.setNetworkDirection((input_forwardValue, input_backwardValue, input_bothValue, input_defaultDirection))
+        self.directedAnalysis = self.setNetworkDirection((input_directionFieldName, input_forwardValue, input_backwardValue, input_bothValue, input_defaultDirection))
         feedback.pushInfo("...Analysis is directed")
         feedback.pushInfo("...setting up Director")
         self.director = QgsVectorLayerDirector(input_network,
@@ -74,7 +74,7 @@ class Qneat3Network():
         #Use distance as cost-strategy pattern.
         feedback.pushInfo("...Setting analysis strategy")
         
-        self.setNetworkStrategy(input_strategy, input_speedField, input_defaultSpeed)
+        self.setNetworkStrategy(input_strategy, input_network, input_speedField, input_defaultSpeed)
         self.director.addStrategy(self.strategy)
 
         #add the strategy to the QgsGraphDirector
@@ -109,14 +109,15 @@ class Qneat3Network():
         else:
             self.directedAnalysis = False
             
-    def setNetworkStrategy(self, input_strategy, input_speedField, input_defaultSpeed):
+    def setNetworkStrategy(self, input_strategy, input_network, input_speedField, input_defaultSpeed):
         distUnit = self.AnalysisCrs.mapUnits()
         multiplier = QgsUnitTypes.fromUnitToUnitFactor(distUnit, QgsUnitTypes.DistanceMeters)
         
+        speedFieldId = getFieldIndexFromQgsProcessingFeatureSource(input_network, input_speedField)
         if input_strategy == 0:
             self.strategy = QgsNetworkDistanceStrategy()
         else:
-            self.strategy = QgsNetworkSpeedStrategy(input_speedField, input_defaultSpeed, multiplier * 1000.0 / 3600.0)
+            self.strategy = QgsNetworkSpeedStrategy(speedFieldId, float(input_defaultSpeed), multiplier * 1000.0 / 3600.0)
         self.multiplier = 3600
             
         
@@ -131,10 +132,10 @@ class Qneat3AnalysisPoint():
         
     def calcEntryCost(self, strategy):
         entry_linestring_geom = self.calcEntryLinestring()
-        if strategy == "distance":
+        if strategy == "Shortest":
             return entry_linestring_geom.length()
         else:
-            return None
+            return entry_linestring_geom.length()/1.3888 #length/(m/s) todo: Make dynamic
 
     def calcEntryLinestring(self):
         return QgsGeometry.fromPolylineXY([self.point_geom, self.network_vertex.point()])

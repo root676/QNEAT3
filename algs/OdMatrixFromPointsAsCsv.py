@@ -2,11 +2,11 @@
 
 """
 ***************************************************************************
-    ShortestPathPointToPoint.py
+    OdMatrixFromPointsAsCsv.py
     ---------------------
     Date                 : November 2016
-    Copyright            : (C) 2016 by Alexander Bruy
-    Email                : alexander dot bruy at gmail dot com
+    Copyright            : (C) 2018 by Clemens Raffler
+    Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
 *                                                                         *
 *   This program is free software; you can redistribute it and/or modify  *
@@ -16,11 +16,10 @@
 *                                                                         *
 ***************************************************************************
 """
-from email.policy import default
 
-__author__ = 'Alexander Bruy'
-__date__ = 'November 2016'
-__copyright__ = '(C) 2016, Alexander Bruy'
+__author__ = 'Clemens Raffler'
+__date__ = 'February 2018'
+__copyright__ = '(C) 2018, Clemens Raffler'
 
 # This will get replaced with a git SHA1 when you do a git archive
 
@@ -30,43 +29,28 @@ import os
 import csv
 from collections import OrderedDict
 
-from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import (QgsWkbTypes,
-                       QgsUnitTypes,
-                       QgsFeature,
-                       QgsFeatureSink,
-                       QgsGeometry,
-                       QgsFields,
-                       QgsField,
-                       QgsProcessing,
-                       QgsProcessingException,
-                       QgsProcessingParameterFileDestination,
+from qgis.core import (QgsProcessing,
                        QgsProcessingParameterEnum,
-                       QgsProcessingParameterPoint,
+                       QgsProcessingParameterFileDestination,
+                       QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterField,
                        QgsProcessingParameterNumber,
                        QgsProcessingParameterString,
-                       QgsProcessingParameterFeatureSource,
-                       QgsProcessingParameterFeatureSink,
                        QgsProcessingParameterDefinition)
-from qgis.analysis import (QgsVectorLayerDirector,
-                           QgsNetworkDistanceStrategy,
-                           QgsNetworkSpeedStrategy,
-                           QgsGraphBuilder,
-                           QgsGraphAnalyzer
-                           )
+
+from qgis.analysis import (QgsVectorLayerDirector)
 
 from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import *
+from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class OdMatrix(QgisAlgorithm):
+class OdMatrixFromPointsAsCsv(QgisAlgorithm):
 
     INPUT = 'INPUT'
     POINTS = 'POINTS'
@@ -83,13 +67,13 @@ class OdMatrix(QgisAlgorithm):
     OUTPUT = 'OUTPUT'
 
     def icon(self):
-        return QIcon(os.path.join(pluginPath, 'images', 'networkanalysis.svg'))
+        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_matrix.svg'))
 
     def group(self):
-        return self.tr('Network analysis')
+        return self.tr('Distance Matrices')
 
     def groupId(self):
-        return 'networkanalysis'
+        return 'distancematrices'
 
     def __init__(self):
         super().__init__()
@@ -101,8 +85,7 @@ class OdMatrix(QgisAlgorithm):
             (self.tr('Both directions'), QgsVectorLayerDirector.DirectionBoth)])
 
         self.STRATEGIES = [self.tr('Shortest'),
-                           self.tr('Fastest')
-                           ]
+                           self.tr('Fastest')]
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Vector layer representing network'),
@@ -162,10 +145,10 @@ class OdMatrix(QgisAlgorithm):
 
 
     def name(self):
-        return 'OD Matrix'
+        return 'OD Matrix from Points as CSV'
 
     def displayName(self):
-        return self.tr('OD Matrix from Points')
+        return self.tr('OD Matrix from Points as CSV')
     
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
@@ -186,7 +169,7 @@ class OdMatrix(QgisAlgorithm):
         defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) #float
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
         output_path = self.parameterAsFileOutput(parameters, self.OUTPUT, context) #str (filepath)
-        
+        feedback.pushInfo(pluginPath)
         
         analysisCrs = context.project().crs()
         
@@ -217,7 +200,7 @@ class OdMatrix(QgisAlgorithm):
                     elif dijkstra_query[0][query_point.network_vertex_id] == -1:
                         csv_writer.writerow([start_point.point_id, query_point.point_id, None])
                     else:
-                        entry_cost = start_point.calcEntryCost("distance")+query_point.calcEntryCost("distance")
+                        entry_cost = start_point.calcEntryCost(strategy)+query_point.calcEntryCost(strategy)
                         total_cost = dijkstra_query[1][query_point.network_vertex_id]+entry_cost
                         csv_writer.writerow([start_point.point_id, query_point.point_id, total_cost])
                     current_workstep_number=current_workstep_number+1

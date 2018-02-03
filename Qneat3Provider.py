@@ -28,10 +28,11 @@ import os
 from qgis.core import QgsProcessingProvider
 from PyQt5.QtGui import QIcon
 
-from .algs import (
-    ShortestPathBetweenPoints,
-    OdMatrix 
-    )
+from .algs import (ShortestPathBetweenPoints, 
+                   OdMatrixFromPointsAsCsv,
+                   OdMatrixFromPointsAsLines
+                   )
+
 
 pluginPath = os.path.split(os.path.dirname(__file__))[0]
 
@@ -40,7 +41,8 @@ class Qneat3Provider(QgsProcessingProvider):
         super().__init__()
         self.alglist = [
             ShortestPathBetweenPoints.ShortestPathBetweenPoints(),
-            OdMatrix.OdMatrix()
+            OdMatrixFromPointsAsCsv.OdMatrixFromPointsAsCsv(),
+            OdMatrixFromPointsAsLines.OdMatrixFromPointsAsLines()
         ]
 
     def getAlgs(self):
