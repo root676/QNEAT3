@@ -41,7 +41,7 @@ from qgis.core import (QgsWkbTypes,
                        QgsField,
                        QgsProcessing,
                        QgsProcessingException,
-                       QgsProcessingOutputNumber,
+                       QgsProcessingParameterFileDestination,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterPoint,
                        QgsProcessingParameterField,
@@ -57,18 +57,19 @@ from qgis.analysis import (QgsVectorLayerDirector,
                            QgsGraphAnalyzer
                            )
 
-from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint, Qneat3GeometryException
+from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
+from QNEAT3.Qneat3Utilities import *
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class ShortestPathBetweenPoints(QgisAlgorithm):
+class OdMatrix(QgisAlgorithm):
 
     INPUT = 'INPUT'
-    START_POINT = 'START_POINT'
-    END_POINT = 'END_POINT'
+    POINTS = 'POINTS'
+    ID_FIELD = 'ID_FIELD'    
     STRATEGY = 'STRATEGY'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
@@ -78,7 +79,6 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
     SPEED_FIELD = 'SPEED_FIELD'
     DEFAULT_SPEED = 'DEFAULT_SPEED'
     TOLERANCE = 'TOLERANCE'
-    TRAVEL_COST = 'TRAVEL_COST'
     OUTPUT = 'OUTPUT'
 
     def icon(self):
@@ -106,10 +106,14 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Vector layer representing network'),
                                                               [QgsProcessing.TypeVectorLine]))
-        self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
-                                                      self.tr('Start point')))
-        self.addParameter(QgsProcessingParameterPoint(self.END_POINT,
-                                                      self.tr('End point')))
+        self.addParameter(QgsProcessingParameterFeatureSource(self.POINTS,
+                                                              self.tr('Point Layer'),
+                                                              [QgsProcessing.TypeVectorPoint]))
+        self.addParameter(QgsProcessingParameterField(self.ID_FIELD,
+                                                       self.tr('Unique Point ID Field'),
+                                                       None,
+                                                       self.POINTS,
+                                                       optional=False))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
                                                      self.tr('Path type to calculate'),
                                                      self.STRATEGIES,
@@ -152,17 +156,15 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
 
-        self.addOutput(QgsProcessingOutputNumber(self.TRAVEL_COST,
-                                                 self.tr('Travel cost')))
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT,
-                                                            self.tr('Shortest path'),
-                                                            QgsProcessing.TypeVectorLine))
+
+        self.addParameter(QgsProcessingParameterFileDestination(self.OUTPUT, self.tr('Output OD Matrix'), self.tr('CSV files (*.csv)')),True)
+
 
     def name(self):
-        return 'shortestpathpointtopoint'
+        return 'OD Matrix'
 
     def displayName(self):
-        return self.tr('Shortest path (point to point)')
+        return self.tr('OD Matrix from Point')
     
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
@@ -170,8 +172,8 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
-        startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs()) #QgsPointXY
-        endPoint = self.parameterAsPoint(parameters, self.END_POINT, context, network.sourceCrs()) #QgsPointXY
+        points = self.parameterAsSource(parameters, self.POINTS, context) #QgsProcessingFeatureSource
+        id_field = self.parameterAsString(parameters, self.ID_FIELD, context) #str
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
 
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
@@ -188,8 +190,7 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         
         
         feedback.pushInfo("network "+self.msg(network))
-        feedback.pushInfo("startPoint "+self.msg(startPoint))
-        feedback.pushInfo("endPoint "+self.msg(endPoint))
+        feedback.pushInfo("points "+self.msg(points))
         feedback.pushInfo("strategy "+self.msg(strategy))
         feedback.pushInfo("directionFieldName "+self.msg(directionFieldName))
         feedback.pushInfo("forwardValue "+self.msg(forwardValue))
@@ -207,9 +208,9 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         else:
             feedback.pushInfo(self.msg(directionFieldName))
         
-        net = Qneat3Network(network, [startPoint,endPoint], strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
+        net = Qneat3Network(network, points, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         
-        
+        list_analysis_points = [Qneat3AnalysisPoint("point", feature, id_field, net.network, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(net.input_points))]
         
         """
         if directionField:

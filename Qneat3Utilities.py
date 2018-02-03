@@ -52,9 +52,9 @@ def buildQgsVectorLayer(string_geomtype, string_layername, crs, list_geometry, l
     return vector_layer
 
 
-def getFeaturesFromLayer(vlayer):
-    fRequest = QgsFeatureRequest().setFilterFids(vlayer.allFeatureIds())
-    return vlayer.getFeatures(fRequest)
+def getFeaturesFromQgsIterable(qgs_feature_storage):#qgs_feature_storage can be any vectorLayer/QgsProcessingParameterFeatureSource/etc
+    fRequest = QgsFeatureRequest().setFilterFids(qgs_feature_storage.allFeatureIds())
+    return qgs_feature_storage.getFeatures(fRequest)
 
 def getFieldIndexFromQgsProcessingFeatureSource(feature_source, field_name):
     if field_name != "":
@@ -62,68 +62,14 @@ def getFieldIndexFromQgsProcessingFeatureSource(feature_source, field_name):
     else:
         return -1
 
-def getListOfPoints(vlayer):
-    fRequest = QgsFeatureRequest().setFilterFids(vlayer.allFeatureIds())
-    features = vlayer.getFeatures(fRequest)
-    return [f.geometry().asPoint() for f in features]
-
-def getLayerGeometryType(vlayer):
-    wkbType = vlayer.wkbType()
-    try:
-        if wkbType in (QGis.WKBPoint, QGis.WKBMultiPoint,
-                       QGis.WKBPoint25D, QGis.WKBMultiPoint25D):
-            return QGis.WKBPoint
-        elif wkbType in (QGis.WKBLineString, QGis.WKBMultiLineString,
-                         QGis.WKBMultiLineString25D,
-                         QGis.WKBLineString25D):
-
-            return QGis.WKBLineString
-        elif wkbType in (QGis.WKBPolygon, QGis.WKBMultiPolygon,
-                         QGis.WKBMultiPolygon25D, QGis.WKBPolygon25D):
-
-            return QGis.WKBPolygon
-        else:
-            return QGis.WKBUnknown
-    except:
-        return None
-
-def extractGeometryAsSingle(geom): #must be called per multigeometry object
-    multiGeom = QgsGeometry()
-    list_singleGeometries = []
-    if geom.type() == QGis.Point:
-        if geom.isMultipart():
-            multiGeom = geom.asMultiPoint()
-            for i in multiGeom:
-                list_singleGeometries.append(QgsGeometry().fromPoint(i))
-        else:
-            list_singleGeometries.append(geom)
-    elif geom.type() == QGis.Line:
-        if geom.isMultipart():
-            multiGeom = geom.asMultiPolyline()
-            for i in multiGeom:
-                list_singleGeometries.append(QgsGeometry().fromPolyline(i))
-        else:
-            list_singleGeometries.append(geom)
-    elif geom.type() == QGis.Polygon:
-        if geom.isMultipart():
-            multiGeom = geom.asMultiPolygon()
-            for i in multiGeom:
-                list_singleGeometries.append(QgsGeometry().fromPolygon(i))
-        else:
-            list_singleGeometries.append(geom)
-    return list_singleGeometries
-
-def getMultiGeometryAsList(vlayer):
-    list_geometry = [feature.geometry() for feature in vlayer]
-    return list_geometry
-
-
-def getSingleGeometryAsList(vlayer):
-    list_multigeom = getMultiGeometryAsList(vlayer)
-    list_singlegeom = []
-    for geom in list_multigeom:
-        extracted_geom = extractGeometryAsSingle(geom)
-        list_singlegeom.extend(extracted_geom)
-    return list_singlegeom
-
+def getListOfPoints(qgs_feature_storage): #qgs_feature_storage can be any vectorLayer/QgsProcessingParameterFeatureSource/etc
+    given_geom_type = QgsWkbTypes().displayString(qgs_feature_storage.wkbType()) #GetStringRepresentation of WKB Type
+    expected_geom_type = QgsWkbTypes.displayString(1) #Point
+    
+    if given_geom_type == expected_geom_type: 
+        qgsfeatureiterator = getFeaturesFromQgsIterable(qgs_feature_storage)
+        return [f.geometry().asPoint() for f in qgsfeatureiterator]
+    else:
+        raise Qneat3GeometryException(given_geom_type, expected_geom_type)
+        
 

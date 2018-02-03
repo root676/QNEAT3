@@ -28,8 +28,8 @@ class Qneat3Network():
     """
 
     def __init__(self, 
-                 input_network, #QgsProcessingFeatureSource
-                 input_points, #[QgsPointXY]
+                 input_network, #QgsProcessingParameterFeatureSource
+                 input_points, #[QgsPointXY] or QgsProcessingParameterFeatureSource
                  input_strategy, #int
                  input_directionFieldName, #str, empty if field not given
                  input_forwardValue, #str
@@ -64,10 +64,12 @@ class Qneat3Network():
         #init graph analysis
         feedback.pushInfo("__init__[QneatBaseCalculator]: setting up network analysis")
         feedback.pushInfo("...getting all analysis points")
+        
         if isinstance(input_points,(list,)):
             self.list_input_points = input_points
         else:
-            self.list_input_points = getFeaturesFromLayer(input_points)
+            self.list_input_points = getListOfPoints(input_points)
+            self.input_points = input_points
     
         #Use distance as cost-strategy pattern.
         feedback.pushInfo("...Setting analysis strategy")
@@ -151,17 +153,16 @@ class Qneat3AnalysisPoint():
         return u"QneatAnalysisPoint: {} analysis_id: {:30} FROM {:30} TO {:30} network_id: {:d}".format(self.layer_name, pid, self.point_geom.__str__(), self.network_vertex.point().__str__(), self.network_vertex_id)    
 
 class Qneat3GeometryException(Exception):
-    def __init__(self, given_input, expected_input):
-    
-        geom_str_list = ["Point","Line","Polygon", "UnknownGeometry", "NoGeometry"]
-        self.message = "Dataset has wrong geometry type. Got {} dataset but expected {} dataset instead. ".format(geom_str_list[int(repr(given_input))], geom_str_list[int(repr(expected_input))])
+    def __init__(self, given_geom_type, expected_geom_type):
+        
+        self.message = "Dataset has wrong geometry type. Got {} dataset but expected {} dataset instead. ".format( given_geom_type, expected_geom_type)
 
-        super(QneatGeometryException, self).__init__(self.message)
+        super(Qneat3GeometryException, self).__init__(self.message)
         
 class Qneat3CrsException(Exception):
     def __init__(self, *crs):
     
         self.message = "Coordinate Reference Systems don't match up: {} Reproject all datasets so that their CRSs match up.".format(list(crs))
 
-        super(QneatCrsException, self).__init__(self.message)
+        super(Qneat3CrsException, self).__init__(self.message)
                                                                                                                                                                                                                         

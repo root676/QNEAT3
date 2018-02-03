@@ -29,7 +29,8 @@ from qgis.core import QgsProcessingProvider
 from PyQt5.QtGui import QIcon
 
 from .algs import (
-    ShortestPathBetweenPoints 
+    ShortestPathBetweenPoints,
+    OdMatrix 
     )
 
 pluginPath = os.path.split(os.path.dirname(__file__))[0]
@@ -38,7 +39,8 @@ class Qneat3Provider(QgsProcessingProvider):
     def __init__(self):
         super().__init__()
         self.alglist = [
-            ShortestPathBetweenPoints.ShortestPathBetweenPoints()
+            ShortestPathBetweenPoints.ShortestPathBetweenPoints(),
+            OdMatrix.OdMatrix()
         ]
 
     def getAlgs(self):
@@ -54,7 +56,7 @@ class Qneat3Provider(QgsProcessingProvider):
         return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icon.svg'))
 
     def svgIconPath(self):
-        return os.path.join(pluginPath, 'BufferByPercentage', 'icon.svg')
+        return os.path.join(pluginPath, 'QNEAT3', 'icon.svg')
 
     def loadAlgorithms(self, *args, **kwargs):
         for alg in self.alglist:
