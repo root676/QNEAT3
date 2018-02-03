@@ -27,6 +27,7 @@ __copyright__ = '(C) 2016, Alexander Bruy'
 __revision__ = '$Format:%H$'
 
 import os
+import csv
 from collections import OrderedDict
 
 from qgis.PyQt.QtCore import QVariant
@@ -164,7 +165,7 @@ class OdMatrix(QgisAlgorithm):
         return 'OD Matrix'
 
     def displayName(self):
-        return self.tr('OD Matrix from Point')
+        return self.tr('OD Matrix from Points')
     
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
@@ -184,45 +185,49 @@ class OdMatrix(QgisAlgorithm):
         speedFieldName = self.parameterAsString(parameters, self.SPEED_FIELD, context) #str
         defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) #float
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
-
+        output_path = self.parameterAsFileOutput(parameters, self.OUTPUT, context) #str (filepath)
+        
+        
         analysisCrs = context.project().crs()
-
-        
-        
-        feedback.pushInfo("network "+self.msg(network))
-        feedback.pushInfo("points "+self.msg(points))
-        feedback.pushInfo("strategy "+self.msg(strategy))
-        feedback.pushInfo("directionFieldName "+self.msg(directionFieldName))
-        feedback.pushInfo("forwardValue "+self.msg(forwardValue))
-        feedback.pushInfo("backwardValue "+self.msg(backwardValue))
-        feedback.pushInfo("bothValue "+self.msg(bothValue))
-        feedback.pushInfo("defaultDirection "+self.msg(defaultDirection))
-        feedback.pushInfo("speedFieldName "+self.msg(speedFieldName))
-        feedback.pushInfo("defaultSpeed "+self.msg(defaultSpeed))
-        feedback.pushInfo("tolerance "+self.msg(tolerance))
-        
-        if directionFieldName == None:
-            feedback.pushInfo("value is none")
-        elif directionFieldName == "":
-            feedback.pushInfo("emptyString")
-        else:
-            feedback.pushInfo(self.msg(directionFieldName))
         
         net = Qneat3Network(network, points, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         
         list_analysis_points = [Qneat3AnalysisPoint("point", feature, id_field, net.network, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(net.input_points))]
         
-        """
-        if directionField:
-            directionField = network.fields().lookupField(directionFieldName)
-        else:
-            directionField = -1
+        total_workload = float(pow(len(list_analysis_points),2))
+        feedback.pushInfo("Expecting total workload of {} iterations".format(int(total_workload)))
         
-        if speedFieldName:
-            speedField = network.fields().lookupField(speedFieldName)
-        else:
-            speedField = -1
-        """
-        results = {}
+        with open(output_path, 'w', newline='') as csvfile:
+            csv_writer = csv.writer(csvfile, delimiter=';',
+                                        quotechar='|', 
+                                        quoting=csv.QUOTE_MINIMAL)
+            #write header
+            csv_writer.writerow(["origin_id","destination_id","cost"])
+            
+            current_workstep_number = 0
+            
+            for start_point in list_analysis_points:
+                #optimize in case of undirected (not necessary to call calcDijkstra as it has already been calculated - can be replaced by reading from list)
+                dijkstra_query = net.calcDijkstra(start_point.network_vertex_id, 0)
+                for query_point in list_analysis_points:
+                    if (current_workstep_number%1000)==0:
+                        feedback.pushInfo("{} OD-pairs processed...".format(current_workstep_number))
+                    if query_point.point_id == start_point.point_id:
+                        csv_writer.writerow([start_point.point_id, query_point.point_id, float(0)])
+                    elif dijkstra_query[0][query_point.network_vertex_id] == -1:
+                        csv_writer.writerow([start_point.point_id, query_point.point_id, None])
+                    else:
+                        entry_cost = start_point.calcEntryCost("distance")+query_point.calcEntryCost("distance")
+                        total_cost = dijkstra_query[1][query_point.network_vertex_id]+entry_cost
+                        csv_writer.writerow([start_point.point_id, query_point.point_id, total_cost])
+                    current_workstep_number=current_workstep_number+1
+                    feedback.setProgress(current_workstep_number/total_workload)
+                    
+            feedback.pushInfo("Total number of OD-pairs processed: {}".format(current_workstep_number))
+        
+            feedback.pushInfo("Initialization Done")
+            feedback.pushInfo("Ending Algorithm")
+
+        results = {self.OUTPUT: output_path}
         return results
 

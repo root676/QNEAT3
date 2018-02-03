@@ -137,7 +137,7 @@ class Qneat3AnalysisPoint():
             return None
 
     def calcEntryLinestring(self):
-        return QgsGeometry.fromPolyline([self.point_geom, self.network_vertex.point()])
+        return QgsGeometry.fromPolylineXY([self.point_geom, self.network_vertex.point()])
     
     def getNearestVertexId(self, network, vertex_geom):
         return network.findVertex(vertex_geom)
