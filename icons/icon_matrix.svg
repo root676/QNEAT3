@@ -5,48 +5,42 @@
 	 id="svg2" inkscape:version="0.48.3.1 r9886" sodipodi:docname="buffer.png" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
 	 xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="24px" height="24px"
 	 viewBox="0 0 24 24" enable-background="new 0 0 24 24" xml:space="preserve">
+<g>
+	<g>
+		<path fill="#FF0000" d="M23.5,5.333V23.5H5.333V5.333H23.5 M24,4.833H4.833V24H24V4.833L24,4.833z"/>
+	</g>
+	<line fill="none" stroke="#FF0000" stroke-width="0.5" stroke-miterlimit="10" x1="4.833" y1="19.209" x2="24" y2="19.209"/>
+	<line fill="none" stroke="#FF0000" stroke-width="0.5" stroke-miterlimit="10" x1="4.833" y1="14.416" x2="24" y2="14.416"/>
+	<line fill="none" stroke="#FF0000" stroke-width="0.5" stroke-miterlimit="10" x1="4.833" y1="9.625" x2="24" y2="9.625"/>
+	<line fill="none" stroke="#FF0000" stroke-width="0.5" stroke-miterlimit="10" x1="19.209" y1="4.833" x2="19.209" y2="24"/>
+	<line fill="none" stroke="#FF0000" stroke-width="0.5" stroke-miterlimit="10" x1="14.416" y1="4.833" x2="14.416" y2="24"/>
+	<line fill="none" stroke="#FF0000" stroke-width="0.5" stroke-miterlimit="10" x1="9.625" y1="4.833" x2="9.625" y2="24"/>
+</g>
 <sodipodi:namedview  id="namedview4" inkscape:pageopacity="0" inkscape:pageshadow="2" inkscape:window-width="1375" inkscape:window-height="876" inkscape:window-x="65" inkscape:window-y="24" inkscape:current-layer="svg2" inkscape:window-maximized="1" pagecolor="#ffffff" showgrid="false" bordercolor="#666666" objecttolerance="10" gridtolerance="10" inkscape:zoom="9.8333333" guidetolerance="10" inkscape:cx="49.680464" inkscape:cy="0.5315574" borderopacity="1">
 	</sodipodi:namedview>
 <g>
-	
-		<rect x="5.833" y="5.998" fill="none" stroke="#000000" stroke-width="0.5" stroke-miterlimit="10" width="17.167" height="17.167"/>
-	<line fill="none" stroke="#000000" stroke-width="0.5" stroke-miterlimit="10" x1="5.833" y1="20.306" x2="23" y2="20.306"/>
-	<line fill="none" stroke="#000000" stroke-width="0.5" stroke-miterlimit="10" x1="5.833" y1="17.439" x2="23" y2="17.439"/>
-	<line fill="none" stroke="#000000" stroke-width="0.5" stroke-miterlimit="10" x1="5.833" y1="14.581" x2="23" y2="14.581"/>
-	<line fill="none" stroke="#000000" stroke-width="0.5" stroke-miterlimit="10" x1="5.833" y1="11.723" x2="23" y2="11.723"/>
-	<line fill="none" stroke="#000000" stroke-width="0.5" stroke-miterlimit="10" x1="5.833" y1="8.856" x2="23" y2="8.856"/>
-	<line fill="none" stroke="#000000" stroke-width="0.5" stroke-miterlimit="10" x1="20.137" y1="5.998" x2="20.137" y2="23.164"/>
-	<line fill="none" stroke="#000000" stroke-width="0.5" stroke-miterlimit="10" x1="17.279" y1="5.998" x2="17.279" y2="23.164"/>
-	<line fill="none" stroke="#000000" stroke-width="0.5" stroke-miterlimit="10" x1="14.417" y1="5.998" x2="14.417" y2="23.164"/>
-	<line fill="none" stroke="#000000" stroke-width="0.5" stroke-miterlimit="10" x1="11.554" y1="5.998" x2="11.554" y2="23.164"/>
-	<line fill="none" stroke="#000000" stroke-width="0.5" stroke-miterlimit="10" x1="8.696" y1="5.998" x2="8.696" y2="23.164"/>
+	<path d="M7.852,8.34c2.18,2.181,2.18,4.79,0.236,6.733c-1.955,1.955-4.593,1.631-6.489-0.263c-1.982-1.984-2.188-4.742-0.246-6.686
+		C3.386,6.091,6.019,6.506,7.852,8.34z M3.149,13.202c1.307,1.303,2.827,1.608,3.83,0.604c1.012-1.011,0.627-2.553-0.658-3.838
+		C5.122,8.771,3.544,8.31,2.511,9.342C1.49,10.363,1.865,11.914,3.149,13.202z"/>
+	<path d="M5.696,4.214C6.157,3.578,6.814,2.8,7.563,2.054c1.266-1.266,2.326-1.856,3.426-2.013c1.199-0.177,2.444,0.205,3.614,1.375
+		c1.266,1.266,1.678,2.602,1.59,3.769c-0.121,1.278-0.914,2.624-2.214,3.918c-0.773,0.777-1.382,1.286-1.792,1.601L5.696,4.214z
+		 M12.578,8.112c0.155-0.099,0.373-0.313,0.549-0.49c1.376-1.352,1.521-2.993-0.058-4.575c-1.372-1.373-2.904-1.296-4.202,0
+		C8.543,3.374,8.347,3.626,8.25,3.784L12.578,8.112z"/>
 </g>
-<g>
-	<path fill="#FF0000" d="M4.083,4.098C5.025,5.04,5.025,6.167,4.185,7.007C3.341,7.851,2.201,7.711,1.382,6.893
-		C0.526,6.036,0.437,4.845,1.276,4.005C2.154,3.127,3.291,3.306,4.083,4.098z M2.052,6.198C2.616,6.761,3.273,6.893,3.706,6.46
-		c0.437-0.437,0.271-1.103-0.284-1.658c-0.518-0.518-1.2-0.717-1.646-0.271C1.335,4.972,1.497,5.642,2.052,6.198z"/>
-	<path fill="#FF0000" d="M3.152,2.316c0.199-0.275,0.483-0.611,0.806-0.933c0.547-0.547,1.005-0.802,1.48-0.87
-		c0.518-0.076,1.056,0.089,1.561,0.594c0.547,0.547,0.725,1.124,0.687,1.628C7.634,3.287,7.291,3.868,6.73,4.428
-		C6.396,4.763,6.133,4.983,5.955,5.119L3.152,2.316z M6.125,4c0.067-0.043,0.161-0.136,0.237-0.212
-		c0.594-0.584,0.657-1.293-0.025-1.976c-0.593-0.593-1.255-0.56-1.815,0c-0.14,0.141-0.225,0.25-0.267,0.318L6.125,4z"/>
-</g>
-<rect x="2.193" y="17.862" fill="none" width="1.917" height="4.895"/>
-<text transform="matrix(1 0 0 1 2.1934 21.4121)" fill="#FF0000" font-family="'MyriadPro-Bold'" font-size="5">j</text>
 <rect x="21.084" y="0.91" fill="none" width="1.916" height="4.895"/>
-<text transform="matrix(1 0 0 1 21.084 5.1694)" fill="#FF0000" font-family="'MyriadPro-Bold'" font-size="6">i</text>
 <g>
 	<g>
-		<line fill="none" stroke="#000000" stroke-miterlimit="10" x1="10.196" y1="2.807" x2="14.18" y2="2.807"/>
+		<line fill="none" stroke="#000000" stroke-miterlimit="10" x1="17.125" y1="2.396" x2="21.015" y2="2.396"/>
 		<g>
-			<polygon points="13.486,3.781 17.279,2.765 13.486,1.748 			"/>
+			<polygon points="19.61,4.247 20.397,2.396 19.61,0.544 24,2.396 			"/>
 		</g>
 	</g>
 </g>
 <g>
 	<g>
-		<line fill="none" stroke="#000000" stroke-miterlimit="10" x1="2.75" y1="8.911" x2="2.75" y2="12.894"/>
+		<line fill="none" stroke="#000000" stroke-miterlimit="10" x1="2.438" y1="17.125" x2="2.438" y2="21.015"/>
 		<g>
-			<polygon points="1.775,12.2 2.792,15.994 3.809,12.2 			"/>
+			<polygon points="0.586,19.61 2.438,20.397 4.289,19.61 2.438,24 			"/>
 		</g>
 	</g>
 </g>

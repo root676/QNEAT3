@@ -1,6 +1,7 @@
 eclipse.preferences.version=1
 encoding//algs/OdMatrixFromPointsAsCsv.py=utf-8
 encoding//algs/OdMatrixFromPointsAsLines.py=utf-8
+encoding//algs/OdMatrixFromPointsAsTable.py=utf-8
 encoding//algs/ShortestPathBetweenPoints.py=utf-8
 encoding/Qneat3Plugin.py=utf-8
 encoding/Qneat3Provider.py=utf-8

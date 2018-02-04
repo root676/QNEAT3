@@ -30,7 +30,8 @@ from PyQt5.QtGui import QIcon
 
 from .algs import (ShortestPathBetweenPoints, 
                    OdMatrixFromPointsAsCsv,
-                   OdMatrixFromPointsAsLines
+                   OdMatrixFromPointsAsLines,
+                   OdMatrixFromPointsAsTable
                    )
 
 
@@ -42,7 +43,8 @@ class Qneat3Provider(QgsProcessingProvider):
         self.alglist = [
             ShortestPathBetweenPoints.ShortestPathBetweenPoints(),
             OdMatrixFromPointsAsCsv.OdMatrixFromPointsAsCsv(),
-            OdMatrixFromPointsAsLines.OdMatrixFromPointsAsLines()
+            OdMatrixFromPointsAsLines.OdMatrixFromPointsAsLines(),
+            OdMatrixFromPointsAsTable.OdMatrixFromPointsAsTable()
         ]
 
     def getAlgs(self):
@@ -55,10 +57,10 @@ class Qneat3Provider(QgsProcessingProvider):
         return 'QNEAT3'
 
     def icon(self):
-        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icon.svg'))
+        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icon_qneat3.svg'))
 
     def svgIconPath(self):
-        return os.path.join(pluginPath, 'QNEAT3', 'icon.svg')
+        return os.path.join(pluginPath, 'QNEAT3', 'icon_qneat3.svg')
 
     def loadAlgorithms(self, *args, **kwargs):
         for alg in self.alglist:

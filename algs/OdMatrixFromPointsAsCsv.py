@@ -70,10 +70,19 @@ class OdMatrixFromPointsAsCsv(QgisAlgorithm):
         return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_matrix.svg'))
 
     def group(self):
-        return self.tr('Distance Matrices')
+        return self.tr('Distance Matrices (Network based)')
 
     def groupId(self):
-        return 'distancematrices'
+        return 'networkbaseddistancematrices'
+    
+    def name(self):
+        return 'OdMatrixFromPointsAsCsv'
+
+    def displayName(self):
+        return self.tr('OD-Matrix from Points as CSV')
+    
+    def print_typestring(self, var):
+        return "Type:"+str(type(var))+" repr: "+var.__str__()
 
     def __init__(self):
         super().__init__()
@@ -140,18 +149,7 @@ class OdMatrixFromPointsAsCsv(QgisAlgorithm):
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
 
-
         self.addParameter(QgsProcessingParameterFileDestination(self.OUTPUT, self.tr('Output OD Matrix'), self.tr('CSV files (*.csv)')),True)
-
-
-    def name(self):
-        return 'OD Matrix from Points as CSV'
-
-    def displayName(self):
-        return self.tr('OD Matrix from Points as CSV')
-    
-    def msg(self, var):
-        return "Type:"+str(type(var))+" repr: "+var.__str__()
 
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))

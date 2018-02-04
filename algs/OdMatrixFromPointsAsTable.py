@@ -2,7 +2,7 @@
 
 """
 ***************************************************************************
-    OdMatrixFromPointsAsLines.py
+    OdMatrixFromPointsAsTable.py
     ---------------------
     Date                 : November 2016
     Copyright            : (C) 2018 by Clemens Raffler
@@ -57,7 +57,7 @@ from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class OdMatrixFromPointsAsLines(QgisAlgorithm):
+class OdMatrixFromPointsAsTable(QgisAlgorithm):
 
     INPUT = 'INPUT'
     POINTS = 'POINTS'
@@ -83,14 +83,13 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
         return 'networkbaseddistancematrices'
     
     def name(self):
-        return 'OdMatrixFromPointsAsLines'
+        return 'OdMatrixFromPointsAsTable'
 
     def displayName(self):
-        return self.tr('OD-Matrix from Points as Lines')
+        return self.tr('OD Matrix from Points as Table')
     
     def print_typestring(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
-
 
     def __init__(self):
         super().__init__()
@@ -157,7 +156,6 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
 
-
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Output OD Matrix'), QgsProcessing.TypeVectorLine), True)
 
     def processAlgorithm(self, parameters, context, feedback):
@@ -191,7 +189,7 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
         feat.setFields(fields)
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context,
-                                               fields, QgsWkbTypes.LineString, network.sourceCrs())
+                                               fields, QgsWkbTypes.NoGeometry, network.sourceCrs())
 
         
         total_workload = float(pow(len(list_analysis_points),2))
@@ -219,7 +217,6 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
                 else:
                     entry_cost = start_point.calcEntryCost(strategy)+query_point.calcEntryCost(strategy)
                     total_cost = dijkstra_query[1][query_point.network_vertex_id]+entry_cost
-                    feat.setGeometry(QgsGeometry.fromPolylineXY([start_point.point_geom, query_point.point_geom]))
                     feat['origin_id'] = start_point.point_id
                     feat['destination_id'] = query_point.point_id
                     feat['network_cost'] = total_cost
