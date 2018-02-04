@@ -26,7 +26,6 @@ __copyright__ = '(C) 2018, Clemens Raffler'
 __revision__ = '$Format:%H$'
 
 import os
-import csv
 from collections import OrderedDict
 
 from qgis.PyQt.QtCore import QVariant

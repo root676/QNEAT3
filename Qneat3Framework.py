@@ -8,22 +8,16 @@
 ***************************************************************************
 """
 
-
-
+import time, datetime
 from qgis.core import QgsGeometry, QgsUnitTypes
 from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder
 
-from qgis.PyQt.QtCore import QVariant
-
 from QNEAT3.Qneat3Utilities import getFieldIndexFromQgsProcessingFeatureSource, getListOfPoints
-
-from processing.tools.vector import resolveFieldIndex
-
     
 class Qneat3Network():
     
     """
-    QNEAT base-class:
+    QNEAT3 base-class:
     Provides basic logic for more advanced network analysis algorithms
     """
 
@@ -44,16 +38,12 @@ class Qneat3Network():
                  ): 
         
 
-        feedback.pushInfo("__init__[QneatBaseCalculator]: setting up parameters")
-        feedback.pushInfo("__init__[QneatBaseCalculator]: setting up datasets")
-        feedback.pushInfo("__init__[QneatBaseCalculator]: setting up network analysis parameters")
+        feedback.pushInfo("[QNEAT3Network]: setting up parameters")
         self.AnalysisCrs = input_analysisCrs
         
         #init direction fields
-        feedback.pushInfo("__init__[QneatBaseCalculator]: setting up network direction parameters")
+        feedback.pushInfo("[QNEAT3Network]: setting up network direction parameters")
         self.directedAnalysis = self.setNetworkDirection((input_directionFieldName, input_forwardValue, input_backwardValue, input_bothValue, input_defaultDirection))
-        feedback.pushInfo("...Analysis is directed")
-        feedback.pushInfo("...setting up Director")
         self.director = QgsVectorLayerDirector(input_network,
                                     getFieldIndexFromQgsProcessingFeatureSource(input_network, input_directionFieldName),
                                     input_forwardValue,
@@ -61,33 +51,35 @@ class Qneat3Network():
                                     input_bothValue,
                                     input_defaultDirection)
 
-        #init graph analysis
-        feedback.pushInfo("__init__[QneatBaseCalculator]: setting up network analysis")
-        feedback.pushInfo("...getting all analysis points")
-        
+        #init analysis points
+        feedback.pushInfo("[QNEAT3Network]: setting up analysis points")
         if isinstance(input_points,(list,)):
             self.list_input_points = input_points
         else:
             self.list_input_points = getListOfPoints(input_points)
             self.input_points = input_points
     
-        #Use distance as cost-strategy pattern.
-        feedback.pushInfo("...Setting analysis strategy")
-        
+        #Setup cost-strategy pattern.
+        feedback.pushInfo("[QNEAT3Network]: Setting analysis strategy: {}".format(input_strategy))
         self.setNetworkStrategy(input_strategy, input_network, input_speedField, input_defaultSpeed)
         self.director.addStrategy(self.strategy)
-
         #add the strategy to the QgsGraphDirector
         self.director.addStrategy(self.strategy)
-        feedback.pushInfo("...Setting the graph builders spatial reference")
         self.builder = QgsGraphBuilder(self.AnalysisCrs)
         #tell the graph-director to make the graph using the builder object and tie the start point geometry to the graph
-        feedback.pushInfo("...Tying input_points to the graph")
+        
+        feedback.pushInfo("[QNEAT3Network]: Start tying analysis points to the graph and building it.")
+        feedback.pushInfo("...This is a compute intensive task and may take some time depending on network size")
+        start_local_time = time.localtime()
+        start_time = time.time()
+        feedback.pushInfo("...Start Time: {}".format(time.strftime(":%Y-%m-%d %H:%M:%S", start_local_time)))
         self.list_tiedPoints = self.director.makeGraph(self.builder, self.list_input_points)
-        #get the graph
-        feedback.pushInfo("...Build the graph")
         self.network = self.builder.graph()
-        feedback.pushInfo("__init__[QneatBaseCalculator]: init complete")
+        end_local_time = time.localtime()
+        end_time = time.time()
+        feedback.pushInfo("...End Time: {}".format(time.strftime(":%Y-%m-%d %H:%M:%S", end_local_time)))
+        feedback.pushInfo("...Total Build Time: {}".format(end_time-start_time))
+        feedback.pushInfo("[QNEAT3Network]: Analysis setup complete")
                 
             
     def calcDijkstra(self, startpoint_id, criterion):

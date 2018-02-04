@@ -26,7 +26,6 @@ __copyright__ = '(C) 2018, Clemens Raffler'
 __revision__ = '$Format:%H$'
 
 import os
-import csv
 from collections import OrderedDict
 
 from qgis.PyQt.QtCore import QVariant
@@ -35,7 +34,6 @@ from qgis.PyQt.QtGui import QIcon
 from qgis.core import (QgsWkbTypes,
                        QgsFields,
                        QgsField,
-                       QgsGeometry,
                        QgsFeature,
                        QgsFeatureSink,
                        QgsProcessing,
