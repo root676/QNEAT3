@@ -54,7 +54,7 @@ class Qneat3Provider(QgsProcessingProvider):
         return 'qneat3'
 
     def name(self, *args, **kwargs):
-        return 'QNEAT3'
+        return 'QNEAT3 - Qgis Network Analysis Toolbox'
 
     def icon(self):
         return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icon_qneat3.svg'))

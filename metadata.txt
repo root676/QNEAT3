@@ -21,12 +21,12 @@ changelog=1.0.0: Ported the original QNEAT plugin from QGIS2 to QGIS3. Functiona
 
 
 # tags are comma separated with spaces allowed
-tags=
+tags= network analysis, graph analysis, od matrix, distance matrix, od matrices, OD, isochrone areas, catchment areas, shortest path, dijkstra
 
 homepage=https://github.com/root676/QNEAT3
 tracker=https://github.com/root676/QNEAT3/issues
 repository=https://github.com/root676/QNEAT3
-icon=icon.svg
+icon=icon_qneat3.svg
 # experimental flag
 experimental=True
 
