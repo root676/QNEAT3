@@ -2,7 +2,7 @@
 
 """
 ***************************************************************************
-    OdMatrixFromPointsAsTable.py
+    OdMatrixFromLayersAsTable.py
     ---------------------
     Date                 : February 2018
     Copyright            : (C) 2018 by Clemens Raffler
@@ -55,11 +55,13 @@ from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class OdMatrixFromPointsAsTable(QgisAlgorithm):
+class OdMatrixFromLayersAsTable(QgisAlgorithm):
 
     INPUT = 'INPUT'
-    POINTS = 'POINTS'
-    ID_FIELD = 'ID_FIELD'    
+    FROM_POINT_LAYER = 'FROM_POINT_LAYER'
+    FROM_ID_FIELD = 'FROM_ID_FIELD'
+    TO_POINT_LAYER = 'TO_POINT_LAYER'
+    TO_ID_FIELD = 'TO_ID_FIELD'    
     STRATEGY = 'STRATEGY'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
@@ -81,10 +83,10 @@ class OdMatrixFromPointsAsTable(QgisAlgorithm):
         return 'networkbaseddistancematrices'
     
     def name(self):
-        return 'OdMatrixFromPointsAsTable'
+        return 'OdMatrixFromLayersAsTable'
 
     def displayName(self):
-        return self.tr('OD Matrix from Points as Table (n:n)')
+        return self.tr('OD Matrix from Layers as Table (m:n)')
     
     def print_typestring(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
@@ -104,14 +106,27 @@ class OdMatrixFromPointsAsTable(QgisAlgorithm):
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Vector layer representing network'),
                                                               [QgsProcessing.TypeVectorLine]))
-        self.addParameter(QgsProcessingParameterFeatureSource(self.POINTS,
-                                                              self.tr('Point Layer'),
+        
+        self.addParameter(QgsProcessingParameterFeatureSource(self.FROM_POINT_LAYER,
+                                                              self.tr('From-Point Layer'),
                                                               [QgsProcessing.TypeVectorPoint]))
-        self.addParameter(QgsProcessingParameterField(self.ID_FIELD,
+        
+        self.addParameter(QgsProcessingParameterField(self.FROM_ID_FIELD,
                                                        self.tr('Unique Point ID Field'),
                                                        None,
-                                                       self.POINTS,
+                                                       self.FROM_POINT_LAYER,
                                                        optional=False))
+        
+        self.addParameter(QgsProcessingParameterFeatureSource(self.TO_POINT_LAYER,
+                                                      self.tr('To-Point Layer'),
+                                                      [QgsProcessing.TypeVectorPoint]))
+        
+        self.addParameter(QgsProcessingParameterField(self.TO_ID_FIELD,
+                                                     self.tr('Unique Point ID Field'),
+                                                     None,
+                                                     self.TO_POINT_LAYER,
+                                                     optional=False))
+        
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
                                                      self.tr('Path type to calculate'),
                                                      self.STRATEGIES,
@@ -159,8 +174,10 @@ class OdMatrixFromPointsAsTable(QgisAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
-        points = self.parameterAsSource(parameters, self.POINTS, context) #QgsProcessingFeatureSource
-        id_field = self.parameterAsString(parameters, self.ID_FIELD, context) #str
+        from_points = self.parameterAsSource(parameters, self.FROM_POINT_LAYER, context) #QgsProcessingFeatureSource
+        from_id_field = self.parameterAsString(parameters, self.FROM_ID_FIELD, context) #str
+        to_points = self.parameterasSource(parameters, self.TO_POINT_LAYER, context)
+        to_id_field = self.parameterAsString(parameters, self.TO_ID_FIELD, context)
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
 
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
@@ -174,13 +191,17 @@ class OdMatrixFromPointsAsTable(QgisAlgorithm):
         
         analysisCrs = context.project().crs()
         
-        net = Qneat3Network(network, points, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
+        #Points of both layers have to be merged into one layer --> then tied to the Qneat3Network
         
-        list_analysis_points = [Qneat3AnalysisPoint("point", feature, id_field, net.network, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(net.input_points))]
+        net = Qneat3Network(network, from_points, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
+        net_query = Qneat3Network(network, to_points, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
+        
+        list_analysis_points = [Qneat3AnalysisPoint("point", feature, from_id_field, net.network, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(net.input_points))]
+        list_query_points = [Qneat3AnalysisPoint("point", feature, to_id_field, net_query.network, net_query.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(net_query.input_points))]
         
         feat = QgsFeature()
         fields = QgsFields()
-        output_id_field_data_type = getFieldDatatype(points, id_field)
+        output_id_field_data_type = getFieldDatatype(from_points, from_id_field)
         fields.append(QgsField('origin_id', output_id_field_data_type, '', 254, 0))
         fields.append(QgsField('destination_id', output_id_field_data_type, '', 254, 0))
         fields.append(QgsField('network_cost', QVariant.Double, '', 20, 7))

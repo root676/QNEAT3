@@ -58,7 +58,7 @@ from qgis.analysis import (QgsVectorLayerDirector,
                            QgsGraphAnalyzer
                            )
 
-from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3GeometryException
+from QNEAT3.Qneat3Framework import Qneat3Network
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 

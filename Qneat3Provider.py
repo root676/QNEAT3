@@ -31,7 +31,8 @@ from PyQt5.QtGui import QIcon
 from .algs import (ShortestPathBetweenPoints, 
                    OdMatrixFromPointsAsCsv,
                    OdMatrixFromPointsAsLines,
-                   OdMatrixFromPointsAsTable
+                   OdMatrixFromPointsAsTable,
+                   OdMatrixFromLayersAsTable
                    )
 
 
@@ -44,7 +45,8 @@ class Qneat3Provider(QgsProcessingProvider):
             ShortestPathBetweenPoints.ShortestPathBetweenPoints(),
             OdMatrixFromPointsAsCsv.OdMatrixFromPointsAsCsv(),
             OdMatrixFromPointsAsLines.OdMatrixFromPointsAsLines(),
-            OdMatrixFromPointsAsTable.OdMatrixFromPointsAsTable()
+            OdMatrixFromPointsAsTable.OdMatrixFromPointsAsTable(),
+            OdMatrixFromLayersAsTable.OdMatrixFromLayersAsTable()
         ]
 
     def getAlgs(self):

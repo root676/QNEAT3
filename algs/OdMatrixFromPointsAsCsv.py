@@ -4,7 +4,7 @@
 ***************************************************************************
     OdMatrixFromPointsAsCsv.py
     ---------------------
-    Date                 : November 2016
+    Date                 : February 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
@@ -79,7 +79,7 @@ class OdMatrixFromPointsAsCsv(QgisAlgorithm):
         return 'OdMatrixFromPointsAsCsv'
 
     def displayName(self):
-        return self.tr('OD-Matrix from Points as CSV')
+        return self.tr('OD-Matrix from Points as CSV (n:n)')
     
     def print_typestring(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()

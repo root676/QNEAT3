@@ -4,7 +4,7 @@
 ***************************************************************************
     OdMatrixFromPointsAsLines.py
     ---------------------
-    Date                 : November 2016
+    Date                 : February 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
@@ -85,7 +85,7 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
         return 'OdMatrixFromPointsAsLines'
 
     def displayName(self):
-        return self.tr('OD-Matrix from Points as Lines')
+        return self.tr('OD-Matrix from Points as Lines (n:n)')
     
     def print_typestring(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()

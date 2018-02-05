@@ -23,7 +23,7 @@ class Qneat3Network():
 
     def __init__(self, 
                  input_network, #QgsProcessingParameterFeatureSource
-                 input_points, #[QgsPointXY] or QgsProcessingParameterFeatureSource
+                 input_points, #[QgsPointXY] or QgsProcessingParameterFeatureSource or QgsVectorLayer --> Implement List of QgsFeatures [QgsFeatures]
                  input_strategy, #int
                  input_directionFieldName, #str, empty if field not given
                  input_forwardValue, #str
@@ -144,18 +144,4 @@ class Qneat3AnalysisPoint():
         except UnicodeEncodeError:
             pid = self.point_id
         return u"QneatAnalysisPoint: {} analysis_id: {:30} FROM {:30} TO {:30} network_id: {:d}".format(self.layer_name, pid, self.point_geom.__str__(), self.network_vertex.point().__str__(), self.network_vertex_id)    
-
-class Qneat3GeometryException(Exception):
-    def __init__(self, given_geom_type, expected_geom_type):
-        
-        self.message = "Dataset has wrong geometry type. Got {} dataset but expected {} dataset instead. ".format( given_geom_type, expected_geom_type)
-
-        super(Qneat3GeometryException, self).__init__(self.message)
-        
-class Qneat3CrsException(Exception):
-    def __init__(self, *crs):
-    
-        self.message = "Coordinate Reference Systems don't match up: {} Reproject all datasets so that their CRSs match up.".format(list(crs))
-
-        super(Qneat3CrsException, self).__init__(self.message)
                                                                                                                                                                                                                         
