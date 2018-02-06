@@ -48,7 +48,7 @@ from qgis.core import (QgsWkbTypes,
 from qgis.analysis import (QgsVectorLayerDirector)
 
 from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable, getFieldDatatype
+from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable, getFieldDatatype, getListOfPoints
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
@@ -176,7 +176,7 @@ class OdMatrixFromLayersAsTable(QgisAlgorithm):
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
         from_points = self.parameterAsSource(parameters, self.FROM_POINT_LAYER, context) #QgsProcessingFeatureSource
         from_id_field = self.parameterAsString(parameters, self.FROM_ID_FIELD, context) #str
-        to_points = self.parameterasSource(parameters, self.TO_POINT_LAYER, context)
+        to_points = self.parameterAsSource(parameters, self.TO_POINT_LAYER, context)
         to_id_field = self.parameterAsString(parameters, self.TO_ID_FIELD, context)
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
 
@@ -192,12 +192,18 @@ class OdMatrixFromLayersAsTable(QgisAlgorithm):
         analysisCrs = context.project().crs()
         
         #Points of both layers have to be merged into one layer --> then tied to the Qneat3Network
+        #get point list of from layer
+        from_coord_list = getListOfPoints(from_points)
+        from_coord_list_length = len(from_coord_list)
+        to_coord_list = getListOfPoints(to_points)
+
+        merged_coords = from_coord_list + to_coord_list
+
+        net = Qneat3Network(network, merged_coords, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         
-        net = Qneat3Network(network, from_points, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
-        net_query = Qneat3Network(network, to_points, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
-        
-        list_analysis_points = [Qneat3AnalysisPoint("point", feature, from_id_field, net.network, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(net.input_points))]
-        list_query_points = [Qneat3AnalysisPoint("point", feature, to_id_field, net_query.network, net_query.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(net_query.input_points))]
+        #read the merged point-list seperately for the two layers --> index at the first element of the second layer begins at len(firstLayer) and gets added the index of the current point of layer b.
+        list_from_apoints = [Qneat3AnalysisPoint("from", feature, from_id_field, net.network, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(from_points))]
+        list_to_apoints = [Qneat3AnalysisPoint("to", feature, to_id_field, net.network, net.list_tiedPoints[from_coord_list_length+i]) for i, feature in enumerate(getFeaturesFromQgsIterable(to_points))]
         
         feat = QgsFeature()
         fields = QgsFields()
@@ -211,23 +217,18 @@ class OdMatrixFromLayersAsTable(QgisAlgorithm):
                                                fields, QgsWkbTypes.NoGeometry, network.sourceCrs())
 
         
-        total_workload = float(pow(len(list_analysis_points),2))
+        total_workload = float(len(from_coord_list)*len(to_coord_list))
         feedback.pushInfo("Expecting total workload of {} iterations".format(int(total_workload)))
         
         
         current_workstep_number = 0
         
-        for start_point in list_analysis_points:
+        for start_point in list_from_apoints:
             #optimize in case of undirected (not necessary to call calcDijkstra as it has already been calculated - can be replaced by reading from list)
             dijkstra_query = net.calcDijkstra(start_point.network_vertex_id, 0)
-            for query_point in list_analysis_points:
+            for query_point in list_to_apoints:
                 if (current_workstep_number%1000)==0:
                     feedback.pushInfo("{} OD-pairs processed...".format(current_workstep_number))
-                if query_point.point_id == start_point.point_id:
-                    feat['origin_id'] = start_point.point_id
-                    feat['destination_id'] = query_point.point_id
-                    feat['network_cost'] = 0.0
-                    sink.addFeature(feat, QgsFeatureSink.FastInsert)
                 elif dijkstra_query[0][query_point.network_vertex_id] == -1:
                     feat['origin_id'] = start_point.point_id
                     feat['destination_id'] = query_point.point_id
