@@ -32,7 +32,8 @@ from .algs import (ShortestPathBetweenPoints,
                    OdMatrixFromPointsAsCsv,
                    OdMatrixFromPointsAsLines,
                    OdMatrixFromPointsAsTable,
-                   OdMatrixFromLayersAsTable
+                   OdMatrixFromLayersAsTable,
+                   OdMatrixFromLayersAsLines
                    )
 
 
@@ -46,7 +47,8 @@ class Qneat3Provider(QgsProcessingProvider):
             OdMatrixFromPointsAsCsv.OdMatrixFromPointsAsCsv(),
             OdMatrixFromPointsAsLines.OdMatrixFromPointsAsLines(),
             OdMatrixFromPointsAsTable.OdMatrixFromPointsAsTable(),
-            OdMatrixFromLayersAsTable.OdMatrixFromLayersAsTable()
+            OdMatrixFromLayersAsTable.OdMatrixFromLayersAsTable(),
+            OdMatrixFromLayersAsLines.OdMatrixFromLayersAsLines()
         ]
 
     def getAlgs(self):
