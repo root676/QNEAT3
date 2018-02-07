@@ -213,8 +213,7 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
         fields.append(QgsField('network_cost', QVariant.Double, '', 20, 7))
         feat.setFields(fields)
         
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context,
-                                               fields, QgsWkbTypes.LineString, network.sourceCrs())
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.LineString, network.sourceCrs())
 
         
         total_workload = float(len(from_coord_list)*len(to_coord_list))
@@ -247,7 +246,6 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
                     
         feedback.pushInfo("Total number of OD-pairs processed: {}".format(current_workstep_number))
     
-        feedback.pushInfo("Initialization Done")
         feedback.pushInfo("Ending Algorithm")
 
         results = {}

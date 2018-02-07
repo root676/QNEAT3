@@ -8,7 +8,7 @@
     Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
 """
-from qgis.core import QgsWkbTypes, QgsMessageLog, QgsVectorLayer, QgsFeature, QgsFeatureRequest
+from qgis.core import QgsWkbTypes, QgsMessageLog, QgsVectorLayer, QgsFeature, QgsGeometry, QgsFields, QgsField, QgsFeatureRequest
 
 from PyQt5.QtCore import QVariant
 from QNEAT3.Qneat3Exceptions import Qneat3GeometryException
@@ -52,6 +52,13 @@ def buildQgsVectorLayer(string_geomtype, string_layername, crs, list_geometry, l
 
     return vector_layer
 
+def getFeatureFromPointParameter(qgs_point_xy):     
+    feature = QgsFeature()
+    fields = QgsFields()
+    fields.append(QgsField('point_id', QVariant.String, '', 254, 0))
+    feature.setFields(fields)
+    feature.setGeometry(QgsGeometry.fromPointXY(qgs_point_xy))
+    return feature
 
 def getFeaturesFromQgsIterable(qgs_feature_storage):#qgs_feature_storage can be any vectorLayer/QgsProcessingParameterFeatureSource/etc
     fRequest = QgsFeatureRequest().setFilterFids(qgs_feature_storage.allFeatureIds())

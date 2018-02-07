@@ -3,9 +3,9 @@
 ***************************************************************************
     ShortestPathPointToPoint.py
     ---------------------
-    Date                 : November 2016
-    Copyright            : (C) 2016 by Alexander Bruy
-    Email                : alexander dot bruy at gmail dot com
+    Date                 : February 2018
+    Copyright            : (C) 2018 by Clemens Raffler
+    Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
 *                                                                         *
 *   This program is free software; you can redistribute it and/or modify  *
@@ -16,10 +16,11 @@
 ***************************************************************************
 """
 from email.policy import default
+from plotly.api.v2.users import current
 
-__author__ = 'Alexander Bruy'
-__date__ = 'November 2016'
-__copyright__ = '(C) 2016, Alexander Bruy'
+__author__ = 'Clemens Raffler'
+__date__ = 'February 2018'
+__copyright__ = '(C) 2018, Clemens Raffler'
 
 # This will get replaced with a git SHA1 when you do a git archive
 
@@ -57,7 +58,8 @@ from qgis.analysis import (QgsVectorLayerDirector,
                            QgsGraphAnalyzer
                            )
 
-from QNEAT3.Qneat3Framework import Qneat3Network
+from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
+from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable, getFeatureFromPointParameter
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
@@ -89,6 +91,15 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
 
     def groupId(self):
         return 'networkanalysis'
+    
+    def name(self):
+        return 'shortestpathpointtopoint'
+
+    def displayName(self):
+        return self.tr('Shortest path (point to point)')
+    
+    def msg(self, var):
+        return "Type:"+str(type(var))+" repr: "+var.__str__()
 
     def __init__(self):
         super().__init__()
@@ -152,20 +163,9 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
 
-        self.addOutput(QgsProcessingOutputNumber(self.TRAVEL_COST,
-                                                 self.tr('Travel cost')))
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT,
                                                             self.tr('Shortest path'),
                                                             QgsProcessing.TypeVectorLine))
-
-    def name(self):
-        return 'shortestpathpointtopoint'
-
-    def displayName(self):
-        return self.tr('Shortest path (point to point)')
-    
-    def msg(self, var):
-        return "Type:"+str(type(var))+" repr: "+var.__str__()
 
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
@@ -184,44 +184,74 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
 
         analysisCrs = context.project().crs()
-
+        input_coordinates = [startPoint,endPoint]
+        input_points = [getFeatureFromPointParameter(startPoint),getFeatureFromPointParameter(endPoint)]
         
+        net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         
-        feedback.pushInfo("network "+self.msg(network))
-        feedback.pushInfo("startPoint "+self.msg(startPoint))
-        feedback.pushInfo("endPoint "+self.msg(endPoint))
-        feedback.pushInfo("strategy "+self.msg(strategy))
-        feedback.pushInfo("directionFieldName "+self.msg(directionFieldName))
-        feedback.pushInfo("forwardValue "+self.msg(forwardValue))
-        feedback.pushInfo("backwardValue "+self.msg(backwardValue))
-        feedback.pushInfo("bothValue "+self.msg(bothValue))
-        feedback.pushInfo("defaultDirection "+self.msg(defaultDirection))
-        feedback.pushInfo("speedFieldName "+self.msg(speedFieldName))
-        feedback.pushInfo("defaultSpeed "+self.msg(defaultSpeed))
-        feedback.pushInfo("tolerance "+self.msg(tolerance))
+        list_analysis_points = [Qneat3AnalysisPoint("point", feature, "point_id", net.network, net.list_tiedPoints[i]) for i, feature in enumerate(input_points)]
         
-        if directionFieldName == None:
-            feedback.pushInfo("value is none")
-        elif directionFieldName == "":
-            feedback.pushInfo("emptyString")
-        else:
-            feedback.pushInfo(self.msg(directionFieldName))
+        start_vertex_idx = list_analysis_points[0].network_vertex_id
+        end_vertex_idx = list_analysis_points[1].network_vertex_id
         
-        net = Qneat3Network(network, [startPoint,endPoint], strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
+        feedback.pushInfo("Calculating shortest path...")
+        dijkstra_query = net.calcDijkstra(start_vertex_idx, 0)
         
+        if dijkstra_query[0][end_vertex_idx] == -1:
+            raise QgsProcessingException(self.tr('Could not find a path from start point to end point - Check your graph or alter the input points.'))
         
+        path_elements = [list_analysis_points[1].point_geom] #start route with the endpoint outside the network
+        path_elements.append(net.network.vertex(end_vertex_idx).point()) #then append the corresponding vertex of the graph 
         
-        """
-        if directionField:
-            directionField = network.fields().lookupField(directionFieldName)
-        else:
-            directionField = -1
+        count = 1
+        current_vertex_idx = end_vertex_idx
+        while current_vertex_idx != start_vertex_idx:
+            current_vertex_idx = net.network.edge(dijkstra_query[0][current_vertex_idx]).fromVertex()
+            path_elements.append(net.network.vertex(current_vertex_idx).point())
+            count = count + 1
+            if count%10 == 0:
+                feedback.pushInfo("Taversed {} Nodes...".format(count))
         
-        if speedFieldName:
-            speedField = network.fields().lookupField(speedFieldName)
-        else:
-            speedField = -1
-        """
+        path_elements.append(list_analysis_points[0].point_geom) #end path with startpoint outside the network   
+        feedback.pushInfo("Total number of Nodes traversed: {}".format(count+1))
+        path_elements.reverse() #reverse path elements because it was built from end to start
+        
+        start_entry_cost = list_analysis_points[0].calcEntryCost(strategy)
+        end_exit_cost = list_analysis_points[1].calcEntryCost(strategy)
+        cost_on_graph = dijkstra_query[1][end_vertex_idx]
+        total_cost = start_entry_cost + cost_on_graph + end_exit_cost
+    
+        feedback.pushInfo("Writing path-feature...")
+        feat = QgsFeature()
+        
+        fields = QgsFields()
+        fields.append(QgsField('start_id', QVariant.String, '', 254, 0))
+        fields.append(QgsField('start_coordinates', QVariant.String, '', 254, 0))
+        fields.append(QgsField('start_entry_cost', QVariant.Double, '', 20, 7))
+        fields.append(QgsField('end_id', QVariant.String, '', 254, 0))
+        fields.append(QgsField('end_coordinates', QVariant.String, '', 254, 0))
+        fields.append(QgsField('end_exit_cost', QVariant.Double, '', 20, 7))
+        fields.append(QgsField('cost_on_graph', QVariant.Double, '', 20, 7))
+        fields.append(QgsField('total_cost', QVariant.Double, '', 20, 7))
+        feat.setFields(fields)
+        
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.LineString, network.sourceCrs())
+        
+        feat['start_id'] = "A"
+        feat['start_coordinates'] = startPoint.toString()
+        feat['start_entry_cost'] = start_entry_cost
+        feat['end_id'] = "B"
+        feat['end_coordinates'] = endPoint.toString()
+        feat['end_exit_cost'] = end_exit_cost
+        feat['cost_on_graph'] = cost_on_graph
+        feat['total_cost'] = total_cost 
+        geom = QgsGeometry.fromPolylineXY(path_elements)
+        feat.setGeometry(geom)
+        
+        sink.addFeature(feat, QgsFeatureSink.FastInsert)
+        feedback.pushInfo("Ending Algorithm")        
+        
         results = {}
+        results[self.OUTPUT] = dest_id
         return results
 
