@@ -84,7 +84,7 @@ class ServiceAreaAsPolygon(QgisAlgorithm):
     OUTPUT = 'OUTPUT'
 
     def icon(self):
-        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_dijkstra_onetoone.svg'))
+        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_polygon.svg'))
 
     def group(self):
         return self.tr('Iso-Areas')
