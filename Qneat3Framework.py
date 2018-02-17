@@ -14,12 +14,12 @@ import matplotlib.pyplot as plt
 
 from math import floor, ceil
 from numpy import arange, meshgrid
-from qgis.core import QgsFeature, QgsFields, QgsField, QgsGeometry, QgsUnitTypes
-from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder
+from qgis.core import QgsRasterLayer, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsUnitTypes
+from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder, QgsInterpolator, QgsTinInterpolator, QgsIDWInterpolator, QgsGridFileWriter
 from PyQt5.QtCore import QVariant
 
-from QNEAT3.Qneat3Utilities import getFieldIndexFromQgsProcessingFeatureSource, getListOfPoints
-    
+from QNEAT3.Qneat3Utilities import getFieldIndexFromQgsProcessingFeatureSource, getListOfPoints, buildQgsVectorLayer
+
 class Qneat3Network():
     
     """
@@ -120,19 +120,17 @@ class Qneat3Network():
 
 class Qneat3IsoArea(Qneat3Network):
     
-    def __init__(self, input_network, input_points, input_strategy, input_directionFieldName, input_forwardValue, input_backwardValue, input_bothValue, input_defaultDirection, input_analysisCrs, input_speedField, input_defaultSpeed, input_tolerance, feedback, input_analysis_points, max_dist, interval, interpolation_resolution):
+    def __init__(self, input_network, input_points, input_strategy, input_directionFieldName, input_forwardValue, input_backwardValue, input_bothValue, input_defaultDirection, input_analysisCrs, input_speedField, input_defaultSpeed, input_tolerance, feedback, input_analysis_points, max_dist, interval):
         super().__init__(self, input_network, input_points, input_strategy, input_directionFieldName, input_forwardValue, input_backwardValue, input_bothValue, input_defaultDirection, input_analysisCrs, input_speedField, input_defaultSpeed, input_tolerance, feedback)
         self.input_analysis_points = input_analysis_points
         self.input_max_dist = max_dist
         self.input_interval = interval
         self.iso_point_list = None
         self.interpolation_raster = None
-        self.input_interpolation_resolution = interpolation_resolution
         self.iso_contours = None
         self.iso_polygon = None
         
     def calcIsoPoints(self):
-        vertex_set = {}
         iso_pointcloud = {}
         
         for point in self.input_analysis_points:
@@ -153,7 +151,7 @@ class Qneat3IsoArea(Qneat3Network):
                 if tree[i] != -1:
                     outVertexId = self.network.arc(tree[i]).outVertex()
                     #if the costs of the current vertex are lower than the radius, append the vertex id to results.
-                    if cost[outVertexId] < self.input_max_dist:
+                    if cost[outVertexId] <= self.input_max_dist:
                         
                         #build feature
                         feat['vertex_id'] = outVertexId
@@ -161,21 +159,33 @@ class Qneat3IsoArea(Qneat3Network):
                         geom = QgsGeometry().fromPoint(self.network.vertex(i).point())
                         feat.setGeometry(geom)
                         
-                        if outVertexId is not in vertex_set:
-                            vertex_set.update(outVertexId)#necessary??
-                            iso_pointcloud[outVertexId] = feat #insert feature ad vertexId
+                        if outVertexId not in iso_pointcloud.keys():
+                            iso_pointcloud[outVertexId] = feat
                         elif iso_pointcloud[outVertexId]['cost'] > feat['cost']:
                             iso_pointcloud[outVertexId] = feat
-     
-
                         #count up to next vertex
-                i = i + 1
-
-        self.iso_point_list
-        pass
+                i = i + 1 
+                
+        iso_point_layer = buildQgsVectorLayer("Point", "iso_pointcloud", self.AnalysisCrs, list(iso_pointcloud.values()), fields)
+        return iso_point_layer
     
-    def calcIsoInterpolation(self):
+    def calcIsoInterpolation(self, iso_point_layer, resolution):
+        layer_data = QgsInterpolator.LayerData()
+        layer_data.vectorLayer = iso_point_layer
+        layer_data.zCoordInterpolation = False
+        layer_data.InterpolationAttribute = 0
+        layer_data.mInputType = 1
+    
+        tin_interpolator = QgsTinInterpolator([layer_data])
+    
+        rect = iso_point_layer.extent()
+        ncol = int((rect.xMaximum() - rect.xMinimum()) / resolution)
+        nrows = int((rect.yMaximum() - rect.yMinimum()) / resolution)
+        test = qgis.analysis.QgsGridFileWriter(tin_interpolator, export_path, rect, ncol, nrows, resolution, resolution)
+        test.writeFile(True)  # Creating .asc raster
+        return QgsRasterLayer(export_path, "temp_interpolation", True)        
         self.interpolation_raster
+        
         pass
     
     def calcIsoContours(self):

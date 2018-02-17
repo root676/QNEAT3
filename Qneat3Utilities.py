@@ -28,7 +28,7 @@ def isGeometryType(vlayer, type_obj):
     else:
         return False
 
-def buildQgsVectorLayer(string_geomtype, string_layername, crs, list_geometry, list_qgsfield):
+def buildQgsVectorLayer(string_geomtype, string_layername, crs, feature_list, list_qgsfield):
     
     #create new vector layer from self.crs
     vector_layer = QgsVectorLayer(string_geomtype, string_layername, "memory")
@@ -43,10 +43,7 @@ def buildQgsVectorLayer(string_geomtype, string_layername, crs, list_geometry, l
     
     #fill layer with geom and attrs
     vector_layer.startEditing()
-    for i, geometry in enumerate(list_geometry):
-        feat = QgsFeature()
-        feat.setGeometry(geometry)#geometry from point
-        feat.setAttributes(list_qgsfield[i])
+    for i, feat in enumerate(feature_list):
         vector_layer.addFeature(feat, True)
     vector_layer.commitChanges()
 
