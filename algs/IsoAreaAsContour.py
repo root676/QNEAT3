@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 ***************************************************************************
-    ServiceAreaAsPolygon.py
+    IsoAreaAsContour.py
     ---------------------
     Date                 : February 2018
     Copyright            : (C) 2018 by Clemens Raffler
@@ -66,7 +66,7 @@ from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class ServiceAreaAsPolygon(QgisAlgorithm):
+class IsoAreaAsContour(QgisAlgorithm):
 
     INPUT = 'INPUT'
     START_POINT = 'START_POINT'
@@ -84,7 +84,7 @@ class ServiceAreaAsPolygon(QgisAlgorithm):
     OUTPUT = 'OUTPUT'
 
     def icon(self):
-        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_polygon.svg'))
+        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_contour.svg'))
 
     def group(self):
         return self.tr('Iso-Areas')
@@ -93,10 +93,10 @@ class ServiceAreaAsPolygon(QgisAlgorithm):
         return 'isoareas'
     
     def name(self):
-        return 'serviceareaaspolygon'
+        return 'isoareaascontour'
 
     def displayName(self):
-        return self.tr('Service Area as Polygon')
+        return self.tr('Iso-Area as Contour')
     
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()

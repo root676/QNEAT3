@@ -184,10 +184,10 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
 
         analysisCrs = context.project().crs()
-        input_coordinates = [startPoint,endPoint]
+        input_qgspointxy_list = [startPoint,endPoint]
         input_points = [getFeatureFromPointParameter(startPoint),getFeatureFromPointParameter(endPoint)]
         
-        net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
+        net = Qneat3Network(network, input_qgspointxy_list, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         
         list_analysis_points = [Qneat3AnalysisPoint("point", feature, "point_id", net.network, net.list_tiedPoints[i]) for i, feature in enumerate(input_points)]
         
@@ -195,7 +195,7 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         end_vertex_idx = list_analysis_points[1].network_vertex_id
         
         feedback.pushInfo("Calculating shortest path...")
-        dijkstra_query = net.calcDijkstra(start_vertex_idx, 0)
+        dijkstra_query = net.calcDijkstra(start_vertex_idx)
         
         if dijkstra_query[0][end_vertex_idx] == -1:
             raise QgsProcessingException(self.tr('Could not find a path from start point to end point - Check your graph or alter the input points.'))

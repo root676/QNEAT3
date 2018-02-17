@@ -28,15 +28,16 @@ import os
 from qgis.core import QgsProcessingProvider
 from PyQt5.QtGui import QIcon
 
-from .algs import (ShortestPathBetweenPoints, 
-                   ServiceAreaAsPolygon,
-                   ServiceAreaAsContour,
-                   OdMatrixFromPointsAsCsv,
-                   OdMatrixFromPointsAsLines,
-                   OdMatrixFromPointsAsTable,
-                   OdMatrixFromLayersAsTable,
-                   OdMatrixFromLayersAsLines
-                   )
+from .algs import 
+    ShortestPathBetweenPoints,
+    IsoAreaAsContour,
+    IsoAreaAsPolygon, 
+    OdMatrixFromPointsAsCsv, 
+    OdMatrixFromPointsAsLines, 
+    OdMatrixFromPointsAsTable, 
+    OdMatrixFromLayersAsTable, 
+    OdMatrixFromLayersAsLines
+    )
 
 
 pluginPath = os.path.split(os.path.dirname(__file__))[0]
@@ -46,8 +47,8 @@ class Qneat3Provider(QgsProcessingProvider):
         super().__init__()
         self.alglist = [
             ShortestPathBetweenPoints.ShortestPathBetweenPoints(),
-            ServiceAreaAsPolygon.ServiceAreaAsPolygon(),
-            ServiceAreaAsContour.ServiceAreaAsContour(),
+            IsoAreaAsContour.ServiceAreaAsContour(),
+            IsoAreaAsPolygon.ServiceAreaAsPolygon(),
             OdMatrixFromPointsAsCsv.OdMatrixFromPointsAsCsv(),
             OdMatrixFromPointsAsLines.OdMatrixFromPointsAsLines(),
             OdMatrixFromPointsAsTable.OdMatrixFromPointsAsTable(),
