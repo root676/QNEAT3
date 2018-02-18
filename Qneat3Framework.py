@@ -147,19 +147,25 @@ class Qneat3Network():
                         
                         current_cost = cost[toVertexId]
                         #build feature
-                        feat['vertex_id'] = i
+                        feat['vertex_id'] = toVertexId
                         feat['cost'] = current_cost
-                        geom = QgsGeometry().fromPointXY(self.network.vertex(i).point())
+                        geom = QgsGeometry().fromPointXY(self.network.vertex(toVertexId).point())
                         feat.setGeometry(geom)
                         
-                        if i not in iso_pointcloud.keys():
-                            iso_pointcloud[i] = feat
-                        #elif iso_pointcloud[i]['cost'] > current_cost:
-                            #iso_pointcloud[i] = feat
+                        if toVertexId not in iso_pointcloud.keys():
+                            self.feedback.pushInfo("insert idx {}, {}".format(toVertexId, current_cost))
+                            iso_pointcloud[toVertexId] = feat
+                        
+                        if toVertexId in iso_pointcloud.keys() and iso_pointcloud.get(toVertexId)['cost'] > current_cost:
+                            self.feedback.pushInfo("replace")
+                            iso_pointcloud[toVertexId] = feat
                         #count up to next vertex
                 i = i + 1 
                 
-        return list(iso_pointcloud.values()) #list of QgsFeature (=QgsFeatureList)
+        for element in iso_pointcloud.values():
+            self.feedback.pushInfo("id {} cost: {}".format(element['vertex_id'],element['cost']))
+                
+        return iso_pointcloud.values() #list of QgsFeature (=QgsFeatureList)
                 
     
     def calcIsoInterpolation(self, iso_point_layer, resolution, interpolation_raster_path):
