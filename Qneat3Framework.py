@@ -10,11 +10,13 @@
 """
 
 import time, datetime
+import gdal
 import matplotlib.pyplot as plt
 
 from math import floor, ceil
 from numpy import arange, meshgrid
-from qgis.core import QgsRasterLayer, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsUnitTypes
+from osgeo import osr
+from qgis.core import QgsRasterLayer, QgsFeatureSink, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsUnitTypes
 from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder, QgsInterpolator, QgsTinInterpolator, QgsIDWInterpolator, QgsGridFileWriter
 from PyQt5.QtCore import QVariant
 
@@ -43,12 +45,14 @@ class Qneat3Network():
                  feedback #feedback object from processing (log window)
                  ): 
         
-
-        feedback.pushInfo("[QNEAT3Network]: setting up parameters")
+        #initialize feedback
+        self.feedback = feedback
+        
+        self.feedback.pushInfo("[QNEAT3Network]: setting up parameters")
         self.AnalysisCrs = input_analysisCrs
         
         #init direction fields
-        feedback.pushInfo("[QNEAT3Network]: setting up network direction parameters")
+        self.feedback.pushInfo("[QNEAT3Network]: setting up network direction parameters")
         self.directedAnalysis = self.setNetworkDirection((input_directionFieldName, input_forwardValue, input_backwardValue, input_bothValue, input_defaultDirection))
         self.director = QgsVectorLayerDirector(input_network,
                                     getFieldIndexFromQgsProcessingFeatureSource(input_network, input_directionFieldName),
@@ -58,7 +62,7 @@ class Qneat3Network():
                                     input_defaultDirection)
 
         #init analysis points
-        feedback.pushInfo("[QNEAT3Network]: setting up analysis points")
+        self.feedback.pushInfo("[QNEAT3Network]: setting up analysis points")
         if isinstance(input_points,(list,)):
             self.list_input_points = input_points #[QgsPointXY]
         else:
@@ -66,7 +70,7 @@ class Qneat3Network():
             self.input_points = input_points
     
         #Setup cost-strategy pattern.
-        feedback.pushInfo("[QNEAT3Network]: Setting analysis strategy: {}".format(input_strategy))
+        self.feedback.pushInfo("[QNEAT3Network]: Setting analysis strategy: {}".format(input_strategy))
         self.setNetworkStrategy(input_strategy, input_network, input_speedField, input_defaultSpeed)
         self.director.addStrategy(self.strategy)
         #add the strategy to the QgsGraphDirector
@@ -74,31 +78,19 @@ class Qneat3Network():
         self.builder = QgsGraphBuilder(self.AnalysisCrs)
         #tell the graph-director to make the graph using the builder object and tie the start point geometry to the graph
         
-        feedback.pushInfo("[QNEAT3Network]: Start tying analysis points to the graph and building it.")
-        feedback.pushInfo("...This is a compute intensive task and may take some time depending on network size")
+        self.feedback.pushInfo("[QNEAT3Network]: Start tying analysis points to the graph and building it.")
+        self.feedback.pushInfo("...This is a compute intensive task and may take some time depending on network size")
         start_local_time = time.localtime()
         start_time = time.time()
-        feedback.pushInfo("...Start Time: {}".format(time.strftime(":%Y-%m-%d %H:%M:%S", start_local_time)))
+        self.feedback.pushInfo("...Start Time: {}".format(time.strftime(":%Y-%m-%d %H:%M:%S", start_local_time)))
         self.list_tiedPoints = self.director.makeGraph(self.builder, self.list_input_points)
         self.network = self.builder.graph()
         end_local_time = time.localtime()
         end_time = time.time()
-        feedback.pushInfo("...End Time: {}".format(time.strftime(":%Y-%m-%d %H:%M:%S", end_local_time)))
-        feedback.pushInfo("...Total Build Time: {}".format(end_time-start_time))
-        feedback.pushInfo("[QNEAT3Network]: Analysis setup complete")
-                
-            
-    def calcDijkstra(self, startpoint_id, criterion):
-        """Calculates Dijkstra on whole network beginning from one startPoint. Returns a list containing a TreeId-Array and Cost-Array that match up with their indices [[tree],[cost]] """
-        tree, cost = QgsGraphAnalyzer.dijkstra(self.network, startpoint_id, criterion)
-        dijkstra_query = list()
-        dijkstra_query.insert(0, tree)
-        dijkstra_query.insert(1, cost)
-        return dijkstra_query
-    
-    def calcShortestTree(self, startpoint_id, criterion):
-        tree = QgsGraphAnalyzer.shortestTree(self.network, startpoint_id, criterion)
-        return tree
+        self.feedback.pushInfo("...End Time: {}".format(time.strftime(":%Y-%m-%d %H:%M:%S", end_local_time)))
+        self.feedback.pushInfo("...Total Build Time: {}".format(end_time-start_time))
+        self.feedback.pushInfo("[QNEAT3Network]: Analysis setup complete")
+        
             
     def setNetworkDirection(self, directionArgs):    
         if directionArgs.count("") == 0:
@@ -118,23 +110,23 @@ class Qneat3Network():
             self.strategy = QgsNetworkSpeedStrategy(speedFieldId, float(input_defaultSpeed), multiplier * 1000.0 / 3600.0)
         self.multiplier = 3600
 
-class Qneat3IsoArea(Qneat3Network):
+    def calcDijkstra(self, startpoint_id, criterion):
+        """Calculates Dijkstra on whole network beginning from one startPoint. Returns a list containing a TreeId-Array and Cost-Array that match up with their indices [[tree],[cost]] """
+        tree, cost = QgsGraphAnalyzer.dijkstra(self.network, startpoint_id, criterion)
+        dijkstra_query = list()
+        dijkstra_query.insert(0, tree)
+        dijkstra_query.insert(1, cost)
+        return dijkstra_query
     
-    def __init__(self, input_network, input_points, input_strategy, input_directionFieldName, input_forwardValue, input_backwardValue, input_bothValue, input_defaultDirection, input_analysisCrs, input_speedField, input_defaultSpeed, input_tolerance, feedback, input_analysis_points, max_dist, interval):
-        super().__init__(self, input_network, input_points, input_strategy, input_directionFieldName, input_forwardValue, input_backwardValue, input_bothValue, input_defaultDirection, input_analysisCrs, input_speedField, input_defaultSpeed, input_tolerance, feedback)
-        self.input_analysis_points = input_analysis_points
-        self.input_max_dist = max_dist
-        self.input_interval = interval
-        self.iso_point_list = None
-        self.interpolation_raster = None
-        self.iso_contours = None
-        self.iso_polygon = None
+    def calcShortestTree(self, startpoint_id, criterion):
+        tree = QgsGraphAnalyzer.shortestTree(self.network, startpoint_id, criterion)
+        return tree
         
-    def calcIsoPoints(self):
+    def calcIsoPoints(self, analysis_point_list, max_dist):
         iso_pointcloud = {}
         
-        for point in self.input_analysis_points:
-            dijkstra_query = self.calcDijkstra(point.getNearestVertexId(), 0)
+        for point in analysis_point_list:
+            dijkstra_query = self.calcDijkstra(point.network_vertex_id, 0)
             tree = dijkstra_query[0]
             cost = dijkstra_query[1]
             
@@ -142,57 +134,130 @@ class Qneat3IsoArea(Qneat3Network):
             fields = QgsFields()
             fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
             fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
-            feat.setFields()
+            feat.setFields(fields)
             
             i = 0
             while i < len(cost):
                 #as long as costs at vertex i is greater than iso_distance and there exists an incoming edge (tree[i]!=-1) 
                 #consider it as a possible catchment polygon element
                 if tree[i] != -1:
-                    outVertexId = self.network.arc(tree[i]).outVertex()
+                    toVertexId = self.network.edge(tree[i]).toVertex()
                     #if the costs of the current vertex are lower than the radius, append the vertex id to results.
-                    if cost[outVertexId] <= self.input_max_dist:
+                    if cost[toVertexId] <= max_dist:
                         
+                        current_cost = cost[toVertexId]
                         #build feature
-                        feat['vertex_id'] = outVertexId
-                        feat['cost'] = cost[outVertexId]
-                        geom = QgsGeometry().fromPoint(self.network.vertex(i).point())
+                        feat['vertex_id'] = i
+                        feat['cost'] = current_cost
+                        geom = QgsGeometry().fromPointXY(self.network.vertex(i).point())
                         feat.setGeometry(geom)
                         
-                        if outVertexId not in iso_pointcloud.keys():
-                            iso_pointcloud[outVertexId] = feat
-                        elif iso_pointcloud[outVertexId]['cost'] > feat['cost']:
-                            iso_pointcloud[outVertexId] = feat
+                        if i not in iso_pointcloud.keys():
+                            iso_pointcloud[i] = feat
+                        #elif iso_pointcloud[i]['cost'] > current_cost:
+                            #iso_pointcloud[i] = feat
                         #count up to next vertex
                 i = i + 1 
                 
-        iso_point_layer = buildQgsVectorLayer("Point", "iso_pointcloud", self.AnalysisCrs, list(iso_pointcloud.values()), fields)
-        return iso_point_layer
+        return list(iso_pointcloud.values()) #list of QgsFeature (=QgsFeatureList)
+                
     
-    def calcIsoInterpolation(self, iso_point_layer, resolution):
+    def calcIsoInterpolation(self, iso_point_layer, resolution, interpolation_raster_path):
         layer_data = QgsInterpolator.LayerData()
-        layer_data.vectorLayer = iso_point_layer
-        layer_data.zCoordInterpolation = False
-        layer_data.InterpolationAttribute = 0
-        layer_data.mInputType = 1
-    
-        tin_interpolator = QgsTinInterpolator([layer_data])
-    
+        
+        layer_data.source = iso_point_layer #in QGIS2: vectorLayer
+        layer_data.valueSource = QgsInterpolator.ValueAttribute
+        layer_data.interpolationAttribute =  1 #take second field to get costs
+        layer_data.sourceType = QgsInterpolator.SourcePoints
+
+        tin_interpolator = QgsTinInterpolator([layer_data], QgsTinInterpolator.Linear)
+        
         rect = iso_point_layer.extent()
         ncol = int((rect.xMaximum() - rect.xMinimum()) / resolution)
         nrows = int((rect.yMaximum() - rect.yMinimum()) / resolution)
-        test = qgis.analysis.QgsGridFileWriter(tin_interpolator, export_path, rect, ncol, nrows, resolution, resolution)
-        test.writeFile(True)  # Creating .asc raster
-        return QgsRasterLayer(export_path, "temp_interpolation", True)        
-        self.interpolation_raster
         
-        pass
+        writer = QgsGridFileWriter(tin_interpolator, self.interpolation_raster_path, rect, ncol, nrows, resolution, resolution)
+        writer.writeFile(self.feedback)  # Creating .asc raste
+        return QgsRasterLayer(self.interpolation_raster_path, "temp_qneat3_interpolation_raster", True)        
     
-    def calcIsoContours(self):
-        self.iso_contours
-        pass
+    def calcIsoContours(self, interval, sink):
+        ds_in = gdal.Open(self.interpolation_raster_path)
+        band_in = ds_in.GetRasterBand(1)
+        xsize_in = band_in.XSize
+        ysize_in = band_in.YSize
+    
+        geotransform_in = ds_in.GetGeoTransform()
+    
+        srs = osr.SpatialReference()
+        srs.ImportFromWkt( ds_in.GetProjectionRef() )  
+   
+        x_pos = arange(geotransform_in[0], geotransform_in[0] + xsize_in*geotransform_in[1], geotransform_in[1])
+        y_pos = arange(geotransform_in[3], geotransform_in[3] + ysize_in*geotransform_in[5], geotransform_in[5])
+        x_grid, y_grid = meshgrid(x_pos, y_pos)
+    
+        raster_values = band_in.ReadAsArray(0, 0, xsize_in, ysize_in)
+    
+        stats = band_in.GetStatistics(False, True)
+        
+        min_value = stats[0]
+        min_level = interval * floor(min_value/interval)
+       
+        max_value = stats[1]
+        #Due to range issues, a level is added
+        max_level = interval * (1 + ceil(max_value/interval)) 
+    
+        levels = arange(min_level, max_level, interval)
+    
+        contours = plt.contourf(x_grid, y_grid, raster_values, levels)
+    
+        fields = QgsFields()
+        fields.append(QgsField('id', QVariant.Int, '', 254, 0))
+        fields.append(QgsField('cost_level', QVariant.Double, '', 254, 7))
+        """Maybe move to algorithm"""
+        for i, level in enumerate(range(len(contours.collections))):
+            paths = contours.collections[level].get_paths()
+            for path in paths:
+                
+                feat = QgsFeature()
+                feat.setFields(fields)
+                geom = QgsGeometry().fromPolygonXY(path)
+                feat.setGeometry(geom)
+                feat['id'] = i
+                feat['cost_level'] = level
+                
+                sink.addFeature(feat, QgsFeatureSink.FastInsert) 
+        """Maybe move to algorithm"""
+        return sink
+        
     
     def calcIsoPolygon(self):
+        """
+        feat_out = ogr.Feature( dst_layer.GetLayerDefn())
+        feat_out.SetField( attr_name, contours.levels[level] )
+        pol = ogr.Geometry(ogr.wkbPolygon)
+        
+                        ring = None            
+                
+                for i in range(len(path.vertices)):
+                    point = path.vertices[i]
+                    if path.codes[i] == 1:
+                        if ring != None:
+                            pol.AddGeometry(ring)
+                        ring = ogr.Geometry(ogr.wkbLinearRing)
+                        
+                    ring.AddPoint_2D(point[0], point[1])
+                
+    
+                pol.AddGeometry(ring)
+                
+                feat_out.SetGeometry(pol)
+                if dst_layer.CreateFeature(feat_out) != 0:
+                    print "Failed to create feature in shapefile.\n"
+                    exit( 1 )
+    
+                
+                feat_out.Destroy()  
+        """
         self.iso_polygon
         pass
     

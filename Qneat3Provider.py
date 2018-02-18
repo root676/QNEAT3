@@ -28,8 +28,9 @@ import os
 from qgis.core import QgsProcessingProvider
 from PyQt5.QtGui import QIcon
 
-from .algs import 
+from .algs import (
     ShortestPathBetweenPoints,
+    IsoAreaAsPointcloud,
     IsoAreaAsContour,
     IsoAreaAsPolygon, 
     OdMatrixFromPointsAsCsv, 
@@ -47,8 +48,9 @@ class Qneat3Provider(QgsProcessingProvider):
         super().__init__()
         self.alglist = [
             ShortestPathBetweenPoints.ShortestPathBetweenPoints(),
-            IsoAreaAsContour.ServiceAreaAsContour(),
-            IsoAreaAsPolygon.ServiceAreaAsPolygon(),
+            IsoAreaAsPointcloud.IsoAreaAsPointcloud(),
+            IsoAreaAsContour.IsoAreaAsContour(),
+            IsoAreaAsPolygon.IsoAreaAsPolygon(),
             OdMatrixFromPointsAsCsv.OdMatrixFromPointsAsCsv(),
             OdMatrixFromPointsAsLines.OdMatrixFromPointsAsLines(),
             OdMatrixFromPointsAsTable.OdMatrixFromPointsAsTable(),

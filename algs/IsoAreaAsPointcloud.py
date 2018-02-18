@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 ***************************************************************************
-    ShortestPathPointToPoint.py
+    IsoAreaAsContour.py
     ---------------------
     Date                 : February 2018
     Copyright            : (C) 2018 by Clemens Raffler
@@ -66,11 +66,12 @@ from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class ShortestPathBetweenPoints(QgisAlgorithm):
+class IsoAreaAsPointcloud(QgisAlgorithm):
 
     INPUT = 'INPUT'
     START_POINT = 'START_POINT'
-    END_POINT = 'END_POINT'
+    MAX_DIST = "MAX_DIST"
+    INTERVAL = "INTERVAL"
     STRATEGY = 'STRATEGY'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
@@ -83,19 +84,19 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
     OUTPUT = 'OUTPUT'
 
     def icon(self):
-        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_dijkstra_onetoone.svg'))
+        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_contour.svg'))
 
     def group(self):
-        return self.tr('Network analysis')
+        return self.tr('Iso-Areas')
 
     def groupId(self):
-        return 'networkanalysis'
+        return 'isoareas'
     
     def name(self):
-        return 'shortestpathpointtopoint'
+        return 'isoareaaspointcloud'
 
     def displayName(self):
-        return self.tr('Shortest path (point to point)')
+        return self.tr('Iso-Area as Pointcloud')
     
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
@@ -118,8 +119,14 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
                                                               [QgsProcessing.TypeVectorLine]))
         self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
                                                       self.tr('Start point')))
-        self.addParameter(QgsProcessingParameterPoint(self.END_POINT,
-                                                      self.tr('End point')))
+        self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
+                                                   self.tr('Size of Iso-Area'),
+                                                   QgsProcessingParameterNumber.Double,
+                                                   2500.0, False, 0, 99999999.99))
+        self.addParameter(QgsProcessingParameterNumber(self.INTERVAL,
+                                                   self.tr('Interval'),
+                                                   QgsProcessingParameterNumber.Double,
+                                                   100, False, 0, 99999999.99))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
                                                      self.tr('Path type to calculate'),
                                                      self.STRATEGIES,
@@ -161,16 +168,17 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         for p in params:
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
-
+        
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT,
-                                                            self.tr('Shortest path'),
+                                                            self.tr('Output Pointcloud'),
                                                             QgsProcessing.TypeVectorLine))
 
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
         startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs()) #QgsPointXY
-        endPoint = self.parameterAsPoint(parameters, self.END_POINT, context, network.sourceCrs()) #QgsPointXY
+        max_dist = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
+        interval = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
 
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
@@ -183,71 +191,29 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
 
         analysisCrs = context.project().crs()
-        input_qgspointxy_list = [startPoint,endPoint]
-        input_points = [getFeatureFromPointParameter(startPoint),getFeatureFromPointParameter(endPoint)]
+        input_coordinates = [startPoint]
+        input_point = getFeatureFromPointParameter(startPoint)
         
-        net = Qneat3Network(network, input_qgspointxy_list, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
+        net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
+
+        analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net.network, net.list_tiedPoints[0])
         
-        list_analysis_points = [Qneat3AnalysisPoint("point", feature, "point_id", net.network, net.list_tiedPoints[i]) for i, feature in enumerate(input_points)]
+        start_vertex_idx = analysis_point.network_vertex_id
         
-        start_vertex_idx = list_analysis_points[0].network_vertex_id
-        end_vertex_idx = list_analysis_points[1].network_vertex_id
-        
-        feedback.pushInfo("Calculating shortest path...")
-        dijkstra_query = net.calcDijkstra(start_vertex_idx)
-        
-        if dijkstra_query[0][end_vertex_idx] == -1:
-            raise QgsProcessingException(self.tr('Could not find a path from start point to end point - Check your graph or alter the input points.'))
-        
-        path_elements = [list_analysis_points[1].point_geom] #start route with the endpoint outside the network
-        path_elements.append(net.network.vertex(end_vertex_idx).point()) #then append the corresponding vertex of the graph 
-        
-        count = 1
-        current_vertex_idx = end_vertex_idx
-        while current_vertex_idx != start_vertex_idx:
-            current_vertex_idx = net.network.edge(dijkstra_query[0][current_vertex_idx]).fromVertex()
-            path_elements.append(net.network.vertex(current_vertex_idx).point())
-            count = count + 1
-            if count%10 == 0:
-                feedback.pushInfo("Taversed {} Nodes...".format(count))
-        
-        path_elements.append(list_analysis_points[0].point_geom) #end path with startpoint outside the network   
-        feedback.pushInfo("Total number of Nodes traversed: {}".format(count+1))
-        path_elements.reverse() #reverse path elements because it was built from end to start
-        
-        start_entry_cost = list_analysis_points[0].calcEntryCost(strategy)
-        end_exit_cost = list_analysis_points[1].calcEntryCost(strategy)
-        cost_on_graph = dijkstra_query[1][end_vertex_idx]
-        total_cost = start_entry_cost + cost_on_graph + end_exit_cost
-    
-        feedback.pushInfo("Writing path-feature...")
-        feat = QgsFeature()
+        feedback.pushInfo("Calculating Iso-Pointcloud...")
         
         fields = QgsFields()
-        fields.append(QgsField('start_id', QVariant.String, '', 254, 0))
-        fields.append(QgsField('start_coordinates', QVariant.String, '', 254, 0))
-        fields.append(QgsField('start_entry_cost', QVariant.Double, '', 20, 7))
-        fields.append(QgsField('end_id', QVariant.String, '', 254, 0))
-        fields.append(QgsField('end_coordinates', QVariant.String, '', 254, 0))
-        fields.append(QgsField('end_exit_cost', QVariant.Double, '', 20, 7))
-        fields.append(QgsField('cost_on_graph', QVariant.Double, '', 20, 7))
-        fields.append(QgsField('total_cost', QVariant.Double, '', 20, 7))
-        feat.setFields(fields)
+        fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
+        fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
         
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.LineString, network.sourceCrs())
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, network.sourceCrs())
         
-        feat['start_id'] = "A"
-        feat['start_coordinates'] = startPoint.toString()
-        feat['start_entry_cost'] = start_entry_cost
-        feat['end_id'] = "B"
-        feat['end_coordinates'] = endPoint.toString()
-        feat['end_exit_cost'] = end_exit_cost
-        feat['cost_on_graph'] = cost_on_graph
-        feat['total_cost'] = total_cost 
-        geom = QgsGeometry.fromPolylineXY(path_elements)
-        feat.setGeometry(geom)
+        #dijkstra_query = net.calcDijkstra(start_vertex_idx, 0)
         
-        sink.addFeature(feat, QgsFeatureSink.FastInsert)
+        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist)
+        
+        sink.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
+        
         feedback.pushInfo("Ending Algorithm")        
         
         results = {}
