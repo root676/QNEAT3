@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 ***************************************************************************
-    IsoAreaAsContour.py
+    IsoAreaAsPointcloudSingle.py
     ---------------------
     Date                 : February 2018
     Copyright            : (C) 2018 by Clemens Raffler
@@ -66,12 +66,11 @@ from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class IsoAreaAsContour(QgisAlgorithm):
+class IsoAreaAsPointcloudSingle(QgisAlgorithm):
 
     INPUT = 'INPUT'
     START_POINT = 'START_POINT'
     MAX_DIST = "MAX_DIST"
-    INTERVAL = "INTERVAL"
     STRATEGY = 'STRATEGY'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
@@ -93,10 +92,10 @@ class IsoAreaAsContour(QgisAlgorithm):
         return 'isoareas'
     
     def name(self):
-        return 'isoareaascontour'
+        return 'isoareaaspointcloudsingle'
 
     def displayName(self):
-        return self.tr('Iso-Area as Contour')
+        return self.tr('Iso-Area as Pointcloud (single location)')
     
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
@@ -120,13 +119,9 @@ class IsoAreaAsContour(QgisAlgorithm):
         self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
                                                       self.tr('Start point')))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
-                                                   self.tr('Size of Iso-Area'),
+                                                   self.tr('Size of Iso-Area (distance or seconds depending on strategy)'),
                                                    QgsProcessingParameterNumber.Double,
                                                    2500.0, False, 0, 99999999.99))
-        self.addParameter(QgsProcessingParameterNumber(self.INTERVAL,
-                                                   self.tr('Interval'),
-                                                   QgsProcessingParameterNumber.Double,
-                                                   100, False, 0, 99999999.99))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
                                                      self.tr('Path type to calculate'),
                                                      self.STRATEGIES,
@@ -178,7 +173,6 @@ class IsoAreaAsContour(QgisAlgorithm):
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
         startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs()) #QgsPointXY
         max_dist = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
-        interval = self.parameterAsDouble(parameters, self.INTERVAL, context)#float
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
 
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
@@ -198,8 +192,6 @@ class IsoAreaAsContour(QgisAlgorithm):
 
         analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net.network, net.list_tiedPoints[0])
         
-        start_vertex_idx = analysis_point.network_vertex_id
-        
         feedback.pushInfo("Calculating Iso-Pointcloud...")
         
         fields = QgsFields()
@@ -207,8 +199,6 @@ class IsoAreaAsContour(QgisAlgorithm):
         fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, network.sourceCrs())
-        
-        #dijkstra_query = net.calcDijkstra(start_vertex_idx, 0)
         
         iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist)
         

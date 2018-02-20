@@ -1,6 +1,7 @@
 eclipse.preferences.version=1
 encoding//algs/IsoAreaAsContour.py=utf-8
-encoding//algs/IsoAreaAsPointcloud.py=utf-8
+encoding//algs/IsoAreaAsPointcloudMultiple.py=utf-8
+encoding//algs/IsoAreaAsPointcloudSingle.py=utf-8
 encoding//algs/IsoAreaAsPolygon.py=utf-8
 encoding//algs/OdMatrixFromLayersAsLines.py=utf-8
 encoding//algs/OdMatrixFromLayersAsTable.py=utf-8

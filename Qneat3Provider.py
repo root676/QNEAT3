@@ -30,7 +30,8 @@ from PyQt5.QtGui import QIcon
 
 from .algs import (
     ShortestPathBetweenPoints,
-    IsoAreaAsPointcloud,
+    IsoAreaAsPointcloudSingle,
+    IsoAreaAsPointcloudMultiple,
     IsoAreaAsContour,
     IsoAreaAsPolygon, 
     OdMatrixFromPointsAsCsv, 
@@ -48,7 +49,8 @@ class Qneat3Provider(QgsProcessingProvider):
         super().__init__()
         self.alglist = [
             ShortestPathBetweenPoints.ShortestPathBetweenPoints(),
-            IsoAreaAsPointcloud.IsoAreaAsPointcloud(),
+            IsoAreaAsPointcloudSingle.IsoAreaAsPointcloudSingle(),
+            IsoAreaAsPointcloudMultiple.IsoAreaAsPointcloudMultiple(),
             IsoAreaAsContour.IsoAreaAsContour(),
             IsoAreaAsPolygon.IsoAreaAsPolygon(),
             OdMatrixFromPointsAsCsv.OdMatrixFromPointsAsCsv(),

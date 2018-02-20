@@ -156,19 +156,15 @@ class Qneat3Network():
                             iso_pointcloud.update({toVertexId: feat})
                             self.feedback.pushInfo("inserted idx {}, {}".format(iso_pointcloud.get(toVertexId)['vertex_id'], iso_pointcloud.get(toVertexId)['cost']))
                         if toVertexId in iso_pointcloud.keys() and iso_pointcloud.get(toVertexId)['cost'] > current_cost:
+                            #if the vertex already exists in the iso_pointcloud and the c
                             self.feedback.pushInfo("replace")
                             iso_pointcloud.pop(toVertexId)
                             iso_pointcloud.update({toVertexId: feat})
                         #count up to next vertex
                 i = i + 1 
-        
-        #self.feedback.pushInfo(iso_pointcloud.__str__())        
-        for key in iso_pointcloud:
-            self.feedback.pushInfo("id {} cost: {}".format(iso_pointcloud[key]['vertex_id'],iso_pointcloud[key]['cost']))
                 
         return iso_pointcloud.values() #list of QgsFeature (=QgsFeatureList)
                 
-    
     def calcIsoInterpolation(self, iso_point_layer, resolution, interpolation_raster_path):
         layer_data = QgsInterpolator.LayerData()
         
