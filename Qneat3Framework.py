@@ -14,7 +14,7 @@ import gdal
 import matplotlib.pyplot as plt
 
 from math import floor, ceil
-from numpy import arange, meshgrid
+from numpy import arange, meshgrid, insert
 from osgeo import osr
 from qgis.core import QgsRasterLayer, QgsFeatureSink, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsUnitTypes
 from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder, QgsInterpolator, QgsTinInterpolator, QgsIDWInterpolator, QgsGridFileWriter
@@ -123,18 +123,12 @@ class Qneat3Network():
         return tree
         
     def calcIsoPoints(self, analysis_point_list, max_dist):
-        iso_pointcloud = {}
+        iso_pointcloud = dict()
         
         for point in analysis_point_list:
             dijkstra_query = self.calcDijkstra(point.network_vertex_id, 0)
             tree = dijkstra_query[0]
             cost = dijkstra_query[1]
-            
-            feat = QgsFeature()
-            fields = QgsFields()
-            fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
-            fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
-            feat.setFields(fields)
             
             i = 0
             while i < len(cost):
@@ -144,26 +138,33 @@ class Qneat3Network():
                     toVertexId = self.network.edge(tree[i]).toVertex()
                     #if the costs of the current vertex are lower than the radius, append the vertex id to results.
                     if cost[toVertexId] <= max_dist:
-                        
                         current_cost = cost[toVertexId]
                         #build feature
+                                    
+                        feat = QgsFeature()
+                        fields = QgsFields()
+                        fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
+                        fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
+                        feat.setFields(fields)
                         feat['vertex_id'] = toVertexId
                         feat['cost'] = current_cost
                         geom = QgsGeometry().fromPointXY(self.network.vertex(toVertexId).point())
                         feat.setGeometry(geom)
                         
-                        if toVertexId not in iso_pointcloud.keys():
+                        if toVertexId not in iso_pointcloud:
                             self.feedback.pushInfo("insert idx {}, {}".format(toVertexId, current_cost))
-                            iso_pointcloud[toVertexId] = feat
-                        
+                            iso_pointcloud.update({toVertexId: feat})
+                            self.feedback.pushInfo("inserted idx {}, {}".format(iso_pointcloud.get(toVertexId)['vertex_id'], iso_pointcloud.get(toVertexId)['cost']))
                         if toVertexId in iso_pointcloud.keys() and iso_pointcloud.get(toVertexId)['cost'] > current_cost:
                             self.feedback.pushInfo("replace")
-                            iso_pointcloud[toVertexId] = feat
+                            iso_pointcloud.pop(toVertexId)
+                            iso_pointcloud.update({toVertexId: feat})
                         #count up to next vertex
                 i = i + 1 
-                
-        for element in iso_pointcloud.values():
-            self.feedback.pushInfo("id {} cost: {}".format(element['vertex_id'],element['cost']))
+        
+        #self.feedback.pushInfo(iso_pointcloud.__str__())        
+        for key in iso_pointcloud:
+            self.feedback.pushInfo("id {} cost: {}".format(iso_pointcloud[key]['vertex_id'],iso_pointcloud[key]['cost']))
                 
         return iso_pointcloud.values() #list of QgsFeature (=QgsFeatureList)
                 
