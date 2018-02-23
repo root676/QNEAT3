@@ -59,7 +59,7 @@ from qgis.analysis import (QgsVectorLayerDirector,
                            )
 
 from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable, getFeatureFromPointParameter
+from QNEAT3.Qneat3Utilities import getListOfPoints, getFeaturesFromQgsIterable, getFeatureFromPointParameter
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
@@ -69,7 +69,8 @@ pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 class IsoAreaAsPointcloudMultiple(QgisAlgorithm):
 
     INPUT = 'INPUT'
-    START_POINT = 'START_POINT'
+    START_POINTS = 'START_POINTS'
+    ID_FIELD = 'ID_FIELD'
     MAX_DIST = "MAX_DIST"
     STRATEGY = 'STRATEGY'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
@@ -83,7 +84,7 @@ class IsoAreaAsPointcloudMultiple(QgisAlgorithm):
     OUTPUT = 'OUTPUT'
 
     def icon(self):
-        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_contour.svg'))
+        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_points.svg'))
 
     def group(self):
         return self.tr('Iso-Areas')
@@ -116,8 +117,14 @@ class IsoAreaAsPointcloudMultiple(QgisAlgorithm):
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Vector layer representing network'),
                                                               [QgsProcessing.TypeVectorLine]))
-        self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
-                                                      self.tr('Start point')))
+        self.addParameter(QgsProcessingParameterFeatureSource(self.START_POINTS,
+                                                              self.tr('Start Points'),
+                                                              [QgsProcessing.TypeVectorPoint]))
+        self.addParameter(QgsProcessingParameterField(self.ID_FIELD,
+                                                       self.tr('Unique Point ID Field'),
+                                                       None,
+                                                       self.START_POINTS,
+                                                       optional=False))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
                                                    self.tr('Size of Iso-Area (distance or seconds depending on strategy)'),
                                                    QgsProcessingParameterNumber.Double,
@@ -171,7 +178,8 @@ class IsoAreaAsPointcloudMultiple(QgisAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
-        startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs()) #QgsPointXY
+        startPoints = self.parameterAsSource(parameters, self.START_POINTS, context) #QgsProcessingFeatureSource
+        id_field = self.parameterAsString(parameters, self.ID_FIELD, context) #str
         max_dist = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
 
@@ -185,12 +193,11 @@ class IsoAreaAsPointcloudMultiple(QgisAlgorithm):
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
 
         analysisCrs = context.project().crs()
-        input_coordinates = [startPoint]
-        input_point = getFeatureFromPointParameter(startPoint)
+        input_coordinates = getListOfPoints(startPoints)
         
         net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
-
-        analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net.network, net.list_tiedPoints[0])
+        
+        list_apoints = [Qneat3AnalysisPoint("from", feature, id_field, net.network, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(startPoints))]
         
         feedback.pushInfo("Calculating Iso-Pointcloud...")
         
@@ -200,7 +207,7 @@ class IsoAreaAsPointcloudMultiple(QgisAlgorithm):
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, network.sourceCrs())
         
-        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist)
+        iso_pointcloud = net.calcIsoPoints(list_apoints, max_dist)
         
         sink.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
         

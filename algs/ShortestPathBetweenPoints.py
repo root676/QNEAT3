@@ -194,7 +194,7 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         end_vertex_idx = list_analysis_points[1].network_vertex_id
         
         feedback.pushInfo("Calculating shortest path...")
-        dijkstra_query = net.calcDijkstra(start_vertex_idx)
+        dijkstra_query = net.calcDijkstra(start_vertex_idx,0)
         
         if dijkstra_query[0][end_vertex_idx] == -1:
             raise QgsProcessingException(self.tr('Could not find a path from start point to end point - Check your graph or alter the input points.'))
