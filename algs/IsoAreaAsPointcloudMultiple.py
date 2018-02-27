@@ -15,8 +15,6 @@
 *                                                                         *
 ***************************************************************************
 """
-from email.policy import default
-from plotly.api.v2.users import current
 
 __author__ = 'Clemens Raffler'
 __date__ = 'February 2018'
@@ -59,7 +57,7 @@ from qgis.analysis import (QgsVectorLayerDirector,
                            )
 
 from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getListOfPoints, getFeaturesFromQgsIterable, getFeatureFromPointParameter
+from QNEAT3.Qneat3Utilities import getListOfPoints, getFeaturesFromQgsIterable, getFieldDatatype
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
@@ -204,6 +202,7 @@ class IsoAreaAsPointcloudMultiple(QgisAlgorithm):
         fields = QgsFields()
         fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
         fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
+        fields.append(QgsField('origin_point_id', getFieldDatatype(startPoints, id_field)))
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, network.sourceCrs())
         

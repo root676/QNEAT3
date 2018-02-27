@@ -64,7 +64,7 @@ def getFeaturesFromQgsIterable(qgs_feature_storage):#qgs_feature_storage can be 
 def mergeFeaturesFromQgsIterable(qgs_feature_storage_list):
     result_feature_list = []
     for qgs_feature_storage in qgs_feature_storage_list:
-        fRequest = QgsFeatureRequest().setFilterFis(qgs_feature_storage.allFeatureIds())
+        fRequest = QgsFeatureRequest().setFilterFids(qgs_feature_storage.allFeatureIds())
         result_feature_list.extend(qgs_feature_storage.getFeatures(fRequest))
     return result_feature_list
         
@@ -89,3 +89,14 @@ def getFieldDatatype(qgs_feature_storage, fieldname):
     fields_list = qgs_feature_storage.fields()
     qvariant_type = fields_list.field(fieldname).type()
     return qvariant_type
+
+def getFieldDatatypeFromPythontype(pythonvar):
+    if isinstance(pythonvar, str):
+        return QVariant.String
+    elif isinstance(pythonvar, int):
+        return QVariant.Int
+    elif isinstance(pythonvar, float):
+        return QVariant.Double
+    else: 
+        return QVariant.String
+    

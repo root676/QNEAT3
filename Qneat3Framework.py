@@ -20,7 +20,7 @@ from qgis.core import QgsRasterLayer, QgsFeatureSink, QgsFeature, QgsFields, Qgs
 from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder, QgsInterpolator, QgsTinInterpolator, QgsIDWInterpolator, QgsGridFileWriter
 from PyQt5.QtCore import QVariant
 
-from QNEAT3.Qneat3Utilities import getFieldIndexFromQgsProcessingFeatureSource, getListOfPoints, buildQgsVectorLayer
+from QNEAT3.Qneat3Utilities import getFieldIndexFromQgsProcessingFeatureSource, getListOfPoints, getFieldDatatypeFromPythontype
 
 class Qneat3Network():
     
@@ -130,6 +130,8 @@ class Qneat3Network():
             tree = dijkstra_query[0]
             cost = dijkstra_query[1]
             
+            current_start_point_id = point.point_id
+            field_type = getFieldDatatypeFromPythontype(current_start_point_id)
             i = 0
             while i < len(cost):
                 #as long as costs at vertex i is greater than iso_distance and there exists an incoming edge (tree[i]!=-1) 
@@ -145,19 +147,20 @@ class Qneat3Network():
                         fields = QgsFields()
                         fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
                         fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
+                        fields.append(QgsField('origin_point_id',field_type, '', 254, 7))
                         feat.setFields(fields)
                         feat['vertex_id'] = toVertexId
                         feat['cost'] = current_cost
+                        feat['origin_point_id'] = current_start_point_id
                         geom = QgsGeometry().fromPointXY(self.network.vertex(toVertexId).point())
                         feat.setGeometry(geom)
                         
                         if toVertexId not in iso_pointcloud:
-                            self.feedback.pushInfo("insert idx {}, {}".format(toVertexId, current_cost))
+                            self.feedback.pushInfo("insert idx {} with {} cost".format(toVertexId, current_cost))
                             iso_pointcloud.update({toVertexId: feat})
-                            self.feedback.pushInfo("inserted idx {}, {}".format(iso_pointcloud.get(toVertexId)['vertex_id'], iso_pointcloud.get(toVertexId)['cost']))
                         if toVertexId in iso_pointcloud.keys() and iso_pointcloud.get(toVertexId)['cost'] > current_cost:
                             #if the vertex already exists in the iso_pointcloud and the c
-                            self.feedback.pushInfo("replace")
+                            self.feedback.pushInfo("replace idx {} with {} cost".format(toVertexId, current_cost))
                             iso_pointcloud.pop(toVertexId)
                             iso_pointcloud.update({toVertexId: feat})
                         #count up to next vertex
@@ -271,6 +274,7 @@ class Qneat3AnalysisPoint():
     
     def __init__(self, layer_name, feature, point_id_field_name, network, vertex_geom):
         self.layer_name = layer_name
+        self.point_feature = feature
         self.point_id = feature[point_id_field_name]
         self.point_geom = feature.geometry().asPoint()
         self.network_vertex_id = self.getNearestVertexId(network, vertex_geom)

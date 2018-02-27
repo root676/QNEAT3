@@ -15,8 +15,6 @@
 *                                                                         *
 ***************************************************************************
 """
-from email.policy import default
-from plotly.api.v2.users import current
 
 __author__ = 'Clemens Raffler'
 __date__ = 'February 2018'
