@@ -45,7 +45,7 @@ class Qneat3Network():
                  ): 
         
         """
-        Constructur for a Qneat3Network object.
+        Constructor for a Qneat3Network object.
         @type input_network: QgsProcessingParameterFeatureSource
         @param input_network: input network dataset from processing algorithm 
         @type input_points: QgsProcessingParameterFeatureSource/QgsVectorLayer/[QgsPointXY]

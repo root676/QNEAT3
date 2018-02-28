@@ -24,22 +24,35 @@
 """
 
 import os
+import sys
+
 
 from qgis.core import QgsProcessingProvider
 from PyQt5.QtGui import QIcon
 
+#import all algorithms that work with basic qgis modules
 from .algs import (
     ShortestPathBetweenPoints,
     IsoAreaAsPointcloudSingle,
-    IsoAreaAsPointcloudMultiple,
-    IsoAreaAsContour,
-    IsoAreaAsPolygon, 
+    IsoAreaAsPointcloudMultiple, 
     OdMatrixFromPointsAsCsv, 
     OdMatrixFromPointsAsLines, 
     OdMatrixFromPointsAsTable, 
     OdMatrixFromLayersAsTable, 
-    OdMatrixFromLayersAsLines
+    OdMatrixFromLayersAsLines,
     )
+
+#import all algorithms that require manually installed modules
+if "matplotlib.pyplot" in sys.modules:
+    from .algs import (
+        IsoAreaAsContour,
+        IsoAreaAsPolygon
+        )
+else: #import dummy if manually installed modules are missing
+    from .algs import (
+        DummyAlgorithm 
+        )
+
 
 
 pluginPath = os.path.split(os.path.dirname(__file__))[0]
@@ -51,15 +64,18 @@ class Qneat3Provider(QgsProcessingProvider):
             ShortestPathBetweenPoints.ShortestPathBetweenPoints(),
             IsoAreaAsPointcloudSingle.IsoAreaAsPointcloudSingle(),
             IsoAreaAsPointcloudMultiple.IsoAreaAsPointcloudMultiple(),
-            IsoAreaAsContour.IsoAreaAsContour(),
-            IsoAreaAsPolygon.IsoAreaAsPolygon(),
             OdMatrixFromPointsAsCsv.OdMatrixFromPointsAsCsv(),
             OdMatrixFromPointsAsLines.OdMatrixFromPointsAsLines(),
             OdMatrixFromPointsAsTable.OdMatrixFromPointsAsTable(),
             OdMatrixFromLayersAsTable.OdMatrixFromLayersAsTable(),
-            OdMatrixFromLayersAsLines.OdMatrixFromLayersAsLines()
+            OdMatrixFromLayersAsLines.OdMatrixFromLayersAsLines(),
         ]
-
+        
+        if 'matplotlib.pyplot' in sys.modules:
+            self.alglist.append(IsoAreaAsContour.IsoAreaAsContour(),IsoAreaAsPolygon.IsoAreaAsPolygon())
+        else:
+            self.alglist.append(DummyAlgorithm.DummyAlgorithm())
+            
     def getAlgs(self):
         return self.alglist
 
