@@ -23,9 +23,8 @@ from PyQt5.QtCore import QVariant
 from QNEAT3.Qneat3Utilities import getFieldIndexFromQgsProcessingFeatureSource, getListOfPoints, getFieldDatatypeFromPythontype
 
 class Qneat3Network():
-    
     """
-    QNEAT3 base-class:
+    Qneat3Network:
     Provides basic logic for more advanced network analysis algorithms
     """
 
@@ -44,6 +43,35 @@ class Qneat3Network():
                  input_tolerance, #float
                  feedback #feedback object from processing (log window)
                  ): 
+        
+        """
+        Constructur for a Qneat3Network object.
+        @type input_network: QgsProcessingParameterFeatureSource
+        @param input_network: input network dataset from processing algorithm 
+        @type input_points: QgsProcessingParameterFeatureSource/QgsVectorLayer/[QgsPointXY]
+        @param input_points: input point dataset from processing algorithm
+        @type input_strategy: int
+        @param input_strategy: Strategy parameter (0 for distance evaluation, 1 time evaluation)
+        @type directionFieldName: string
+        @param directionFieldName: Field name of field containing direction information
+        @type input_forwardValue: string
+        @param input_forwardValue: Value assigned to forward-directed edges
+        @type input_backwardValue: string
+        @param input_backwardValue: Value assigned to backward-directed edges
+        @type input_bothValue: string
+        @param input_bothValues: Value assigned to undirected edges (accessible from both directions)
+        @type input_defaultDirection: QgsVectorLayerDirector.DirectionForward/DirectionBackward/DirectionBoth
+        @param input_defaultDirection: QgsVectorLayerDirector Direction enum to determine default direction
+        @type input_analysisCrs: QgsCoordinateReferenceSystem
+        @param input_analysisCrs: Analysis coordinate system
+        @type input_speedField: string
+        @param input_speedField: Field name of field containing speed information
+        @type input_tolerance: float
+        @param input_tolerance: tolerance value when connecting graph edges
+        @type feedback: QgsProcessingFeedback
+        @param feedback: feedback object from processing algorithm
+        
+        """
         
         #initialize feedback
         self.feedback = feedback
@@ -170,6 +198,7 @@ class Qneat3Network():
                 
     def calcIsoInterpolation(self, iso_point_layer, resolution, interpolation_raster_path):
         layer_data = QgsInterpolator.LayerData()
+        QgsInterpolator.LayerData
         
         layer_data.source = iso_point_layer #in QGIS2: vectorLayer
         layer_data.valueSource = QgsInterpolator.ValueAttribute
