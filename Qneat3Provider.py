@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 /***************************************************************************
- QNEAT3 - Qgis Network Analysis Toolbox
+ QNEAT3 - Qgis Network Analysis Toolbox 3
  A QGIS processing provider for network analysis
  
  Qneat3Provider.py
@@ -24,14 +24,12 @@
 """
 
 import os
-import sys
-
 import importlib
 matplotlib_specification = importlib.util.find_spec("matplotlib", "pyplot")
 matplotlib_found = matplotlib_specification is not None #evaluates to true if matplotlib.pyplot can be importet
 
 from qgis.core import QgsProcessingProvider
-from PyQt5.QtGui import QIcon
+from PyQt.QtGui import QIcon
 
 #import all algorithms that work with basic qgis modules
 from .algs import (

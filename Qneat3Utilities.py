@@ -10,7 +10,7 @@
 """
 from qgis.core import QgsWkbTypes, QgsMessageLog, QgsVectorLayer, QgsFeature, QgsGeometry, QgsFields, QgsField, QgsFeatureRequest
 
-from PyQt5.QtCore import QVariant
+from PyQt.QtCore import QVariant
 from QNEAT3.Qneat3Exceptions import Qneat3GeometryException
 
 def AssignAnalysisCrs(vlayer):
