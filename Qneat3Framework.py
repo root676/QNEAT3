@@ -11,7 +11,6 @@
 
 import time, datetime
 import gdal
-import matplotlib.pyplot as plt
 
 from math import floor, ceil
 from numpy import arange, meshgrid, insert
@@ -216,54 +215,57 @@ class Qneat3Network():
         return QgsRasterLayer(self.interpolation_raster_path, "temp_qneat3_interpolation_raster", True)        
     
     def calcIsoContours(self, interval, sink):
-        ds_in = gdal.Open(self.interpolation_raster_path)
-        band_in = ds_in.GetRasterBand(1)
-        xsize_in = band_in.XSize
-        ysize_in = band_in.YSize
-    
-        geotransform_in = ds_in.GetGeoTransform()
-    
-        srs = osr.SpatialReference()
-        srs.ImportFromWkt( ds_in.GetProjectionRef() )  
-   
-        x_pos = arange(geotransform_in[0], geotransform_in[0] + xsize_in*geotransform_in[1], geotransform_in[1])
-        y_pos = arange(geotransform_in[3], geotransform_in[3] + ysize_in*geotransform_in[5], geotransform_in[5])
-        x_grid, y_grid = meshgrid(x_pos, y_pos)
-    
-        raster_values = band_in.ReadAsArray(0, 0, xsize_in, ysize_in)
-    
-        stats = band_in.GetStatistics(False, True)
+        try:
+            import matplotlib.pyplot as plt
+            ds_in = gdal.Open(self.interpolation_raster_path)
+            band_in = ds_in.GetRasterBand(1)
+            xsize_in = band_in.XSize
+            ysize_in = band_in.YSize
         
-        min_value = stats[0]
-        min_level = interval * floor(min_value/interval)
+            geotransform_in = ds_in.GetGeoTransform()
+        
+            srs = osr.SpatialReference()
+            srs.ImportFromWkt( ds_in.GetProjectionRef() )  
        
-        max_value = stats[1]
-        #Due to range issues, a level is added
-        max_level = interval * (1 + ceil(max_value/interval)) 
-    
-        levels = arange(min_level, max_level, interval)
-    
-        contours = plt.contourf(x_grid, y_grid, raster_values, levels)
-    
-        fields = QgsFields()
-        fields.append(QgsField('id', QVariant.Int, '', 254, 0))
-        fields.append(QgsField('cost_level', QVariant.Double, '', 254, 7))
-        """Maybe move to algorithm"""
-        for i, level in enumerate(range(len(contours.collections))):
-            paths = contours.collections[level].get_paths()
-            for path in paths:
-                
-                feat = QgsFeature()
-                feat.setFields(fields)
-                geom = QgsGeometry().fromPolygonXY(path)
-                feat.setGeometry(geom)
-                feat['id'] = i
-                feat['cost_level'] = level
-                
-                sink.addFeature(feat, QgsFeatureSink.FastInsert) 
-        """Maybe move to algorithm"""
-        return sink
+            x_pos = arange(geotransform_in[0], geotransform_in[0] + xsize_in*geotransform_in[1], geotransform_in[1])
+            y_pos = arange(geotransform_in[3], geotransform_in[3] + ysize_in*geotransform_in[5], geotransform_in[5])
+            x_grid, y_grid = meshgrid(x_pos, y_pos)
         
+            raster_values = band_in.ReadAsArray(0, 0, xsize_in, ysize_in)
+        
+            stats = band_in.GetStatistics(False, True)
+            
+            min_value = stats[0]
+            min_level = interval * floor(min_value/interval)
+           
+            max_value = stats[1]
+            #Due to range issues, a level is added
+            max_level = interval * (1 + ceil(max_value/interval)) 
+        
+            levels = arange(min_level, max_level, interval)
+        
+            contours = plt.contourf(x_grid, y_grid, raster_values, levels)
+        
+            fields = QgsFields()
+            fields.append(QgsField('id', QVariant.Int, '', 254, 0))
+            fields.append(QgsField('cost_level', QVariant.Double, '', 254, 7))
+            """Maybe move to algorithm"""
+            for i, level in enumerate(range(len(contours.collections))):
+                paths = contours.collections[level].get_paths()
+                for path in paths:
+                    
+                    feat = QgsFeature()
+                    feat.setFields(fields)
+                    geom = QgsGeometry().fromPolygonXY(path)
+                    feat.setGeometry(geom)
+                    feat['id'] = i
+                    feat['cost_level'] = level
+                    
+                    sink.addFeature(feat, QgsFeatureSink.FastInsert) 
+            """Maybe move to algorithm"""
+            return sink
+        except:
+            return sink
     
     def calcIsoPolygon(self):
         """
