@@ -26,6 +26,9 @@
 import os
 import sys
 
+import importlib
+matplotlib_specification = importlib.util.find_spec("matplotlib", "pyplot")
+matplotlib_found = matplotlib_specification is not None #evaluates to true if matplotlib.pyplot can be importet
 
 from qgis.core import QgsProcessingProvider
 from PyQt5.QtGui import QIcon
@@ -43,7 +46,7 @@ from .algs import (
     )
 
 #import all algorithms that require manually installed modules
-if "matplotlib.pyplot" in sys.modules:
+if matplotlib_found:
     from .algs import (
         IsoAreaAsContour,
         IsoAreaAsPolygon
@@ -71,8 +74,9 @@ class Qneat3Provider(QgsProcessingProvider):
             OdMatrixFromLayersAsLines.OdMatrixFromLayersAsLines(),
         ]
         
-        if 'matplotlib.pyplot' in sys.modules:
-            self.alglist.append(IsoAreaAsContour.IsoAreaAsContour(),IsoAreaAsPolygon.IsoAreaAsPolygon())
+        if matplotlib_found:
+            self.alglist.append(IsoAreaAsContour.IsoAreaAsContour())
+            self.alglist.append(IsoAreaAsPolygon.IsoAreaAsPolygon())
         else:
             self.alglist.append(DummyAlgorithm.DummyAlgorithm())
             
