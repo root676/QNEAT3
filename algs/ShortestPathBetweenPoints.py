@@ -95,6 +95,21 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
     def displayName(self):
         return self.tr('Shortest path (point to point)')
     
+    def shortHelpString(self):
+        return  "<b>General:</b><br>"\
+                "This algorithm implements the Dijkstra-Search to return the <b>shortest path between two points</b> on a given <b>network dataset</b>.<br>"\
+                "It accounts for <b>points outside of the network</b> (eg. <i>non-network-elements</i>) and calculates "\
+                "<b>separate entry-</b> and <b>exit-costs</b>. Distances are measured accounting for <b>ellipsoids</b>.<br><br>"\
+                "<b>Parameters (required):</b><br>"\
+                "Following Parameters must be set to run the algorithm:"\
+                "<ul><li>Network Layer</li><li>Startpoint Coordinates</li><li>Endpoint Coordinates</li><li>Cost Strategy</li></ul><br>"\
+                "<b>Parameters (optional):</b><br>"\
+                "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the networks edges."\
+                "<ul><li>Direction Field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed Field</li><li>Default Speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
+                "<b>Output:</b><br>"\
+                "The output of the algorithm is a Layer containing a <b>single linestring</b>, the attributes showcase the"\
+                "<ul><li>Name and coordinates of startpoint</li><li>Name and coordinates of endpoint</li><li>Entry-cost to enter network</li><li>Exit-cost to exit network</li><li>Cost of shortest path on graph</li><li>Total cost as sum of all cost elements</li></ul>"
+    
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
 
