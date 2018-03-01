@@ -172,7 +172,7 @@ class OdMatrixFromPointsAsCsv(QgisAlgorithm):
         
         net = Qneat3Network(network, points, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         
-        list_analysis_points = [Qneat3AnalysisPoint("point", feature, id_field, net.network, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(net.input_points))]
+        list_analysis_points = [Qneat3AnalysisPoint("point", feature, id_field, net, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(net.input_points))]
         
         total_workload = float(pow(len(list_analysis_points),2))
         feedback.pushInfo("Expecting total workload of {} iterations".format(int(total_workload)))
@@ -197,7 +197,7 @@ class OdMatrixFromPointsAsCsv(QgisAlgorithm):
                     elif dijkstra_query[0][query_point.network_vertex_id] == -1:
                         csv_writer.writerow([start_point.point_id, query_point.point_id, None])
                     else:
-                        entry_cost = start_point.calcEntryCost(strategy)+query_point.calcEntryCost(strategy)
+                        entry_cost = start_point.calcEntryCost(strategy, context)+query_point.calcEntryCost(strategy, context)
                         total_cost = dijkstra_query[1][query_point.network_vertex_id]+entry_cost
                         csv_writer.writerow([start_point.point_id, query_point.point_id, total_cost])
                     current_workstep_number=current_workstep_number+1

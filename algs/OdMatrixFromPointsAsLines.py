@@ -178,7 +178,7 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
         
         net = Qneat3Network(network, points, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         
-        list_analysis_points = [Qneat3AnalysisPoint("point", feature, id_field, net.network, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(net.input_points))]
+        list_analysis_points = [Qneat3AnalysisPoint("point", feature, id_field, net, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(net.input_points))]
         
         feat = QgsFeature()
         fields = QgsFields()
@@ -215,7 +215,7 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
                     #do not populate cost field so that it defaults to null
                     sink.addFeature(feat, QgsFeatureSink.FastInsert)
                 else:
-                    entry_cost = start_point.calcEntryCost(strategy)+query_point.calcEntryCost(strategy)
+                    entry_cost = start_point.calcEntryCost(strategy, context)+query_point.calcEntryCost(strategy, context)
                     total_cost = dijkstra_query[1][query_point.network_vertex_id]+entry_cost
                     feat.setGeometry(QgsGeometry.fromPolylineXY([start_point.point_geom, query_point.point_geom]))
                     feat['origin_id'] = start_point.point_id

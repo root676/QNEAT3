@@ -15,11 +15,12 @@ import gdal
 from math import floor, ceil
 from numpy import arange, meshgrid, insert
 from osgeo import osr
-from qgis.core import QgsRasterLayer, QgsFeatureSink, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsUnitTypes
+from qgis.core import QgsRasterLayer, QgsFeatureSink, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsDistanceArea, QgsUnitTypes
 from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder, QgsInterpolator, QgsTinInterpolator, QgsIDWInterpolator, QgsGridFileWriter
 from PyQt.QtCore import QVariant
 
 from QNEAT3.Qneat3Utilities import getFieldIndexFromQgsProcessingFeatureSource, getListOfPoints, getFieldDatatypeFromPythontype
+from pip._vendor.distlib.database import new_dist_class
 
 class Qneat3Network():
     """
@@ -303,20 +304,25 @@ class Qneat3Network():
         
 class Qneat3AnalysisPoint():
     
-    def __init__(self, layer_name, feature, point_id_field_name, network, vertex_geom):
+    def __init__(self, layer_name, feature, point_id_field_name, net, vertex_geom):
         self.layer_name = layer_name
         self.point_feature = feature
         self.point_id = feature[point_id_field_name]
         self.point_geom = feature.geometry().asPoint()
-        self.network_vertex_id = self.getNearestVertexId(network, vertex_geom)
-        self.network_vertex = self.getNearestVertex(network, vertex_geom)
+        self.network_vertex_id = self.getNearestVertexId(net.network, vertex_geom)
+        self.network_vertex = self.getNearestVertex(net.network, vertex_geom)
+        self.crs = net.AnalysisCrs
         
-    def calcEntryCost(self, strategy):
-        entry_linestring_geom = self.calcEntryLinestring()
+    def calcEntryCost(self, strategy, context):
+        dist_calculator = QgsDistanceArea()
+        dist_calculator.setSourceCrs(self.crs, context.transformContext())
+        dist_calculator.setEllipsoid(context.project().ellipsoid())
+        dist = dist_calculator.measureLine(self.point_geom, self.network_vertex.point())
+        #entry_linestring_geom = self.calcEntryLinestring()
         if strategy == "Shortest":
-            return entry_linestring_geom.length()
+            return dist
         else:
-            return entry_linestring_geom.length()/1.3888 #length/(m/s) todo: Make dynamic
+            return dist/1.3888 #length/(m/s) todo: Make dynamic
 
     def calcEntryLinestring(self):
         return QgsGeometry.fromPolylineXY([self.point_geom, self.network_vertex.point()])

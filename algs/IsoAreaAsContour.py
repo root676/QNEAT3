@@ -194,7 +194,7 @@ class IsoAreaAsContour(QgisAlgorithm):
         
         net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
 
-        analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net.network, net.list_tiedPoints[0])
+        analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0])
         
         start_vertex_idx = analysis_point.network_vertex_id
         
