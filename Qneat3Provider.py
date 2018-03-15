@@ -24,12 +24,13 @@
 """
 
 import os
-import importlib
-matplotlib_specification = importlib.util.find_spec("matplotlib", "pyplot")
-matplotlib_found = matplotlib_specification is not None #evaluates to true if matplotlib.pyplot can be importet
 
 from qgis.core import QgsProcessingProvider
-from PyQt.QtGui import QIcon
+from qgis.PyQt.QtGui import QIcon
+
+from importlib import util
+matplotlib_specification = util.find_spec("matplotlib", "pyplot")
+matplotlib_found = matplotlib_specification is not None #evaluates to true if matplotlib.pyplot can be importet
 
 #import all algorithms that work with basic qgis modules
 from .algs import (
