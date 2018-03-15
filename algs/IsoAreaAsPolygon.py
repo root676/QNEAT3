@@ -32,8 +32,10 @@ from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (QgsWkbTypes,
                        QgsUnitTypes,
+                       QgsVectorLayer,
                        QgsFeature,
                        QgsFeatureSink,
+                       QgsFeatureSource,
                        QgsGeometry,
                        QgsFields,
                        QgsField,
@@ -47,6 +49,7 @@ from qgis.core import (QgsWkbTypes,
                        QgsProcessingParameterString,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFeatureSink,
+                       QgsProcessingParameterRasterDestination,
                        QgsProcessingParameterDefinition)
 
 from qgis.analysis import (QgsVectorLayerDirector,
@@ -68,7 +71,7 @@ class IsoAreaAsPolygon(QgisAlgorithm):
 
     INPUT = 'INPUT'
     START_POINT = 'START_POINT'
-    END_POINT = 'END_POINT'
+    MAX_DIST = 'MAX_DIST'
     STRATEGY = 'STRATEGY'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
@@ -78,7 +81,6 @@ class IsoAreaAsPolygon(QgisAlgorithm):
     SPEED_FIELD = 'SPEED_FIELD'
     DEFAULT_SPEED = 'DEFAULT_SPEED'
     TOLERANCE = 'TOLERANCE'
-    TRAVEL_COST = 'TRAVEL_COST'
     OUTPUT = 'OUTPUT'
 
     def icon(self):
@@ -117,8 +119,10 @@ class IsoAreaAsPolygon(QgisAlgorithm):
                                                               [QgsProcessing.TypeVectorLine]))
         self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
                                                       self.tr('Start point')))
-        self.addParameter(QgsProcessingParameterPoint(self.END_POINT,
-                                                      self.tr('End point')))
+        self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
+                                                   self.tr('Size of Iso-Area (distance or seconds depending on strategy)'),
+                                                   QgsProcessingParameterNumber.Double,
+                                                   2500.0, False, 0, 99999999.99))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
                                                      self.tr('Path type to calculate'),
                                                      self.STRATEGIES,
@@ -161,15 +165,14 @@ class IsoAreaAsPolygon(QgisAlgorithm):
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
 
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT,
-                                                            self.tr('Shortest path'),
-                                                            QgsProcessing.TypeVectorLine))
+        self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT,
+                                                            self.tr('Interpolated distance raster')))
 
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
         startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs()) #QgsPointXY
-        endPoint = self.parameterAsPoint(parameters, self.END_POINT, context, network.sourceCrs()) #QgsPointXY
+        max_dist = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
 
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
@@ -180,76 +183,31 @@ class IsoAreaAsPolygon(QgisAlgorithm):
         speedFieldName = self.parameterAsString(parameters, self.SPEED_FIELD, context) #str
         defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) #float
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
+        output = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
 
         analysisCrs = context.project().crs()
-        input_coordinates = [startPoint,endPoint]
-        input_points = [getFeatureFromPointParameter(startPoint),getFeatureFromPointParameter(endPoint)]
+        input_coordinates = [startPoint]
+        input_point = getFeatureFromPointParameter(startPoint)
         
         net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
+
+        analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0])
         
-        list_analysis_points = [Qneat3AnalysisPoint("point", feature, "point_id", net, net.list_tiedPoints[i]) for i, feature in enumerate(input_points)]
-        
-        start_vertex_idx = list_analysis_points[0].network_vertex_id
-        end_vertex_idx = list_analysis_points[1].network_vertex_id
-        
-        feedback.pushInfo("Calculating shortest path...")
-        dijkstra_query = net.calcDijkstra(start_vertex_idx, 0)
-        
-        if dijkstra_query[0][end_vertex_idx] == -1:
-            raise QgsProcessingException(self.tr('Could not find a path from start point to end point - Check your graph or alter the input points.'))
-        
-        path_elements = [list_analysis_points[1].point_geom] #start route with the endpoint outside the network
-        path_elements.append(net.network.vertex(end_vertex_idx).point()) #then append the corresponding vertex of the graph 
-        
-        count = 1
-        current_vertex_idx = end_vertex_idx
-        while current_vertex_idx != start_vertex_idx:
-            current_vertex_idx = net.network.edge(dijkstra_query[0][current_vertex_idx]).fromVertex()
-            path_elements.append(net.network.vertex(current_vertex_idx).point())
-            count = count + 1
-            if count%10 == 0:
-                feedback.pushInfo("Taversed {} Nodes...".format(count))
-        
-        path_elements.append(list_analysis_points[0].point_geom) #end path with startpoint outside the network   
-        feedback.pushInfo("Total number of Nodes traversed: {}".format(count+1))
-        path_elements.reverse() #reverse path elements because it was built from end to start
-        
-        start_entry_cost = list_analysis_points[0].calcEntryCost(strategy, context)
-        end_exit_cost = list_analysis_points[1].calcEntryCost(strategy, context)
-        cost_on_graph = dijkstra_query[1][end_vertex_idx]
-        total_cost = start_entry_cost + cost_on_graph + end_exit_cost
-    
-        feedback.pushInfo("Writing path-feature...")
-        feat = QgsFeature()
+        feedback.pushInfo("Calculating Iso-Pointcloud...")
         
         fields = QgsFields()
-        fields.append(QgsField('start_id', QVariant.String, '', 254, 0))
-        fields.append(QgsField('start_coordinates', QVariant.String, '', 254, 0))
-        fields.append(QgsField('start_entry_cost', QVariant.Double, '', 20, 7))
-        fields.append(QgsField('end_id', QVariant.String, '', 254, 0))
-        fields.append(QgsField('end_coordinates', QVariant.String, '', 254, 0))
-        fields.append(QgsField('end_exit_cost', QVariant.Double, '', 20, 7))
-        fields.append(QgsField('cost_on_graph', QVariant.Double, '', 20, 7))
-        fields.append(QgsField('total_cost', QVariant.Double, '', 20, 7))
-        feat.setFields(fields)
+        fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
+        fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
         
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.LineString, network.sourceCrs())
+        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist)
         
-        feat['start_id'] = "A"
-        feat['start_coordinates'] = startPoint.toString()
-        feat['start_entry_cost'] = start_entry_cost
-        feat['end_id'] = "B"
-        feat['end_coordinates'] = endPoint.toString()
-        feat['end_exit_cost'] = end_exit_cost
-        feat['cost_on_graph'] = cost_on_graph
-        feat['total_cost'] = total_cost 
-        geom = QgsGeometry.fromPolylineXY(path_elements)
-        feat.setGeometry(geom)
+        iso_pointcloud_layer = QgsVectorLayer("Point", "iso_pointcloud", "memory")
         
-        sink.addFeature(feat, QgsFeatureSink.FastInsert)
+        iso_pointcloud_layer.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
+
+        
+        net.calcIsoInterpolation(iso_pointcloud_layer, 10, output)
+        
         feedback.pushInfo("Ending Algorithm")        
         
-        results = {}
-        results[self.OUTPUT] = dest_id
-        return results
-
+        return {self.OUTPUT: output}
