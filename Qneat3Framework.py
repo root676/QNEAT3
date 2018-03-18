@@ -211,10 +211,10 @@ class Qneat3Network():
         ncol = int((rect.xMaximum() - rect.xMinimum()) / resolution)
         nrows = int((rect.yMaximum() - rect.yMinimum()) / resolution)
         
-        writer = QgsGridFileWriter(tin_interpolator, interpolation_raster_path, rect, ncol, nrows, resolution, resolution)
+        writer = QgsGridFileWriter(tin_interpolator, interpolation_raster_path, rect, ncol, nrows)
         writer.writeFile(self.feedback)  # Creating .asc raste
-        return QgsRasterLayer(interpolation_raster_path, "temp_qneat3_interpolation_raster", True)        
-    
+        return QgsRasterLayer(interpolation_raster_path, "temp_qneat3_interpolation_raster")        
+
     def calcIsoContours(self, interval, sink, interpolation_raster_path):
         try:
             import matplotlib.pyplot as plt

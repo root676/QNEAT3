@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 ***************************************************************************
-    IsoAreaAsContour.py
+    IsoAreaAsInterpolation.py
     ---------------------
-    Date                 : February 2018
+    Date                 : March 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
@@ -37,6 +37,7 @@ from qgis.core import (QgsWkbTypes,
                        QgsGeometry,
                        QgsFields,
                        QgsField,
+                       QgsVectorLayer,
                        QgsProcessing,
                        QgsProcessingException,
                        QgsProcessingOutputNumber,
@@ -47,6 +48,7 @@ from qgis.core import (QgsWkbTypes,
                        QgsProcessingParameterString,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFeatureSink,
+                       QgsProcessingParameterRasterDestination,
                        QgsProcessingParameterDefinition)
 
 from qgis.analysis import (QgsVectorLayerDirector,
@@ -57,14 +59,14 @@ from qgis.analysis import (QgsVectorLayerDirector,
                            )
 
 from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable, getFeatureFromPointParameter
+from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable, getFeatureFromPointParameter, getFieldDatatypeFromPythontype
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class IsoAreaAsContour(QgisAlgorithm):
+class IsoAreaAsInterpolation(QgisAlgorithm):
 
     INPUT = 'INPUT'
     START_POINT = 'START_POINT'
@@ -91,10 +93,10 @@ class IsoAreaAsContour(QgisAlgorithm):
         return 'isoareas'
     
     def name(self):
-        return 'isoareaascontour'
+        return 'isoareaasinterpolation'
 
     def displayName(self):
-        return self.tr('Iso-Area as Contour')
+        return self.tr('Iso-Area as Interpolation')
     
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
@@ -167,9 +169,7 @@ class IsoAreaAsContour(QgisAlgorithm):
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
         
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT,
-                                                            self.tr('Output Contours'),
-                                                            QgsProcessing.TypeVectorLine))
+        self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT, self.tr('Output Interpolation')))
 
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
@@ -187,6 +187,7 @@ class IsoAreaAsContour(QgisAlgorithm):
         speedFieldName = self.parameterAsString(parameters, self.SPEED_FIELD, context) #str
         defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) #float
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
+        output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
 
         analysisCrs = context.project().crs()
         input_coordinates = [startPoint]
@@ -196,25 +197,26 @@ class IsoAreaAsContour(QgisAlgorithm):
 
         analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0])
         
-        start_vertex_idx = analysis_point.network_vertex_id
-        
         feedback.pushInfo("Calculating Iso-Pointcloud...")
-        
-        fields = QgsFields()
-        fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
-        fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
-        
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, network.sourceCrs())
-        
-        #dijkstra_query = net.calcDijkstra(start_vertex_idx, 0)
         
         iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist)
         
-        sink.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
+        uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())
+        
+        iso_pointcloud_layer = QgsVectorLayer(uri, "iso_pointcloud_layer", "memory")
+        iso_pointcloud_provider = iso_pointcloud_layer.dataProvider()
+        isadded = iso_pointcloud_provider.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
+        isvalid = iso_pointcloud_layer.isValid()
+        if isvalid:
+            feedback.pushInfo("valid")
+        elif isadded:
+            feedback.pushInfo("Feature Count: {}".format(iso_pointcloud_layer.featureCount()))
+        
+        interpolation_raster_layer = net.calcIsoInterpolation(iso_pointcloud_layer, 10, output_path)
         
         feedback.pushInfo("Ending Algorithm")        
         
         results = {}
-        results[self.OUTPUT] = dest_id
+        results[self.OUTPUT] = output_path
         return results
 

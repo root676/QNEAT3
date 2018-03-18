@@ -55,6 +55,7 @@ def getFeatureFromPointParameter(qgs_point_xy):
     fields.append(QgsField('point_id', QVariant.String, '', 254, 0))
     feature.setFields(fields)
     feature.setGeometry(QgsGeometry.fromPointXY(qgs_point_xy))
+    feature['point_id']="Start Point"
     return feature
 
 def getFeaturesFromQgsIterable(qgs_feature_storage):#qgs_feature_storage can be any vectorLayer/QgsProcessingParameterFeatureSource/etc

@@ -36,7 +36,8 @@ matplotlib_found = matplotlib_specification is not None #evaluates to true if ma
 from .algs import (
     ShortestPathBetweenPoints,
     IsoAreaAsPointcloudSingle,
-    IsoAreaAsPointcloudMultiple, 
+    IsoAreaAsPointcloudMultiple,
+    IsoAreaAsInterpolation, 
     OdMatrixFromPointsAsCsv, 
     OdMatrixFromPointsAsLines, 
     OdMatrixFromPointsAsTable, 
@@ -66,6 +67,7 @@ class Qneat3Provider(QgsProcessingProvider):
             ShortestPathBetweenPoints.ShortestPathBetweenPoints(),
             IsoAreaAsPointcloudSingle.IsoAreaAsPointcloudSingle(),
             IsoAreaAsPointcloudMultiple.IsoAreaAsPointcloudMultiple(),
+            IsoAreaAsInterpolation.IsoAreaAsInterpolation(),
             OdMatrixFromPointsAsCsv.OdMatrixFromPointsAsCsv(),
             OdMatrixFromPointsAsLines.OdMatrixFromPointsAsLines(),
             OdMatrixFromPointsAsTable.OdMatrixFromPointsAsTable(),
