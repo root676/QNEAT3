@@ -71,7 +71,7 @@ class IsoAreaAsInterpolation(QgisAlgorithm):
     INPUT = 'INPUT'
     START_POINT = 'START_POINT'
     MAX_DIST = "MAX_DIST"
-    INTERVAL = "INTERVAL"
+    CELL_SIZE = "CELL_SIZE"
     STRATEGY = 'STRATEGY'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
@@ -120,13 +120,13 @@ class IsoAreaAsInterpolation(QgisAlgorithm):
         self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
                                                       self.tr('Start point')))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
-                                                   self.tr('Size of Iso-Area'),
+                                                   self.tr('Size of Iso-Area (distance or time value)'),
                                                    QgsProcessingParameterNumber.Double,
                                                    2500.0, False, 0, 99999999.99))
-        self.addParameter(QgsProcessingParameterNumber(self.INTERVAL,
-                                                   self.tr('Interval'),
-                                                   QgsProcessingParameterNumber.Double,
-                                                   100, False, 0, 99999999.99))
+        self.addParameter(QgsProcessingParameterNumber(self.CELL_SIZE,
+                                                    self.tr('Cellsize of interpolation raster'),
+                                                    QgsProcessingParameterNumber.Integer,
+                                                    10, False, 1, 99999999))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
                                                      self.tr('Path type to calculate'),
                                                      self.STRATEGIES,
@@ -176,7 +176,7 @@ class IsoAreaAsInterpolation(QgisAlgorithm):
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
         startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs()) #QgsPointXY
         max_dist = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
-        interval = self.parameterAsDouble(parameters, self.INTERVAL, context)#float
+        cell_size = self.parameterAsInt(parameters, self.CELL_SIZE, context)#int
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
 
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
@@ -205,14 +205,10 @@ class IsoAreaAsInterpolation(QgisAlgorithm):
         
         iso_pointcloud_layer = QgsVectorLayer(uri, "iso_pointcloud_layer", "memory")
         iso_pointcloud_provider = iso_pointcloud_layer.dataProvider()
-        isadded = iso_pointcloud_provider.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
-        isvalid = iso_pointcloud_layer.isValid()
-        if isvalid:
-            feedback.pushInfo("valid")
-        elif isadded:
-            feedback.pushInfo("Feature Count: {}".format(iso_pointcloud_layer.featureCount()))
+        iso_pointcloud_provider.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
         
-        interpolation_raster_layer = net.calcIsoInterpolation(iso_pointcloud_layer, 10, output_path)
+        feedback.pushInfo("Calculating Iso-Interpolation-Raster using QGIS TIN-Interpolator...")
+        net.calcIsoInterpolation(iso_pointcloud_layer, cell_size, output_path)
         
         feedback.pushInfo("Ending Algorithm")        
         
