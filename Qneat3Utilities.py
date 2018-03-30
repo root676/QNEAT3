@@ -100,4 +100,5 @@ def getFieldDatatypeFromPythontype(pythonvar):
         return QVariant.Double
     else: 
         return QVariant.String
+
     
