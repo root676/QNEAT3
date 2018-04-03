@@ -15,11 +15,12 @@ import gdal
 from math import floor, ceil
 from numpy import arange, meshgrid, insert
 from osgeo import osr
-from qgis.core import QgsRasterLayer, QgsFeatureSink, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsDistanceArea, QgsUnitTypes
+from qgis.core import QgsRasterLayer, QgsFeatureSink, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsPointXY, QgsDistanceArea, QgsUnitTypes
 from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder, QgsInterpolator, QgsTinInterpolator, QgsIDWInterpolator, QgsGridFileWriter
 from qgis.PyQt.QtCore import QVariant
 
 from QNEAT3.Qneat3Utilities import getFieldIndexFromQgsProcessingFeatureSource, getListOfPoints, getFieldDatatypeFromPythontype
+from numpy.polynomial.polynomial import polyline
 
 
 class Qneat3Network():
@@ -215,58 +216,71 @@ class Qneat3Network():
         writer.writeFile(self.feedback)  # Creating .asc raste
         return QgsRasterLayer(interpolation_raster_path, "temp_qneat3_interpolation_raster")        
 
-    def calcIsoContours(self, interval, sink, interpolation_raster_path):
+    def calcIsoContours(self, interval, interpolation_raster_path):
+        featurelist = []
+        
         try:
             import matplotlib.pyplot as plt
-            ds_in = gdal.Open(interpolation_raster_path)
-            band_in = ds_in.GetRasterBand(1)
-            xsize_in = band_in.XSize
-            ysize_in = band_in.YSize
-        
-            geotransform_in = ds_in.GetGeoTransform()
-        
-            srs = osr.SpatialReference()
-            srs.ImportFromWkt( ds_in.GetProjectionRef() )  
-       
-            x_pos = arange(geotransform_in[0], geotransform_in[0] + xsize_in*geotransform_in[1], geotransform_in[1])
-            y_pos = arange(geotransform_in[3], geotransform_in[3] + ysize_in*geotransform_in[5], geotransform_in[5])
-            x_grid, y_grid = meshgrid(x_pos, y_pos)
-        
-            raster_values = band_in.ReadAsArray(0, 0, xsize_in, ysize_in)
-        
-            stats = band_in.GetStatistics(False, True)
-            
-            min_value = stats[0]
-            min_level = interval * floor(min_value/interval)
-           
-            max_value = stats[1]
-            #Due to range issues, a level is added
-            max_level = interval * (1 + ceil(max_value/interval)) 
-        
-            levels = arange(min_level, max_level, interval)
-        
-            contours = plt.contourf(x_grid, y_grid, raster_values, levels)
-        
-            fields = QgsFields()
-            fields.append(QgsField('id', QVariant.Int, '', 254, 0))
-            fields.append(QgsField('cost_level', QVariant.Double, '', 254, 7))
-            """Maybe move to algorithm"""
-            for i, level in enumerate(range(len(contours.collections))):
-                paths = contours.collections[level].get_paths()
-                for path in paths:
-                    
-                    feat = QgsFeature()
-                    feat.setFields(fields)
-                    geom = QgsGeometry().fromPolygonXY(path)
-                    feat.setGeometry(geom)
-                    feat['id'] = i
-                    feat['cost_level'] = level
-                    
-                    sink.addFeature(feat, QgsFeatureSink.FastInsert) 
-            """Maybe move to algorithm"""
-            return sink
         except:
-            return sink
+            return featurelist
+    
+        ds_in = gdal.Open(interpolation_raster_path)
+        band_in = ds_in.GetRasterBand(1)
+        xsize_in = band_in.XSize
+        ysize_in = band_in.YSize
+    
+        geotransform_in = ds_in.GetGeoTransform()
+    
+        srs = osr.SpatialReference()
+        srs.ImportFromWkt( ds_in.GetProjectionRef() )  
+   
+        x_pos = arange(geotransform_in[0], geotransform_in[0] + xsize_in*geotransform_in[1], geotransform_in[1])
+        y_pos = arange(geotransform_in[3], geotransform_in[3] + ysize_in*geotransform_in[5], geotransform_in[5])
+        x_grid, y_grid = meshgrid(x_pos, y_pos)
+    
+        raster_values = band_in.ReadAsArray(0, 0, xsize_in, ysize_in)
+        
+        stats = band_in.GetStatistics(False, True)
+        min_value = stats[0]
+        min_level = interval * floor(min_value/interval)
+       
+        max_value = stats[1]
+        self.feedback.pushInfo("min val = {}".format(min_value))
+        self.feedback.pushInfo("max val = {}".format(max_value))
+        #Due to range issues, a level is added
+        max_level = interval * (1 + ceil(max_value/interval)) 
+    
+        levels = arange(min_level, max_level, interval)
+        self.feedback.pushInfo("computing contours using matplotlib.pyplot as plt:")
+        contours = plt.contourf(x_grid, y_grid, raster_values, levels)
+        self.feedback.pushInfo("Add fields")
+        fields = QgsFields()
+        fields.append(QgsField('id', QVariant.Int, '', 254, 0))
+        fields.append(QgsField('cost_level', QVariant.Double, '', 254, 7))
+        self.feedback.pushInfo('beginning to add features...')
+        """Maybe move to algorithm"""
+        self.feedback.pushInfo('number of elements in contours.collections: {}'.format(len(contours.collections)))
+        for i, level in enumerate(range(len(contours.collections))):
+            paths = contours.collections[level].get_paths()
+            self.feedback.pushInfo('number of elements in paths: {}'.format(len(paths)))
+            for path in paths:
+                self.feedback.pushInfo(path.__str__())
+                polylinexy_list = []
+                for vertex in path.vertices:
+                    self.feedback.pushInfo("vertex {}".format(vertex.__str__()))
+                    polylinexy_list.append(QgsPointXY(vertex[0],vertex[1]))
+                feat = QgsFeature()
+                feat.setFields(fields)
+                geom = QgsGeometry().fromPolylineXY(polylinexy_list)
+                feat.setGeometry(geom)
+                feat['id'] = i
+                feat['cost_level'] = level
+                
+                featurelist.append(feat)
+        """Maybe move to algorithm"""
+        self.feedback.pushInfo("number of elements in contour_featurelist: {}".format(len(featurelist)))
+        return featurelist
+
     
     def calcIsoPolygon(self):
         """
