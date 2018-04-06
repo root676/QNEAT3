@@ -232,7 +232,7 @@ class Qneat3Network():
         geotransform_in = ds_in.GetGeoTransform()
     
         srs = osr.SpatialReference()
-        srs.ImportFromWkt( ds_in.GetProjectionRef() )  
+        srs.ImportFromWkt( ds_in.GetProjectionRef() )
    
         x_pos = arange(geotransform_in[0], geotransform_in[0] + xsize_in*geotransform_in[1], geotransform_in[1])
         y_pos = arange(geotransform_in[3], geotransform_in[3] + ysize_in*geotransform_in[5], geotransform_in[5])
@@ -260,23 +260,25 @@ class Qneat3Network():
         self.feedback.pushInfo('beginning to add features...')
         """Maybe move to algorithm"""
         self.feedback.pushInfo('number of elements in contours.collections: {}'.format(len(contours.collections)))
-        for i, level in enumerate(range(len(contours.collections))):
-            paths = contours.collections[level].get_paths()
-            self.feedback.pushInfo('number of elements in paths: {}'.format(len(paths)))
-            for path in paths:
-                self.feedback.pushInfo(path.__str__())
-                polylinexy_list = []
-                for vertex in path.vertices:
-                    self.feedback.pushInfo("vertex {}".format(vertex.__str__()))
-                    polylinexy_list.append(QgsPointXY(vertex[0],vertex[1]))
-                feat = QgsFeature()
-                feat.setFields(fields)
-                geom = QgsGeometry().fromPolylineXY(polylinexy_list)
-                feat.setGeometry(geom)
-                feat['id'] = i
-                feat['cost_level'] = level
+        
+        for id, col in enumerate(contours.collections):
+            # Loop through all polygons that have the same intensity level
+            for contour_path in col.get_paths(): 
+                # Create the polygon for this intensity level
+                # The first polygon in the path is the main one, the following ones are "holes"
+                for ncp,cp in enumerate(contour_path.to_polygons()):
+                    x = cp[:,0]
+                    y = cp[:,1]
+                    polylinexy_list = [QgsPointXY(i[0], i[1]) for i in zip(x,y)]
+                    feat = QgsFeature()
+                    feat.setFields(fields)
+                    geom = QgsGeometry().fromPolylineXY(polylinexy_list)
+                    feat.setGeometry(geom)
+                    feat['id'] = id
+                    feat['cost_level'] = 0
+                    
+                    featurelist.append(feat)
                 
-                featurelist.append(feat)
         """Maybe move to algorithm"""
         self.feedback.pushInfo("number of elements in contour_featurelist: {}".format(len(featurelist)))
         return featurelist

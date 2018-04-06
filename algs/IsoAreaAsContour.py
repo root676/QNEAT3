@@ -128,7 +128,7 @@ class IsoAreaAsContour(QgisAlgorithm):
         self.addParameter(QgsProcessingParameterNumber(self.INTERVAL,
                                                    self.tr('Contour Interval (distance or time value)'),
                                                    QgsProcessingParameterNumber.Double,
-                                                   100.0, False, 0, 99999999.99))
+                                                   500.0, False, 0, 99999999.99))
         self.addParameter(QgsProcessingParameterNumber(self.CELL_SIZE,
                                                     self.tr('Cellsize of interpolation raster'),
                                                     QgsProcessingParameterNumber.Integer,
