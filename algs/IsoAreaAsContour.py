@@ -176,7 +176,7 @@ class IsoAreaAsContour(QgisAlgorithm):
             self.addParameter(p)
 
         self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT_INTERPOLATION, self.tr('Output Interpolation')))
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_CONTOURS, self.tr('Output Contours'), QgsProcessing.TypeVectorLine))
+        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_CONTOURS, self.tr('Output Contours'), QgsProcessing.TypeVectorPolygon))
         
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
@@ -207,7 +207,7 @@ class IsoAreaAsContour(QgisAlgorithm):
         
         feedback.pushInfo("Calculating Iso-Pointcloud...")
         
-        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist)
+        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist+200)
         
         uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())
         
@@ -224,10 +224,10 @@ class IsoAreaAsContour(QgisAlgorithm):
         fields.append(QgsField('id', QVariant.Int, '', 254, 0))
         fields.append(QgsField('cost_level', QVariant.Double, '', 254, 7))
         
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_CONTOURS, context, fields, QgsWkbTypes.LineString, network.sourceCrs())
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_CONTOURS, context, fields, QgsWkbTypes.Polygon, network.sourceCrs())
         feedback.pushInfo("Ending Algorithm")        
         
-        contour_featurelist = net.calcIsoContours(interval, output_path)
+        contour_featurelist = net.calcIsoContours(max_dist, interval, output_path)
         
         sink.addFeatures(contour_featurelist, QgsFeatureSink.FastInsert)
         

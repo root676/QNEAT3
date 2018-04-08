@@ -13,7 +13,7 @@ import time, datetime
 import gdal
 
 from math import floor, ceil
-from numpy import arange, meshgrid, insert
+from numpy import array, arange, meshgrid, insert, linspace, nditer
 from osgeo import osr
 from qgis.core import QgsRasterLayer, QgsFeatureSink, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsPointXY, QgsDistanceArea, QgsUnitTypes
 from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder, QgsInterpolator, QgsTinInterpolator, QgsIDWInterpolator, QgsGridFileWriter
@@ -216,7 +216,7 @@ class Qneat3Network():
         writer.writeFile(self.feedback)  # Creating .asc raste
         return QgsRasterLayer(interpolation_raster_path, "temp_qneat3_interpolation_raster")        
 
-    def calcIsoContours(self, interval, interpolation_raster_path):
+    def calcIsoContours(self, max_dist, interval, interpolation_raster_path):
         featurelist = []
         
         try:
@@ -233,53 +233,60 @@ class Qneat3Network():
     
         srs = osr.SpatialReference()
         srs.ImportFromWkt( ds_in.GetProjectionRef() )
-   
-        x_pos = arange(geotransform_in[0], geotransform_in[0] + xsize_in*geotransform_in[1], geotransform_in[1])
-        y_pos = arange(geotransform_in[3], geotransform_in[3] + ysize_in*geotransform_in[5], geotransform_in[5])
-        x_grid, y_grid = meshgrid(x_pos, y_pos)
-    
+
         raster_values = band_in.ReadAsArray(0, 0, xsize_in, ysize_in)
+        raster_values[raster_values < 0] = max_dist + 1000 #necessary to produce rectangular array from raster
+        #nodata values get replaced by the maximum value + 1
         
-        stats = band_in.GetStatistics(False, True)
-        min_value = stats[0]
-        min_level = interval * floor(min_value/interval)
-       
-        max_value = stats[1]
-        self.feedback.pushInfo("min val = {}".format(min_value))
-        self.feedback.pushInfo("max val = {}".format(max_value))
-        #Due to range issues, a level is added
-        max_level = interval * (1 + ceil(max_value/interval)) 
+        x_pos = linspace(geotransform_in[0], geotransform_in[0] + geotransform_in[1] * raster_values.shape[1], raster_values.shape[1])
+        y_pos = linspace(geotransform_in[3], geotransform_in[3] + geotransform_in[5] * raster_values.shape[0], raster_values.shape[0])
+        x_grid, y_grid = meshgrid(x_pos, y_pos)        
+        
+        start = interval
+        end = interval * ceil(max_dist/interval) +interval
     
-        levels = arange(min_level, max_level, interval)
-        self.feedback.pushInfo("computing contours using matplotlib.pyplot as plt:")
-        contours = plt.contourf(x_grid, y_grid, raster_values, levels)
-        self.feedback.pushInfo("Add fields")
-        fields = QgsFields()
-        fields.append(QgsField('id', QVariant.Int, '', 254, 0))
-        fields.append(QgsField('cost_level', QVariant.Double, '', 254, 7))
-        self.feedback.pushInfo('beginning to add features...')
-        """Maybe move to algorithm"""
-        self.feedback.pushInfo('number of elements in contours.collections: {}'.format(len(contours.collections)))
+        levels = arange(start, end, interval)
         
-        for id, col in enumerate(contours.collections):
-            # Loop through all polygons that have the same intensity level
-            for contour_path in col.get_paths(): 
-                # Create the polygon for this intensity level
-                # The first polygon in the path is the main one, the following ones are "holes"
-                for ncp,cp in enumerate(contour_path.to_polygons()):
-                    x = cp[:,0]
-                    y = cp[:,1]
-                    polylinexy_list = [QgsPointXY(i[0], i[1]) for i in zip(x,y)]
-                    feat = QgsFeature()
-                    feat.setFields(fields)
-                    geom = QgsGeometry().fromPolylineXY(polylinexy_list)
-                    feat.setGeometry(geom)
-                    feat['id'] = id
-                    feat['cost_level'] = 0
+        self.feedback.pushInfo("computing contours using matplotlib.pyplot as plt:")
+        self.feedback.pushInfo("x_grid: {}".format(x_grid.shape))
+        self.feedback.pushInfo("y_grid: {}".format(y_grid.shape))
+        self.feedback.pushInfo("raster_values: {}".format(raster_values.shape))  
+        
+        id = 0
+        for current_level in nditer(levels):
+            self.feedback.pushInfo("level {}".format(current_level))
+            contours = plt.contourf(x_grid, y_grid, raster_values, [0, current_level], antialiased=True)
+        
+
+            
+            for collection in contours.collections:
+                for contour_path in collection.get_paths(): 
+        
+                    polygon_list = []
                     
-                    featurelist.append(feat)
-                
+                    for vertex in contour_path.to_polygons(closed_only=True):
+                        x = vertex[:,0]
+                        y = vertex[:,1]
+
+                        polylinexy_list = [QgsPointXY(i[0], i[1]) for i in zip(x,y)]
+                        polygon_list.append(polylinexy_list)
+                    
+                    feat = QgsFeature()
+                    fields = QgsFields()
+                    fields.append(QgsField('id', QVariant.Int, '', 254, 0))
+                    fields.append(QgsField('cost_level', QVariant.Double, '', 254, 7))
+                    feat.setFields(fields)
+                    geom = QgsGeometry().fromPolygonXY(polygon_list)
+                    feat.setGeometry(geom)
+                    self.feedback.pushInfo("id {}".format(id))
+                    feat['id'] = id
+                    self.feedback.pushInfo("level {}".format(current_level))
+                    feat['cost_level'] = current_level
+                        
+                    featurelist.insert(0, feat)
+            id=id+1    
         """Maybe move to algorithm"""
+        #featurelist = featurelist[::-1] #reverse
         self.feedback.pushInfo("number of elements in contour_featurelist: {}".format(len(featurelist)))
         return featurelist
 
