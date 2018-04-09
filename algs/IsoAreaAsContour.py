@@ -222,12 +222,15 @@ class IsoAreaAsContour(QgisAlgorithm):
             
         fields = QgsFields()
         fields.append(QgsField('id', QVariant.Int, '', 254, 0))
-        fields.append(QgsField('cost_level', QVariant.Double, '', 254, 7))
+        fields.append(QgsField('cost_level', QVariant.Double, '', 20, 7))
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_CONTOURS, context, fields, QgsWkbTypes.Polygon, network.sourceCrs())
         feedback.pushInfo("Ending Algorithm")        
         
         contour_featurelist = net.calcIsoContours(max_dist, interval, output_path)
+        
+        for feat in contour_featurelist:
+            feedback.pushInfo("feat iso level: {}".format(feat['cost_level']))
         
         sink.addFeatures(contour_featurelist, QgsFeatureSink.FastInsert)
         

@@ -252,7 +252,7 @@ class Qneat3Network():
         self.feedback.pushInfo("y_grid: {}".format(y_grid.shape))
         self.feedback.pushInfo("raster_values: {}".format(raster_values.shape))  
         
-        id = 0
+        fid = 0
         for current_level in nditer(levels):
             self.feedback.pushInfo("level {}".format(current_level))
             contours = plt.contourf(x_grid, y_grid, raster_values, [0, current_level], antialiased=True)
@@ -274,17 +274,16 @@ class Qneat3Network():
                     feat = QgsFeature()
                     fields = QgsFields()
                     fields.append(QgsField('id', QVariant.Int, '', 254, 0))
-                    fields.append(QgsField('cost_level', QVariant.Double, '', 254, 7))
+                    fields.append(QgsField('cost_level', QVariant.Double, '', 20, 7))
                     feat.setFields(fields)
                     geom = QgsGeometry().fromPolygonXY(polygon_list)
                     feat.setGeometry(geom)
-                    self.feedback.pushInfo("id {}".format(id))
-                    feat['id'] = id
-                    self.feedback.pushInfo("level {}".format(current_level))
-                    feat['cost_level'] = current_level
-                        
+                    feat['id'] = fid
+                    feat['cost_level'] = float(current_level)
+                    
+
                     featurelist.insert(0, feat)
-            id=id+1    
+            fid=fid+1    
         """Maybe move to algorithm"""
         #featurelist = featurelist[::-1] #reverse
         self.feedback.pushInfo("number of elements in contour_featurelist: {}".format(len(featurelist)))
