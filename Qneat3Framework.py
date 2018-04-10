@@ -247,6 +247,65 @@ class Qneat3Network():
     
         levels = arange(start, end, interval)
         
+        fid = 0
+        for current_level in nditer(levels):
+            self.feedback.pushInfo("calculating {}-level contours".format(current_level))
+            contours = plt.contourf(x_grid, y_grid, raster_values, [0, current_level], antialiased=True)
+            
+            for collection in contours.collections:
+                for contour_paths in collection.get_paths():                    
+                    for polygon in contour_paths.to_polygons():
+                        x = polygon[:,0]
+                        y = polygon[:,1]
+
+                        polylinexy_list = [QgsPointXY(i[0], i[1]) for i in zip(x,y)]
+                    
+                        feat = QgsFeature()
+                        fields = QgsFields()
+                        fields.append(QgsField('id', QVariant.Int, '', 254, 0))
+                        fields.append(QgsField('cost_level', QVariant.Double, '', 20, 7))
+                        feat.setFields(fields)
+                        geom = QgsGeometry().fromPolylineXY(polylinexy_list)
+                        feat.setGeometry(geom)
+                        feat['id'] = fid
+                        feat['cost_level'] = float(current_level)
+                        featurelist.insert(0, feat)
+                        
+            fid=fid+1    
+        return featurelist
+
+    
+    def calcIsoPolygons(self, max_dist, interval, interpolation_raster_path):
+        featurelist = []
+        
+        try:
+            import matplotlib.pyplot as plt
+        except:
+            return featurelist
+    
+        ds_in = gdal.Open(interpolation_raster_path)
+        band_in = ds_in.GetRasterBand(1)
+        xsize_in = band_in.XSize
+        ysize_in = band_in.YSize
+    
+        geotransform_in = ds_in.GetGeoTransform()
+    
+        srs = osr.SpatialReference()
+        srs.ImportFromWkt( ds_in.GetProjectionRef() )
+
+        raster_values = band_in.ReadAsArray(0, 0, xsize_in, ysize_in)
+        raster_values[raster_values < 0] = max_dist + 1000 #necessary to produce rectangular array from raster
+        #nodata values get replaced by the maximum value + 1
+        
+        x_pos = linspace(geotransform_in[0], geotransform_in[0] + geotransform_in[1] * raster_values.shape[1], raster_values.shape[1])
+        y_pos = linspace(geotransform_in[3], geotransform_in[3] + geotransform_in[5] * raster_values.shape[0], raster_values.shape[0])
+        x_grid, y_grid = meshgrid(x_pos, y_pos)        
+        
+        start = interval
+        end = interval * ceil(max_dist/interval) +interval
+    
+        levels = arange(start, end, interval)
+        
         self.feedback.pushInfo("computing contours using matplotlib.pyplot as plt:")
         self.feedback.pushInfo("x_grid: {}".format(x_grid.shape))
         self.feedback.pushInfo("y_grid: {}".format(y_grid.shape))
@@ -254,7 +313,7 @@ class Qneat3Network():
         
         fid = 0
         for current_level in nditer(levels):
-            self.feedback.pushInfo("level {}".format(current_level))
+            self.feedback.pushInfo("calculating {}-level contours".format(current_level))
             contours = plt.contourf(x_grid, y_grid, raster_values, [0, current_level], antialiased=True)
         
 
@@ -288,41 +347,6 @@ class Qneat3Network():
         #featurelist = featurelist[::-1] #reverse
         self.feedback.pushInfo("number of elements in contour_featurelist: {}".format(len(featurelist)))
         return featurelist
-
-    
-    def calcIsoPolygon(self):
-        """
-        feat_out = ogr.Feature( dst_layer.GetLayerDefn())
-        feat_out.SetField( attr_name, contours.levels[level] )
-        pol = ogr.Geometry(ogr.wkbPolygon)
-        
-                        ring = None            
-                
-                for i in range(len(path.vertices)):
-                    point = path.vertices[i]
-                    if path.codes[i] == 1:
-                        if ring != None:
-                            pol.AddGeometry(ring)
-                        ring = ogr.Geometry(ogr.wkbLinearRing)
-                        
-                    ring.AddPoint_2D(point[0], point[1])
-                
-    
-                pol.AddGeometry(ring)
-                
-                feat_out.SetGeometry(pol)
-                if dst_layer.CreateFeature(feat_out) != 0:
-                    print "Failed to create feature in shapefile.\n"
-                    exit( 1 )
-    
-                
-                feat_out.Destroy()  
-        """
-        self.iso_polygon
-        pass
-    
-    
-        #static interpolation_storage
         
 class Qneat3AnalysisPoint():
     

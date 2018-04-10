@@ -48,8 +48,8 @@ from .algs import (
 #import all algorithms that require manually installed modules
 if matplotlib_found:
     from .algs import (
-        IsoAreaAsContour,
-        IsoAreaAsPolygon
+        IsoAreaAsContours,
+        IsoAreaAsPolygons
         )
 else: #import dummy if manually installed modules are missing
     from .algs import (
@@ -76,8 +76,8 @@ class Qneat3Provider(QgsProcessingProvider):
         ]
         
         if matplotlib_found:
-            self.alglist.append(IsoAreaAsContour.IsoAreaAsContour())
-            self.alglist.append(IsoAreaAsPolygon.IsoAreaAsPolygon())
+            self.alglist.append(IsoAreaAsContours.IsoAreaAsContours())
+            self.alglist.append(IsoAreaAsPolygons.IsoAreaAsPolygons())
         else:
             self.alglist.append(DummyAlgorithm.DummyAlgorithm())
             

@@ -3,7 +3,7 @@
 ***************************************************************************
     IsoAreaAsPolygon.py
     ---------------------
-    Date                 : February 2018
+    Date                 : April 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
@@ -17,7 +17,7 @@
 """
 
 __author__ = 'Clemens Raffler'
-__date__ = 'February 2018'
+__date__ = 'April 2018'
 __copyright__ = '(C) 2018, Clemens Raffler'
 
 # This will get replaced with a git SHA1 when you do a git archive
@@ -35,7 +35,6 @@ from qgis.core import (QgsWkbTypes,
                        QgsVectorLayer,
                        QgsFeature,
                        QgsFeatureSink,
-                       QgsFeatureSource,
                        QgsGeometry,
                        QgsFields,
                        QgsField,
@@ -46,10 +45,10 @@ from qgis.core import (QgsWkbTypes,
                        QgsProcessingParameterPoint,
                        QgsProcessingParameterField,
                        QgsProcessingParameterNumber,
+                       QgsProcessingParameterRasterDestination,
                        QgsProcessingParameterString,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFeatureSink,
-                       QgsProcessingParameterRasterDestination,
                        QgsProcessingParameterDefinition)
 
 from qgis.analysis import (QgsVectorLayerDirector,
@@ -67,11 +66,13 @@ from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class IsoAreaAsPolygon(QgisAlgorithm):
+class IsoAreaAsPolygons(QgisAlgorithm):
 
     INPUT = 'INPUT'
     START_POINT = 'START_POINT'
-    MAX_DIST = 'MAX_DIST'
+    MAX_DIST = "MAX_DIST"
+    CELL_SIZE = "CELL_SIZE"
+    INTERVAL = "INTERVAL"
     STRATEGY = 'STRATEGY'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
@@ -81,7 +82,8 @@ class IsoAreaAsPolygon(QgisAlgorithm):
     SPEED_FIELD = 'SPEED_FIELD'
     DEFAULT_SPEED = 'DEFAULT_SPEED'
     TOLERANCE = 'TOLERANCE'
-    OUTPUT = 'OUTPUT'
+    OUTPUT_INTERPOLATION = 'OUTPUT_INTERPOLATION'
+    OUTPUT_POLYGONS = 'OUTPUT_POLYGONS'
 
     def icon(self):
         return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_polygon.svg'))
@@ -93,10 +95,10 @@ class IsoAreaAsPolygon(QgisAlgorithm):
         return 'isoareas'
     
     def name(self):
-        return 'isoareaaspolygon'
+        return 'isoareaaspolygons'
 
     def displayName(self):
-        return self.tr('Iso-Area as Polygon')
+        return self.tr('Iso-Area as Polygons')
     
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
@@ -120,9 +122,17 @@ class IsoAreaAsPolygon(QgisAlgorithm):
         self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
                                                       self.tr('Start point')))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
-                                                   self.tr('Size of Iso-Area (distance or seconds depending on strategy)'),
+                                                   self.tr('Size of Iso-Area (distance or time value)'),
                                                    QgsProcessingParameterNumber.Double,
                                                    2500.0, False, 0, 99999999.99))
+        self.addParameter(QgsProcessingParameterNumber(self.INTERVAL,
+                                                   self.tr('Contour Interval (distance or time value)'),
+                                                   QgsProcessingParameterNumber.Double,
+                                                   500.0, False, 0, 99999999.99))
+        self.addParameter(QgsProcessingParameterNumber(self.CELL_SIZE,
+                                                    self.tr('Cellsize of interpolation raster'),
+                                                    QgsProcessingParameterNumber.Integer,
+                                                    10, False, 1, 99999999))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
                                                      self.tr('Path type to calculate'),
                                                      self.STRATEGIES,
@@ -165,14 +175,16 @@ class IsoAreaAsPolygon(QgisAlgorithm):
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
 
-        self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT,
-                                                            self.tr('Interpolated distance raster')))
-
+        self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT_INTERPOLATION, self.tr('Output Interpolation')))
+        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_POLYGONS, self.tr('Output Polygon'), QgsProcessing.TypeVectorPolygon))
+        
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
         startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs()) #QgsPointXY
+        interval = self.parameterAsDouble(parameters, self.INTERVAL, context)#float
         max_dist = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
+        cell_size = self.parameterAsInt(parameters, self.CELL_SIZE, context)#int
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
 
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
@@ -183,7 +195,7 @@ class IsoAreaAsPolygon(QgisAlgorithm):
         speedFieldName = self.parameterAsString(parameters, self.SPEED_FIELD, context) #str
         defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) #float
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
-        output = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
+        output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT_INTERPOLATION, context) #string
 
         analysisCrs = context.project().crs()
         input_coordinates = [startPoint]
@@ -195,19 +207,32 @@ class IsoAreaAsPolygon(QgisAlgorithm):
         
         feedback.pushInfo("Calculating Iso-Pointcloud...")
         
+        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist+200)
+        
+        uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())
+        
+        iso_pointcloud_layer = QgsVectorLayer(uri, "iso_pointcloud_layer", "memory")
+        iso_pointcloud_provider = iso_pointcloud_layer.dataProvider()
+        iso_pointcloud_provider.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
+        
+        feedback.pushInfo("Calculating Iso-Interpolation-Raster using QGIS TIN-Interpolator...")
+        net.calcIsoInterpolation(iso_pointcloud_layer, cell_size, output_path)
+            
         fields = QgsFields()
-        fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
-        fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
+        fields.append(QgsField('id', QVariant.Int, '', 254, 0))
+        fields.append(QgsField('cost_level', QVariant.Double, '', 20, 7))
         
-        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist)
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_POLYGONS, context, fields, QgsWkbTypes.Polygon, network.sourceCrs())   
         
-        iso_pointcloud_layer = QgsVectorLayer("Point", "iso_pointcloud", "memory")
+        feedback.pushInfo("Calculating Iso-Polygons using numpy and matplotlib...")
+        contour_featurelist = net.calcIsoPolygons(max_dist, interval, output_path)
         
-        iso_pointcloud_layer.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
+        sink.addFeatures(contour_featurelist, QgsFeatureSink.FastInsert)
+        feedback.pushInfo("Ending Algorithm")
+        
+        results = {}
+        results[self.OUTPUT_INTERPOLATION] = output_path
+        results[self.OUTPUT_POLYGONS] = dest_id
+        return results
 
-        
-        net.calcIsoInterpolation(iso_pointcloud_layer, 10, output)
-        
-        feedback.pushInfo("Ending Algorithm")        
-        
-        return {self.OUTPUT: output}
+

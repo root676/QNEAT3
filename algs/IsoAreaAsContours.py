@@ -66,7 +66,7 @@ from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class IsoAreaAsContour(QgisAlgorithm):
+class IsoAreaAsContours(QgisAlgorithm):
 
     INPUT = 'INPUT'
     START_POINT = 'START_POINT'
@@ -95,10 +95,10 @@ class IsoAreaAsContour(QgisAlgorithm):
         return 'isoareas'
     
     def name(self):
-        return 'isoareaascontour'
+        return 'isoareaascontours'
 
     def displayName(self):
-        return self.tr('Iso-Area as Contour')
+        return self.tr('Iso-Area as Contours')
     
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
@@ -176,7 +176,7 @@ class IsoAreaAsContour(QgisAlgorithm):
             self.addParameter(p)
 
         self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT_INTERPOLATION, self.tr('Output Interpolation')))
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_CONTOURS, self.tr('Output Contours'), QgsProcessing.TypeVectorPolygon))
+        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_CONTOURS, self.tr('Output Contours'), QgsProcessing.TypeVectorLine))
         
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
@@ -217,27 +217,21 @@ class IsoAreaAsContour(QgisAlgorithm):
         
         feedback.pushInfo("Calculating Iso-Interpolation-Raster using QGIS TIN-Interpolator...")
         net.calcIsoInterpolation(iso_pointcloud_layer, cell_size, output_path)
-        
-        
             
         fields = QgsFields()
         fields.append(QgsField('id', QVariant.Int, '', 254, 0))
         fields.append(QgsField('cost_level', QVariant.Double, '', 20, 7))
         
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_CONTOURS, context, fields, QgsWkbTypes.Polygon, network.sourceCrs())
-        feedback.pushInfo("Ending Algorithm")        
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_CONTOURS, context, fields, QgsWkbTypes.LineString, network.sourceCrs())
         
+        feedback.pushInfo("Calculating Iso-Contours using numpy and matplotlib...")
         contour_featurelist = net.calcIsoContours(max_dist, interval, output_path)
         
-        for feat in contour_featurelist:
-            feedback.pushInfo("feat iso level: {}".format(feat['cost_level']))
-        
         sink.addFeatures(contour_featurelist, QgsFeatureSink.FastInsert)
+        feedback.pushInfo("Ending Algorithm")
         
         results = {}
         results[self.OUTPUT_INTERPOLATION] = output_path
         results[self.OUTPUT_CONTOURS] = dest_id
-        return results
-        results[self.OUTPUT] = output_path
         return results
 
