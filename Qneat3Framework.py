@@ -151,7 +151,7 @@ class Qneat3Network():
         tree = QgsGraphAnalyzer.shortestTree(self.network, startpoint_id, criterion)
         return tree
         
-    def calcIsoPoints(self, analysis_point_list, max_dist):
+    def calcIsoPoints(self, analysis_point_list, max_dist, context):
         iso_pointcloud = dict()
         
         for point in analysis_point_list:
@@ -159,8 +159,28 @@ class Qneat3Network():
             tree = dijkstra_query[0]
             cost = dijkstra_query[1]
             
-            current_start_point_id = point.point_id
+            current_start_point_id = point.point_id #id of the input point
+            current_vertex_id = point.network_vertex_id
+            entry_cost = point.calcEntryCost(self.strategy, context)
+            
             field_type = getFieldDatatypeFromPythontype(current_start_point_id)
+            
+            #startpoints are not part of the Query so they have to be added manually before
+            #dikstra is called.
+            start_vertex_feat = QgsFeature()
+            start_vertex_fields = QgsFields()
+            start_vertex_fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
+            start_vertex_fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
+            start_vertex_fields.append(QgsField('origin_point_id',field_type, '', 254, 7))
+            start_vertex_feat.setFields(start_vertex_fields)
+            start_vertex_feat['vertex_id'] = current_vertex_id
+            start_vertex_feat['cost'] = entry_cost
+            start_vertex_feat['origin_point_id'] = current_start_point_id
+            geom = QgsGeometry().fromPointXY(self.network.vertex(current_vertex_id).point())
+            start_vertex_feat.setGeometry(geom)
+            
+            iso_pointcloud.update({current_vertex_id: start_vertex_feat})
+            
             i = 0
             while i < len(cost):
                 #as long as costs at vertex i is greater than iso_distance and there exists an incoming edge (tree[i]!=-1) 
@@ -185,10 +205,12 @@ class Qneat3Network():
                         feat.setGeometry(geom)
                         
                         if toVertexId not in iso_pointcloud:
+                            #ERROR: FIRST POINT IN POINTCLOUD WILL NEVER BE ADDED
                             iso_pointcloud.update({toVertexId: feat})
                         if toVertexId in iso_pointcloud.keys() and iso_pointcloud.get(toVertexId)['cost'] > current_cost:
-                            #if the vertex already exists in the iso_pointcloud and the c
-                            iso_pointcloud.pop(toVertexId)
+                            #if the vertex already exists in the iso_pointcloud and the cost is greater than the existing cost
+                            del iso_pointcloud[toVertexId]
+                            #iso_pointcloud.pop(toVertexId)
                             iso_pointcloud.update({toVertexId: feat})
                         #count up to next vertex
                 i = i + 1 

@@ -206,7 +206,7 @@ class IsoAreaAsPointcloudMultiple(QgisAlgorithm):
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, network.sourceCrs())
         
-        iso_pointcloud = net.calcIsoPoints(list_apoints, max_dist)
+        iso_pointcloud = net.calcIsoPoints(list_apoints, max_dist, context)
         
         sink.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
         
