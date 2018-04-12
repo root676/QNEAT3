@@ -5,6 +5,7 @@ encoding//algs/IsoAreaAsInterpolation.py=utf-8
 encoding//algs/IsoAreaAsPointcloudMultiple.py=utf-8
 encoding//algs/IsoAreaAsPointcloudSingle.py=utf-8
 encoding//algs/IsoAreaAsPolygons.py=utf-8
+encoding//algs/IsoAreaAsPolygonsMultiple.py=utf-8
 encoding//algs/OdMatrixFromLayersAsLines.py=utf-8
 encoding//algs/OdMatrixFromLayersAsTable.py=utf-8
 encoding//algs/OdMatrixFromPointsAsCsv.py=utf-8

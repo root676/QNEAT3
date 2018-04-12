@@ -207,7 +207,7 @@ class IsoAreaAsPolygons(QgisAlgorithm):
         
         feedback.pushInfo("Calculating Iso-Pointcloud...")
         
-        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist, context)
+        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist+200, context)
         
         uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())
         
