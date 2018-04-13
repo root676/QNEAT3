@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 ***************************************************************************
-    IsoAreaAsInterpolation.py
+    IsoAreaAsInterpolationPoint.py
     ---------------------
     Date                 : March 2018
     Copyright            : (C) 2018 by Clemens Raffler
@@ -27,46 +27,31 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
-from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import (QgsWkbTypes,
-                       QgsUnitTypes,
-                       QgsFeature,
-                       QgsFeatureSink,
-                       QgsGeometry,
-                       QgsFields,
-                       QgsField,
+from qgis.core import (QgsFeatureSink,
                        QgsVectorLayer,
                        QgsProcessing,
-                       QgsProcessingException,
-                       QgsProcessingOutputNumber,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterPoint,
                        QgsProcessingParameterField,
                        QgsProcessingParameterNumber,
                        QgsProcessingParameterString,
                        QgsProcessingParameterFeatureSource,
-                       QgsProcessingParameterFeatureSink,
                        QgsProcessingParameterRasterDestination,
                        QgsProcessingParameterDefinition)
 
-from qgis.analysis import (QgsVectorLayerDirector,
-                           QgsNetworkDistanceStrategy,
-                           QgsNetworkSpeedStrategy,
-                           QgsGraphBuilder,
-                           QgsGraphAnalyzer
-                           )
+from qgis.analysis import QgsVectorLayerDirector
 
 from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable, getFeatureFromPointParameter, getFieldDatatypeFromPythontype
+from QNEAT3.Qneat3Utilities import getFeatureFromPointParameter
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class IsoAreaAsInterpolation(QgisAlgorithm):
+class IsoAreaAsInterpolationFromPoint(QgisAlgorithm):
 
     INPUT = 'INPUT'
     START_POINT = 'START_POINT'
@@ -93,10 +78,10 @@ class IsoAreaAsInterpolation(QgisAlgorithm):
         return 'isoareas'
     
     def name(self):
-        return 'isoareaasinterpolation'
+        return 'isoareaasinterpolationfrompoint'
 
     def displayName(self):
-        return self.tr('Iso-Area as Interpolation')
+        return self.tr('Iso-Area as Interpolation (from Point)')
     
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
@@ -115,7 +100,7 @@ class IsoAreaAsInterpolation(QgisAlgorithm):
                            ]
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
-                                                              self.tr('Vector layer representing network'),
+                                                              self.tr('Network Layer'),
                                                               [QgsProcessing.TypeVectorLine]))
         self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
                                                       self.tr('Start point')))
@@ -128,7 +113,7 @@ class IsoAreaAsInterpolation(QgisAlgorithm):
                                                     QgsProcessingParameterNumber.Integer,
                                                     10, False, 1, 99999999))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
-                                                     self.tr('Path type to calculate'),
+                                                     self.tr('Optimization Criterion'),
                                                      self.STRATEGIES,
                                                      defaultValue=0))
 

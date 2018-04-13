@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 ***************************************************************************
-    IsoAreaAsPolygon.py
+    IsoAreaAsContourFromPoint.py
     ---------------------
-    Date                 : April 2018
+    Date                 : February 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
@@ -17,7 +17,7 @@
 """
 
 __author__ = 'Clemens Raffler'
-__date__ = 'April 2018'
+__date__ = 'February 2018'
 __copyright__ = '(C) 2018, Clemens Raffler'
 
 # This will get replaced with a git SHA1 when you do a git archive
@@ -31,16 +31,11 @@ from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (QgsWkbTypes,
-                       QgsUnitTypes,
                        QgsVectorLayer,
-                       QgsFeature,
                        QgsFeatureSink,
-                       QgsGeometry,
                        QgsFields,
                        QgsField,
                        QgsProcessing,
-                       QgsProcessingException,
-                       QgsProcessingOutputNumber,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterPoint,
                        QgsProcessingParameterField,
@@ -51,22 +46,17 @@ from qgis.core import (QgsWkbTypes,
                        QgsProcessingParameterFeatureSink,
                        QgsProcessingParameterDefinition)
 
-from qgis.analysis import (QgsVectorLayerDirector,
-                           QgsNetworkDistanceStrategy,
-                           QgsNetworkSpeedStrategy,
-                           QgsGraphBuilder,
-                           QgsGraphAnalyzer
-                           )
+from qgis.analysis import QgsVectorLayerDirector
 
 from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable, getFeatureFromPointParameter
+from QNEAT3.Qneat3Utilities import getFeatureFromPointParameter
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class IsoAreaAsPolygons(QgisAlgorithm):
+class IsoAreaAsContoursFromPoint(QgisAlgorithm):
 
     INPUT = 'INPUT'
     START_POINT = 'START_POINT'
@@ -83,10 +73,10 @@ class IsoAreaAsPolygons(QgisAlgorithm):
     DEFAULT_SPEED = 'DEFAULT_SPEED'
     TOLERANCE = 'TOLERANCE'
     OUTPUT_INTERPOLATION = 'OUTPUT_INTERPOLATION'
-    OUTPUT_POLYGONS = 'OUTPUT_POLYGONS'
+    OUTPUT_CONTOURS = 'OUTPUT_CONTOURS'
 
     def icon(self):
-        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_polygon.svg'))
+        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_contour.svg'))
 
     def group(self):
         return self.tr('Iso-Areas')
@@ -95,10 +85,10 @@ class IsoAreaAsPolygons(QgisAlgorithm):
         return 'isoareas'
     
     def name(self):
-        return 'isoareaaspolygons'
+        return 'isoareaascontoursfrompoint'
 
     def displayName(self):
-        return self.tr('Iso-Area as Polygons')
+        return self.tr('Iso-Area as Contours (from Point)')
     
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
@@ -117,7 +107,7 @@ class IsoAreaAsPolygons(QgisAlgorithm):
                            ]
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
-                                                              self.tr('Vector layer representing network'),
+                                                              self.tr('Network Layer'),
                                                               [QgsProcessing.TypeVectorLine]))
         self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
                                                       self.tr('Start point')))
@@ -134,7 +124,7 @@ class IsoAreaAsPolygons(QgisAlgorithm):
                                                     QgsProcessingParameterNumber.Integer,
                                                     10, False, 1, 99999999))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
-                                                     self.tr('Path type to calculate'),
+                                                     self.tr('Optimization Criterion'),
                                                      self.STRATEGIES,
                                                      defaultValue=0))
 
@@ -176,7 +166,7 @@ class IsoAreaAsPolygons(QgisAlgorithm):
             self.addParameter(p)
 
         self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT_INTERPOLATION, self.tr('Output Interpolation')))
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_POLYGONS, self.tr('Output Polygon'), QgsProcessing.TypeVectorPolygon))
+        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_CONTOURS, self.tr('Output Contours'), QgsProcessing.TypeVectorLine))
         
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
@@ -207,7 +197,7 @@ class IsoAreaAsPolygons(QgisAlgorithm):
         
         feedback.pushInfo("Calculating Iso-Pointcloud...")
         
-        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist+200, context)
+        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist+(max_dist*0.1), context)
         
         uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())
         
@@ -222,17 +212,16 @@ class IsoAreaAsPolygons(QgisAlgorithm):
         fields.append(QgsField('id', QVariant.Int, '', 254, 0))
         fields.append(QgsField('cost_level', QVariant.Double, '', 20, 7))
         
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_POLYGONS, context, fields, QgsWkbTypes.Polygon, network.sourceCrs())   
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_CONTOURS, context, fields, QgsWkbTypes.LineString, network.sourceCrs())
         
-        feedback.pushInfo("Calculating Iso-Polygons using numpy and matplotlib...")
-        contour_featurelist = net.calcIsoPolygons(max_dist, interval, output_path)
+        feedback.pushInfo("Calculating Iso-Contours using numpy and matplotlib...")
+        contour_featurelist = net.calcIsoContours(max_dist, interval, output_path)
         
         sink.addFeatures(contour_featurelist, QgsFeatureSink.FastInsert)
         feedback.pushInfo("Ending Algorithm")
         
         results = {}
         results[self.OUTPUT_INTERPOLATION] = output_path
-        results[self.OUTPUT_POLYGONS] = dest_id
+        results[self.OUTPUT_CONTOURS] = dest_id
         return results
-
 

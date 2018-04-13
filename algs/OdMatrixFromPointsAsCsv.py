@@ -96,7 +96,7 @@ class OdMatrixFromPointsAsCsv(QgisAlgorithm):
                            self.tr('Fastest')]
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
-                                                              self.tr('Vector layer representing network'),
+                                                              self.tr('Network Layer'),
                                                               [QgsProcessing.TypeVectorLine]))
         self.addParameter(QgsProcessingParameterFeatureSource(self.POINTS,
                                                               self.tr('Point Layer'),
@@ -107,7 +107,7 @@ class OdMatrixFromPointsAsCsv(QgisAlgorithm):
                                                        self.POINTS,
                                                        optional=False))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
-                                                     self.tr('Path type to calculate'),
+                                                     self.tr('Optimization Criterion'),
                                                      self.STRATEGIES,
                                                      defaultValue=0))
 

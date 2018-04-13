@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 ***************************************************************************
-    IsoAreaAsContour.py
+    IsoAreaAsInterpolationFromLayer.py
     ---------------------
-    Date                 : February 2018
+    Date                 : March 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
@@ -27,52 +27,36 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
-from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import (QgsWkbTypes,
-                       QgsUnitTypes,
+from qgis.core import (QgsFeatureSink,
                        QgsVectorLayer,
-                       QgsFeature,
-                       QgsFeatureSink,
-                       QgsGeometry,
-                       QgsFields,
-                       QgsField,
                        QgsProcessing,
-                       QgsProcessingException,
-                       QgsProcessingOutputNumber,
                        QgsProcessingParameterEnum,
-                       QgsProcessingParameterPoint,
                        QgsProcessingParameterField,
                        QgsProcessingParameterNumber,
-                       QgsProcessingParameterRasterDestination,
                        QgsProcessingParameterString,
                        QgsProcessingParameterFeatureSource,
-                       QgsProcessingParameterFeatureSink,
+                       QgsProcessingParameterRasterDestination,
                        QgsProcessingParameterDefinition)
 
-from qgis.analysis import (QgsVectorLayerDirector,
-                           QgsNetworkDistanceStrategy,
-                           QgsNetworkSpeedStrategy,
-                           QgsGraphBuilder,
-                           QgsGraphAnalyzer
-                           )
+from qgis.analysis import QgsVectorLayerDirector
 
 from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable, getFeatureFromPointParameter
+from QNEAT3.Qneat3Utilities import getListOfPoints
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class IsoAreaAsContours(QgisAlgorithm):
+class IsoAreaAsInterpolationFromLayer(QgisAlgorithm):
 
     INPUT = 'INPUT'
-    START_POINT = 'START_POINT'
+    START_POINTS = 'START_POINTS'
+    ID_FIELD = 'ID_FIELD'
     MAX_DIST = "MAX_DIST"
     CELL_SIZE = "CELL_SIZE"
-    INTERVAL = "INTERVAL"
     STRATEGY = 'STRATEGY'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
@@ -82,11 +66,10 @@ class IsoAreaAsContours(QgisAlgorithm):
     SPEED_FIELD = 'SPEED_FIELD'
     DEFAULT_SPEED = 'DEFAULT_SPEED'
     TOLERANCE = 'TOLERANCE'
-    OUTPUT_INTERPOLATION = 'OUTPUT_INTERPOLATION'
-    OUTPUT_CONTOURS = 'OUTPUT_CONTOURS'
+    OUTPUT = 'OUTPUT'
 
     def icon(self):
-        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_contour.svg'))
+        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_interpolation.png'))
 
     def group(self):
         return self.tr('Iso-Areas')
@@ -95,10 +78,10 @@ class IsoAreaAsContours(QgisAlgorithm):
         return 'isoareas'
     
     def name(self):
-        return 'isoareaascontours'
+        return 'isoareaasinterpolationfromlayer'
 
     def displayName(self):
-        return self.tr('Iso-Area as Contours')
+        return self.tr('Iso-Area as Interpolation (from Layer)')
     
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
@@ -117,24 +100,26 @@ class IsoAreaAsContours(QgisAlgorithm):
                            ]
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
-                                                              self.tr('Vector layer representing network'),
+                                                              self.tr('Network Layer'),
                                                               [QgsProcessing.TypeVectorLine]))
-        self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
-                                                      self.tr('Start point')))
+        self.addParameter(QgsProcessingParameterFeatureSource(self.START_POINTS,
+                                                              self.tr('Start Points'),
+                                                              [QgsProcessing.TypeVectorPoint]))
+        self.addParameter(QgsProcessingParameterField(self.ID_FIELD,
+                                                       self.tr('Unique Point ID Field'),
+                                                       None,
+                                                       self.START_POINTS,
+                                                       optional=False))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
                                                    self.tr('Size of Iso-Area (distance or time value)'),
                                                    QgsProcessingParameterNumber.Double,
                                                    2500.0, False, 0, 99999999.99))
-        self.addParameter(QgsProcessingParameterNumber(self.INTERVAL,
-                                                   self.tr('Contour Interval (distance or time value)'),
-                                                   QgsProcessingParameterNumber.Double,
-                                                   500.0, False, 0, 99999999.99))
         self.addParameter(QgsProcessingParameterNumber(self.CELL_SIZE,
                                                     self.tr('Cellsize of interpolation raster'),
                                                     QgsProcessingParameterNumber.Integer,
                                                     10, False, 1, 99999999))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
-                                                     self.tr('Path type to calculate'),
+                                                     self.tr('Optimization Criterion'),
                                                      self.STRATEGIES,
                                                      defaultValue=0))
 
@@ -174,15 +159,14 @@ class IsoAreaAsContours(QgisAlgorithm):
         for p in params:
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
-
-        self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT_INTERPOLATION, self.tr('Output Interpolation')))
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_CONTOURS, self.tr('Output Contours'), QgsProcessing.TypeVectorLine))
         
+        self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT, self.tr('Output Interpolation')))
+
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
-        startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs()) #QgsPointXY
-        interval = self.parameterAsDouble(parameters, self.INTERVAL, context)#float
+        startPoints = self.parameterAsSource(parameters, self.START_POINTS, context) #QgsProcessingFeatureSource
+        id_field = self.parameterAsString(parameters, self.ID_FIELD, context) #str
         max_dist = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
         cell_size = self.parameterAsInt(parameters, self.CELL_SIZE, context)#int
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
@@ -195,19 +179,18 @@ class IsoAreaAsContours(QgisAlgorithm):
         speedFieldName = self.parameterAsString(parameters, self.SPEED_FIELD, context) #str
         defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) #float
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
-        output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT_INTERPOLATION, context) #string
+        output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
 
         analysisCrs = context.project().crs()
-        input_coordinates = [startPoint]
-        input_point = getFeatureFromPointParameter(startPoint)
+        input_coordinates = getListOfPoints(startPoints)
         
         net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
 
-        analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0])
+        list_apoints = [Qneat3AnalysisPoint("from", feature, id_field, net, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(startPoints))]
         
         feedback.pushInfo("Calculating Iso-Pointcloud...")
         
-        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist+200, context)
+        iso_pointcloud = net.calcIsoPoints(list_apoints, max_dist, context)
         
         uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())
         
@@ -217,21 +200,10 @@ class IsoAreaAsContours(QgisAlgorithm):
         
         feedback.pushInfo("Calculating Iso-Interpolation-Raster using QGIS TIN-Interpolator...")
         net.calcIsoInterpolation(iso_pointcloud_layer, cell_size, output_path)
-            
-        fields = QgsFields()
-        fields.append(QgsField('id', QVariant.Int, '', 254, 0))
-        fields.append(QgsField('cost_level', QVariant.Double, '', 20, 7))
         
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_CONTOURS, context, fields, QgsWkbTypes.LineString, network.sourceCrs())
-        
-        feedback.pushInfo("Calculating Iso-Contours using numpy and matplotlib...")
-        contour_featurelist = net.calcIsoContours(max_dist, interval, output_path)
-        
-        sink.addFeatures(contour_featurelist, QgsFeatureSink.FastInsert)
-        feedback.pushInfo("Ending Algorithm")
+        feedback.pushInfo("Ending Algorithm")        
         
         results = {}
-        results[self.OUTPUT_INTERPOLATION] = output_path
-        results[self.OUTPUT_CONTOURS] = dest_id
+        results[self.OUTPUT] = output_path
         return results
 
