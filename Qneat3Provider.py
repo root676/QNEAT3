@@ -33,24 +33,26 @@ matplotlib_specification = util.find_spec("matplotlib", "pyplot")
 matplotlib_found = matplotlib_specification is not None #evaluates to true if matplotlib.pyplot can be importet
 
 #import all algorithms that work with basic qgis modules
-from .algs import (
+from .algs import ( 
     ShortestPathBetweenPoints,
-    IsoAreaAsPointcloudSingle,
-    IsoAreaAsPointcloudMultiple,
-    IsoAreaAsInterpolation, 
+    IsoAreaAsPointcloudFromPoint,
+    IsoAreaAsPointcloudFromLayer, 
+    IsoAreaAsInterpolationFromPoint,
+    IsoAreaAsInterpolationFromLayer, 
     OdMatrixFromPointsAsCsv, 
     OdMatrixFromPointsAsLines, 
     OdMatrixFromPointsAsTable, 
     OdMatrixFromLayersAsTable, 
-    OdMatrixFromLayersAsLines,
+    OdMatrixFromLayersAsLines
     )
 
 #import all algorithms that require manually installed modules
 if matplotlib_found:
     from .algs import (
-        IsoAreaAsContours,
-        IsoAreaAsPolygons,
-        IsoAreaAsPolygonsMultiple
+        IsoAreaAsContoursFromPoint,
+        IsoAreaAsContoursFromLayer,
+        IsoAreaAsPolygonsFromPoint,
+        IsoAreaAsPolygonsFromLayer
         )
 else: #import dummy if manually installed modules are missing
     from .algs import (
@@ -66,9 +68,10 @@ class Qneat3Provider(QgsProcessingProvider):
         super().__init__()
         self.alglist = [
             ShortestPathBetweenPoints.ShortestPathBetweenPoints(),
-            IsoAreaAsPointcloudSingle.IsoAreaAsPointcloudSingle(),
-            IsoAreaAsPointcloudMultiple.IsoAreaAsPointcloudMultiple(),
-            IsoAreaAsInterpolation.IsoAreaAsInterpolation(),
+            IsoAreaAsPointcloudFromPoint.IsoAreaAsPointcloudFromPoint(),
+            IsoAreaAsPointcloudFromLayer.IsoAreaAsPointcloudFromLayer(),
+            IsoAreaAsInterpolationFromPoint.IsoAreaAsInterpolationFromPoint(),
+            IsoAreaAsInterpolationFromLayer.IsoAreaAsInterpolationFromLayer(),
             OdMatrixFromPointsAsCsv.OdMatrixFromPointsAsCsv(),
             OdMatrixFromPointsAsLines.OdMatrixFromPointsAsLines(),
             OdMatrixFromPointsAsTable.OdMatrixFromPointsAsTable(),
@@ -77,9 +80,10 @@ class Qneat3Provider(QgsProcessingProvider):
         ]
         
         if matplotlib_found:
-            self.alglist.append(IsoAreaAsContours.IsoAreaAsContours())
-            self.alglist.append(IsoAreaAsPolygons.IsoAreaAsPolygons())
-            self.alglist.append(IsoAreaAsPolygonsMultiple.IsoAreaAsPolygonsMultiple())
+            self.alglist.append(IsoAreaAsContoursFromPoint.IsoAreaAsContoursFromPoint())
+            self.alglist.append(IsoAreaAsPolygonsFromPoint.IsoAreaAsPolygonsFromPoint())
+            self.alglist.append(IsoAreaAsPolygonsFromLayer.IsoAreaAsPolygonsFromLayer())
+            self.alglist.append(IsoAreaAsContoursFromLayer.IsoAreaAsContoursFromLayer())
         else:
             self.alglist.append(DummyAlgorithm.DummyAlgorithm())
             

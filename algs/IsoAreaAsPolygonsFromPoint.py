@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 ***************************************************************************
-    IsoAreaAsPolygonMultiple.py
+    IsoAreaAsPolygonFromPoint.py
     ---------------------
     Date                 : April 2018
     Copyright            : (C) 2018 by Clemens Raffler
@@ -31,16 +31,11 @@ from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (QgsWkbTypes,
-                       QgsUnitTypes,
                        QgsVectorLayer,
-                       QgsFeature,
                        QgsFeatureSink,
-                       QgsGeometry,
                        QgsFields,
                        QgsField,
                        QgsProcessing,
-                       QgsProcessingException,
-                       QgsProcessingOutputNumber,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterPoint,
                        QgsProcessingParameterField,
@@ -51,26 +46,20 @@ from qgis.core import (QgsWkbTypes,
                        QgsProcessingParameterFeatureSink,
                        QgsProcessingParameterDefinition)
 
-from qgis.analysis import (QgsVectorLayerDirector,
-                           QgsNetworkDistanceStrategy,
-                           QgsNetworkSpeedStrategy,
-                           QgsGraphBuilder,
-                           QgsGraphAnalyzer
-                           )
+from qgis.analysis import QgsVectorLayerDirector
 
 from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable, getFeatureFromPointParameter, getListOfPoints
+from QNEAT3.Qneat3Utilities import getFeatureFromPointParameter
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class IsoAreaAsPolygonsMultiple(QgisAlgorithm):
+class IsoAreaAsPolygonsFromPoint(QgisAlgorithm):
 
     INPUT = 'INPUT'
-    START_POINTS = 'START_POINTS'
-    ID_FIELD = 'ID_FIELD'
+    START_POINT = 'START_POINT'
     MAX_DIST = "MAX_DIST"
     CELL_SIZE = "CELL_SIZE"
     INTERVAL = "INTERVAL"
@@ -96,10 +85,10 @@ class IsoAreaAsPolygonsMultiple(QgisAlgorithm):
         return 'isoareas'
     
     def name(self):
-        return 'isoareaaspolygonsmultiple'
+        return 'isoareaaspolygonsfrompoint'
 
     def displayName(self):
-        return self.tr('Iso-Area as Polygons (multiple locations)')
+        return self.tr('Iso-Area as Polygons (from Point)')
     
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
@@ -118,16 +107,10 @@ class IsoAreaAsPolygonsMultiple(QgisAlgorithm):
                            ]
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
-                                                              self.tr('Vector layer representing network'),
+                                                              self.tr('Network Layer'),
                                                               [QgsProcessing.TypeVectorLine]))
-        self.addParameter(QgsProcessingParameterFeatureSource(self.START_POINTS,
-                                                              self.tr('Start Points'),
-                                                              [QgsProcessing.TypeVectorPoint]))
-        self.addParameter(QgsProcessingParameterField(self.ID_FIELD,
-                                                       self.tr('Unique Point ID Field'),
-                                                       None,
-                                                       self.START_POINTS,
-                                                       optional=False))
+        self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
+                                                      self.tr('Start Point')))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
                                                    self.tr('Size of Iso-Area (distance or time value)'),
                                                    QgsProcessingParameterNumber.Double,
@@ -141,7 +124,7 @@ class IsoAreaAsPolygonsMultiple(QgisAlgorithm):
                                                     QgsProcessingParameterNumber.Integer,
                                                     10, False, 1, 99999999))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
-                                                     self.tr('Path type to calculate'),
+                                                     self.tr('Optimization Criterion'),
                                                      self.STRATEGIES,
                                                      defaultValue=0))
 
@@ -188,8 +171,7 @@ class IsoAreaAsPolygonsMultiple(QgisAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
-        startPoints = self.parameterAsSource(parameters, self.START_POINTS, context) #QgsProcessingFeatureSource
-        id_field = self.parameterAsString(parameters, self.ID_FIELD, context) #str
+        startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs()) #QgsPointXY
         interval = self.parameterAsDouble(parameters, self.INTERVAL, context)#float
         max_dist = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
         cell_size = self.parameterAsInt(parameters, self.CELL_SIZE, context)#int
@@ -206,15 +188,16 @@ class IsoAreaAsPolygonsMultiple(QgisAlgorithm):
         output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT_INTERPOLATION, context) #string
 
         analysisCrs = network.sourceCrs()
-        input_coordinates = getListOfPoints(startPoints)
+        input_coordinates = [startPoint]
+        input_point = getFeatureFromPointParameter(startPoint)
         
         net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
 
-        list_apoints = [Qneat3AnalysisPoint("from", feature, id_field, net, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(startPoints))]
+        analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0])
         
         feedback.pushInfo("Calculating Iso-Pointcloud...")
         
-        iso_pointcloud = net.calcIsoPoints(list_apoints, max_dist+200, context)
+        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist+(max_dist*0.1), context)
         
         uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())
         

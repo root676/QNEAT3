@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 ***************************************************************************
-    OdMatrixFromPointsAsCsv.py
+    IsoAreaAsContourFromPoint.py
     ---------------------
     Date                 : February 2018
     Copyright            : (C) 2018 by Clemens Raffler
@@ -25,35 +25,44 @@ __copyright__ = '(C) 2018, Clemens Raffler'
 __revision__ = '$Format:%H$'
 
 import os
-import csv
 from collections import OrderedDict
 
+from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import (QgsProcessing,
+from qgis.core import (QgsWkbTypes,
+                       QgsVectorLayer,
+                       QgsFeatureSink,
+                       QgsFields,
+                       QgsField,
+                       QgsProcessing,
                        QgsProcessingParameterEnum,
-                       QgsProcessingParameterFileDestination,
-                       QgsProcessingParameterFeatureSource,
+                       QgsProcessingParameterPoint,
                        QgsProcessingParameterField,
                        QgsProcessingParameterNumber,
+                       QgsProcessingParameterRasterDestination,
                        QgsProcessingParameterString,
+                       QgsProcessingParameterFeatureSource,
+                       QgsProcessingParameterFeatureSink,
                        QgsProcessingParameterDefinition)
 
-from qgis.analysis import (QgsVectorLayerDirector)
+from qgis.analysis import QgsVectorLayerDirector
 
 from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable
+from QNEAT3.Qneat3Utilities import getFeatureFromPointParameter
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class OdMatrixFromPointsAsCsv(QgisAlgorithm):
+class IsoAreaAsContoursFromPoint(QgisAlgorithm):
 
     INPUT = 'INPUT'
-    POINTS = 'POINTS'
-    ID_FIELD = 'ID_FIELD'    
+    START_POINT = 'START_POINT'
+    MAX_DIST = "MAX_DIST"
+    CELL_SIZE = "CELL_SIZE"
+    INTERVAL = "INTERVAL"
     STRATEGY = 'STRATEGY'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
@@ -63,24 +72,25 @@ class OdMatrixFromPointsAsCsv(QgisAlgorithm):
     SPEED_FIELD = 'SPEED_FIELD'
     DEFAULT_SPEED = 'DEFAULT_SPEED'
     TOLERANCE = 'TOLERANCE'
-    OUTPUT = 'OUTPUT'
+    OUTPUT_INTERPOLATION = 'OUTPUT_INTERPOLATION'
+    OUTPUT_CONTOURS = 'OUTPUT_CONTOURS'
 
     def icon(self):
-        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_matrix.svg'))
+        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_contour.svg'))
 
     def group(self):
-        return self.tr('Distance Matrices (Network based)')
+        return self.tr('Iso-Areas')
 
     def groupId(self):
-        return 'networkbaseddistancematrices'
+        return 'isoareas'
     
     def name(self):
-        return 'OdMatrixFromPointsAsCsv'
+        return 'isoareaascontoursfrompoint'
 
     def displayName(self):
-        return self.tr('OD-Matrix from Points as CSV (n:n)')
+        return self.tr('Iso-Area as Contours (from Point)')
     
-    def print_typestring(self, var):
+    def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
 
     def __init__(self):
@@ -93,19 +103,26 @@ class OdMatrixFromPointsAsCsv(QgisAlgorithm):
             (self.tr('Both directions'), QgsVectorLayerDirector.DirectionBoth)])
 
         self.STRATEGIES = [self.tr('Shortest'),
-                           self.tr('Fastest')]
+                           self.tr('Fastest')
+                           ]
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Network Layer'),
                                                               [QgsProcessing.TypeVectorLine]))
-        self.addParameter(QgsProcessingParameterFeatureSource(self.POINTS,
-                                                              self.tr('Point Layer'),
-                                                              [QgsProcessing.TypeVectorPoint]))
-        self.addParameter(QgsProcessingParameterField(self.ID_FIELD,
-                                                       self.tr('Unique Point ID Field'),
-                                                       None,
-                                                       self.POINTS,
-                                                       optional=False))
+        self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
+                                                      self.tr('Start point')))
+        self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
+                                                   self.tr('Size of Iso-Area (distance or time value)'),
+                                                   QgsProcessingParameterNumber.Double,
+                                                   2500.0, False, 0, 99999999.99))
+        self.addParameter(QgsProcessingParameterNumber(self.INTERVAL,
+                                                   self.tr('Contour Interval (distance or time value)'),
+                                                   QgsProcessingParameterNumber.Double,
+                                                   500.0, False, 0, 99999999.99))
+        self.addParameter(QgsProcessingParameterNumber(self.CELL_SIZE,
+                                                    self.tr('Cellsize of interpolation raster'),
+                                                    QgsProcessingParameterNumber.Integer,
+                                                    10, False, 1, 99999999))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
                                                      self.tr('Optimization Criterion'),
                                                      self.STRATEGIES,
@@ -148,13 +165,16 @@ class OdMatrixFromPointsAsCsv(QgisAlgorithm):
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
 
-        self.addParameter(QgsProcessingParameterFileDestination(self.OUTPUT, self.tr('Output OD Matrix'), self.tr('CSV files (*.csv)')),True)
-
+        self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT_INTERPOLATION, self.tr('Output Interpolation')))
+        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_CONTOURS, self.tr('Output Contours'), QgsProcessing.TypeVectorLine))
+        
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
-        points = self.parameterAsSource(parameters, self.POINTS, context) #QgsProcessingFeatureSource
-        id_field = self.parameterAsString(parameters, self.ID_FIELD, context) #str
+        startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs()) #QgsPointXY
+        interval = self.parameterAsDouble(parameters, self.INTERVAL, context)#float
+        max_dist = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
+        cell_size = self.parameterAsInt(parameters, self.CELL_SIZE, context)#int
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
 
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
@@ -165,49 +185,43 @@ class OdMatrixFromPointsAsCsv(QgisAlgorithm):
         speedFieldName = self.parameterAsString(parameters, self.SPEED_FIELD, context) #str
         defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) #float
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
-        output_path = self.parameterAsFileOutput(parameters, self.OUTPUT, context) #str (filepath)
-        feedback.pushInfo(pluginPath)
-        
-        analysisCrs = network.sourceCrs()
-        
-        net = Qneat3Network(network, points, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
-        
-        list_analysis_points = [Qneat3AnalysisPoint("point", feature, id_field, net, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(net.input_points))]
-        
-        total_workload = float(pow(len(list_analysis_points),2))
-        feedback.pushInfo("Expecting total workload of {} iterations".format(int(total_workload)))
-        
-        with open(output_path, 'w', newline='') as csvfile:
-            csv_writer = csv.writer(csvfile, delimiter=';',
-                                        quotechar='|', 
-                                        quoting=csv.QUOTE_MINIMAL)
-            #write header
-            csv_writer.writerow(["origin_id","destination_id","cost"])
-            
-            current_workstep_number = 0
-            
-            for start_point in list_analysis_points:
-                #optimize in case of undirected (not necessary to call calcDijkstra as it has already been calculated - can be replaced by reading from list)
-                dijkstra_query = net.calcDijkstra(start_point.network_vertex_id, 0)
-                for query_point in list_analysis_points:
-                    if (current_workstep_number%1000)==0:
-                        feedback.pushInfo("{} OD-pairs processed...".format(current_workstep_number))
-                    if query_point.point_id == start_point.point_id:
-                        csv_writer.writerow([start_point.point_id, query_point.point_id, float(0)])
-                    elif dijkstra_query[0][query_point.network_vertex_id] == -1:
-                        csv_writer.writerow([start_point.point_id, query_point.point_id, None])
-                    else:
-                        entry_cost = start_point.calcEntryCost(strategy, context)+query_point.calcEntryCost(strategy, context)
-                        total_cost = dijkstra_query[1][query_point.network_vertex_id]+entry_cost
-                        csv_writer.writerow([start_point.point_id, query_point.point_id, total_cost])
-                    current_workstep_number=current_workstep_number+1
-                    feedback.setProgress(current_workstep_number/total_workload)
-                    
-            feedback.pushInfo("Total number of OD-pairs processed: {}".format(current_workstep_number))
-        
-            feedback.pushInfo("Initialization Done")
-            feedback.pushInfo("Ending Algorithm")
+        output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT_INTERPOLATION, context) #string
 
-        results = {self.OUTPUT: output_path}
+        analysisCrs = network.sourceCrs()
+        input_coordinates = [startPoint]
+        input_point = getFeatureFromPointParameter(startPoint)
+        
+        net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
+
+        analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0])
+        
+        feedback.pushInfo("Calculating Iso-Pointcloud...")
+        
+        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist+(max_dist*0.1), context)
+        
+        uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())
+        
+        iso_pointcloud_layer = QgsVectorLayer(uri, "iso_pointcloud_layer", "memory")
+        iso_pointcloud_provider = iso_pointcloud_layer.dataProvider()
+        iso_pointcloud_provider.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
+        
+        feedback.pushInfo("Calculating Iso-Interpolation-Raster using QGIS TIN-Interpolator...")
+        net.calcIsoInterpolation(iso_pointcloud_layer, cell_size, output_path)
+            
+        fields = QgsFields()
+        fields.append(QgsField('id', QVariant.Int, '', 254, 0))
+        fields.append(QgsField('cost_level', QVariant.Double, '', 20, 7))
+        
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_CONTOURS, context, fields, QgsWkbTypes.LineString, network.sourceCrs())
+        
+        feedback.pushInfo("Calculating Iso-Contours using numpy and matplotlib...")
+        contour_featurelist = net.calcIsoContours(max_dist, interval, output_path)
+        
+        sink.addFeatures(contour_featurelist, QgsFeatureSink.FastInsert)
+        feedback.pushInfo("Ending Algorithm")
+        
+        results = {}
+        results[self.OUTPUT_INTERPOLATION] = output_path
+        results[self.OUTPUT_CONTOURS] = dest_id
         return results
 

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 ***************************************************************************
-    IsoAreaAsPointcloudMultiple.py
+    IsoAreaAsPolygonFromLayer.py
     ---------------------
-    Date                 : February 2018
+    Date                 : April 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
@@ -17,7 +17,7 @@
 """
 
 __author__ = 'Clemens Raffler'
-__date__ = 'February 2018'
+__date__ = 'April 2018'
 __copyright__ = '(C) 2018, Clemens Raffler'
 
 # This will get replaced with a git SHA1 when you do a git archive
@@ -31,45 +31,38 @@ from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (QgsWkbTypes,
-                       QgsUnitTypes,
-                       QgsFeature,
+                       QgsVectorLayer,
                        QgsFeatureSink,
-                       QgsGeometry,
                        QgsFields,
                        QgsField,
                        QgsProcessing,
-                       QgsProcessingException,
-                       QgsProcessingOutputNumber,
                        QgsProcessingParameterEnum,
-                       QgsProcessingParameterPoint,
                        QgsProcessingParameterField,
                        QgsProcessingParameterNumber,
+                       QgsProcessingParameterRasterDestination,
                        QgsProcessingParameterString,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFeatureSink,
                        QgsProcessingParameterDefinition)
 
-from qgis.analysis import (QgsVectorLayerDirector,
-                           QgsNetworkDistanceStrategy,
-                           QgsNetworkSpeedStrategy,
-                           QgsGraphBuilder,
-                           QgsGraphAnalyzer
-                           )
+from qgis.analysis import QgsVectorLayerDirector
 
 from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getListOfPoints, getFeaturesFromQgsIterable, getFieldDatatype
+from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable, getListOfPoints
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class IsoAreaAsPointcloudMultiple(QgisAlgorithm):
+class IsoAreaAsPolygonsFromLayer(QgisAlgorithm):
 
     INPUT = 'INPUT'
     START_POINTS = 'START_POINTS'
     ID_FIELD = 'ID_FIELD'
     MAX_DIST = "MAX_DIST"
+    CELL_SIZE = "CELL_SIZE"
+    INTERVAL = "INTERVAL"
     STRATEGY = 'STRATEGY'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
@@ -79,10 +72,11 @@ class IsoAreaAsPointcloudMultiple(QgisAlgorithm):
     SPEED_FIELD = 'SPEED_FIELD'
     DEFAULT_SPEED = 'DEFAULT_SPEED'
     TOLERANCE = 'TOLERANCE'
-    OUTPUT = 'OUTPUT'
+    OUTPUT_INTERPOLATION = 'OUTPUT_INTERPOLATION'
+    OUTPUT_POLYGONS = 'OUTPUT_POLYGONS'
 
     def icon(self):
-        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_points.svg'))
+        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_polygon.svg'))
 
     def group(self):
         return self.tr('Iso-Areas')
@@ -91,10 +85,10 @@ class IsoAreaAsPointcloudMultiple(QgisAlgorithm):
         return 'isoareas'
     
     def name(self):
-        return 'isoareaaspointcloudmultiple'
+        return 'isoareaaspolygonsfromlayer'
 
     def displayName(self):
-        return self.tr('Iso-Area as Pointcloud (multiple locations)')
+        return self.tr('Iso-Area as Polygons (from Layer)')
     
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
@@ -124,9 +118,17 @@ class IsoAreaAsPointcloudMultiple(QgisAlgorithm):
                                                        self.START_POINTS,
                                                        optional=False))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
-                                                   self.tr('Size of Iso-Area (distance or seconds depending on strategy)'),
+                                                   self.tr('Size of Iso-Area (distance or time value)'),
                                                    QgsProcessingParameterNumber.Double,
                                                    2500.0, False, 0, 99999999.99))
+        self.addParameter(QgsProcessingParameterNumber(self.INTERVAL,
+                                                   self.tr('Contour Interval (distance or time value)'),
+                                                   QgsProcessingParameterNumber.Double,
+                                                   500.0, False, 0, 99999999.99))
+        self.addParameter(QgsProcessingParameterNumber(self.CELL_SIZE,
+                                                    self.tr('Cellsize of interpolation raster'),
+                                                    QgsProcessingParameterNumber.Integer,
+                                                    10, False, 1, 99999999))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
                                                      self.tr('Path type to calculate'),
                                                      self.STRATEGIES,
@@ -168,17 +170,18 @@ class IsoAreaAsPointcloudMultiple(QgisAlgorithm):
         for p in params:
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
-        
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT,
-                                                            self.tr('Output Pointcloud'),
-                                                            QgsProcessing.TypeVectorLine))
 
+        self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT_INTERPOLATION, self.tr('Output Interpolation')))
+        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_POLYGONS, self.tr('Output Polygon'), QgsProcessing.TypeVectorPolygon))
+        
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
         startPoints = self.parameterAsSource(parameters, self.START_POINTS, context) #QgsProcessingFeatureSource
         id_field = self.parameterAsString(parameters, self.ID_FIELD, context) #str
+        interval = self.parameterAsDouble(parameters, self.INTERVAL, context)#float
         max_dist = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
+        cell_size = self.parameterAsInt(parameters, self.CELL_SIZE, context)#int
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
 
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
@@ -189,30 +192,43 @@ class IsoAreaAsPointcloudMultiple(QgisAlgorithm):
         speedFieldName = self.parameterAsString(parameters, self.SPEED_FIELD, context) #str
         defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) #float
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
+        output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT_INTERPOLATION, context) #string
 
         analysisCrs = network.sourceCrs()
         input_coordinates = getListOfPoints(startPoints)
         
         net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
-        
+
         list_apoints = [Qneat3AnalysisPoint("from", feature, id_field, net, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(startPoints))]
         
         feedback.pushInfo("Calculating Iso-Pointcloud...")
         
+        iso_pointcloud = net.calcIsoPoints(list_apoints, max_dist+(max_dist*0.1), context)
+        
+        uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())
+        
+        iso_pointcloud_layer = QgsVectorLayer(uri, "iso_pointcloud_layer", "memory")
+        iso_pointcloud_provider = iso_pointcloud_layer.dataProvider()
+        iso_pointcloud_provider.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
+        
+        feedback.pushInfo("Calculating Iso-Interpolation-Raster using QGIS TIN-Interpolator...")
+        net.calcIsoInterpolation(iso_pointcloud_layer, cell_size, output_path)
+            
         fields = QgsFields()
-        fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
-        fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
-        fields.append(QgsField('origin_point_id', getFieldDatatype(startPoints, id_field)))
+        fields.append(QgsField('id', QVariant.Int, '', 254, 0))
+        fields.append(QgsField('cost_level', QVariant.Double, '', 20, 7))
         
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, network.sourceCrs())
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_POLYGONS, context, fields, QgsWkbTypes.Polygon, network.sourceCrs())   
         
-        iso_pointcloud = net.calcIsoPoints(list_apoints, max_dist, context)
+        feedback.pushInfo("Calculating Iso-Polygons using numpy and matplotlib...")
+        contour_featurelist = net.calcIsoPolygons(max_dist, interval, output_path)
         
-        sink.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
-        
-        feedback.pushInfo("Ending Algorithm")        
+        sink.addFeatures(contour_featurelist, QgsFeatureSink.FastInsert)
+        feedback.pushInfo("Ending Algorithm")
         
         results = {}
-        results[self.OUTPUT] = dest_id
+        results[self.OUTPUT_INTERPOLATION] = output_path
+        results[self.OUTPUT_POLYGONS] = dest_id
         return results
+
 

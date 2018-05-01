@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 ***************************************************************************
-    IsoAreaAsPointcloudSingle.py
+    IsoAreaAsPointcloudFromLayer.py
     ---------------------
     Date                 : February 2018
     Copyright            : (C) 2018 by Clemens Raffler
@@ -31,17 +31,11 @@ from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (QgsWkbTypes,
-                       QgsUnitTypes,
-                       QgsFeature,
                        QgsFeatureSink,
-                       QgsGeometry,
                        QgsFields,
                        QgsField,
                        QgsProcessing,
-                       QgsProcessingException,
-                       QgsProcessingOutputNumber,
                        QgsProcessingParameterEnum,
-                       QgsProcessingParameterPoint,
                        QgsProcessingParameterField,
                        QgsProcessingParameterNumber,
                        QgsProcessingParameterString,
@@ -49,25 +43,21 @@ from qgis.core import (QgsWkbTypes,
                        QgsProcessingParameterFeatureSink,
                        QgsProcessingParameterDefinition)
 
-from qgis.analysis import (QgsVectorLayerDirector,
-                           QgsNetworkDistanceStrategy,
-                           QgsNetworkSpeedStrategy,
-                           QgsGraphBuilder,
-                           QgsGraphAnalyzer
-                           )
+from qgis.analysis import QgsVectorLayerDirector
 
 from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable, getFeatureFromPointParameter
+from QNEAT3.Qneat3Utilities import getListOfPoints, getFeaturesFromQgsIterable, getFieldDatatype
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class IsoAreaAsPointcloudSingle(QgisAlgorithm):
+class IsoAreaAsPointcloudFromLayer(QgisAlgorithm):
 
     INPUT = 'INPUT'
-    START_POINT = 'START_POINT'
+    START_POINTS = 'START_POINTS'
+    ID_FIELD = 'ID_FIELD'
     MAX_DIST = "MAX_DIST"
     STRATEGY = 'STRATEGY'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
@@ -90,10 +80,10 @@ class IsoAreaAsPointcloudSingle(QgisAlgorithm):
         return 'isoareas'
     
     def name(self):
-        return 'isoareaaspointcloudsingle'
+        return 'isoareaaspointcloudfromlayer'
 
     def displayName(self):
-        return self.tr('Iso-Area as Pointcloud (single location)')
+        return self.tr('Iso-Area as Pointcloud (from Layer)')
     
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
@@ -112,16 +102,22 @@ class IsoAreaAsPointcloudSingle(QgisAlgorithm):
                            ]
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
-                                                              self.tr('Vector layer representing network'),
+                                                              self.tr('Network Layer'),
                                                               [QgsProcessing.TypeVectorLine]))
-        self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
-                                                      self.tr('Start point')))
+        self.addParameter(QgsProcessingParameterFeatureSource(self.START_POINTS,
+                                                              self.tr('Startpoint Layer'),
+                                                              [QgsProcessing.TypeVectorPoint]))
+        self.addParameter(QgsProcessingParameterField(self.ID_FIELD,
+                                                       self.tr('Unique Point ID Field'),
+                                                       None,
+                                                       self.START_POINTS,
+                                                       optional=False))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
-                                                   self.tr('Size of Iso-Area (distance or seconds depending on strategy)'),
+                                                   self.tr('Size of Iso-Area (Distance or Seconds depending on Strategy)'),
                                                    QgsProcessingParameterNumber.Double,
                                                    2500.0, False, 0, 99999999.99))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
-                                                     self.tr('Path type to calculate'),
+                                                     self.tr('Optimization criterion'),
                                                      self.STRATEGIES,
                                                      defaultValue=0))
 
@@ -169,7 +165,8 @@ class IsoAreaAsPointcloudSingle(QgisAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
-        startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs()) #QgsPointXY
+        startPoints = self.parameterAsSource(parameters, self.START_POINTS, context) #QgsProcessingFeatureSource
+        id_field = self.parameterAsString(parameters, self.ID_FIELD, context) #str
         max_dist = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
 
@@ -183,22 +180,22 @@ class IsoAreaAsPointcloudSingle(QgisAlgorithm):
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
 
         analysisCrs = network.sourceCrs()
-        input_coordinates = [startPoint]
-        input_point = getFeatureFromPointParameter(startPoint)
+        input_coordinates = getListOfPoints(startPoints)
         
         net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
-
-        analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0])
+        
+        list_apoints = [Qneat3AnalysisPoint("from", feature, id_field, net, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(startPoints))]
         
         feedback.pushInfo("Calculating Iso-Pointcloud...")
         
         fields = QgsFields()
         fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
         fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
+        fields.append(QgsField('origin_point_id', getFieldDatatype(startPoints, id_field)))
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, network.sourceCrs())
         
-        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist, context)
+        iso_pointcloud = net.calcIsoPoints(list_apoints, max_dist, context)
         
         sink.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
         
