@@ -168,7 +168,7 @@ class OdMatrixFromPointsAsCsv(QgisAlgorithm):
         output_path = self.parameterAsFileOutput(parameters, self.OUTPUT, context) #str (filepath)
         feedback.pushInfo(pluginPath)
         
-        analysisCrs = context.project().crs()
+        analysisCrs = network.sourceCrs()
         
         net = Qneat3Network(network, points, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         

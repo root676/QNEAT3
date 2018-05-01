@@ -189,7 +189,7 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
         defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) #float
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
         
-        analysisCrs = context.project().crs()
+        analysisCrs = network.sourceCrs()
         
         #Points of both layers have to be merged into one layer --> then tied to the Qneat3Network
         #get point list of from layer

@@ -189,7 +189,7 @@ class IsoAreaAsInterpolation(QgisAlgorithm):
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
         output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
 
-        analysisCrs = context.project().crs()
+        analysisCrs = network.sourceCrs()
         input_coordinates = [startPoint]
         input_point = getFeatureFromPointParameter(startPoint)
         

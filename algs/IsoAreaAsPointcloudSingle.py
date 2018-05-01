@@ -182,7 +182,7 @@ class IsoAreaAsPointcloudSingle(QgisAlgorithm):
         defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) #float
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
 
-        analysisCrs = context.project().crs()
+        analysisCrs = network.sourceCrs()
         input_coordinates = [startPoint]
         input_point = getFeatureFromPointParameter(startPoint)
         

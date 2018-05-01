@@ -219,6 +219,7 @@ class Qneat3Network():
                     
         return iso_pointcloud.values() #list of QgsFeature (=QgsFeatureList)
                 
+                
     def calcIsoInterpolation(self, iso_point_layer, resolution, interpolation_raster_path):
         layer_data = QgsInterpolator.LayerData()
         QgsInterpolator.LayerData
@@ -236,7 +237,11 @@ class Qneat3Network():
         
         writer = QgsGridFileWriter(tin_interpolator, interpolation_raster_path, rect, ncol, nrows)
         writer.writeFile(self.feedback)  # Creating .asc raste
-        return QgsRasterLayer(interpolation_raster_path, "temp_qneat3_interpolation_raster")        
+        return QgsRasterLayer(interpolation_raster_path, "temp_qneat3_interpolation_raster")
+    
+    def calcIsoLimewiseInterpolation(self, iso_point_layer, resolution, interpolation_raster_path):
+                
+        return 0
 
     def calcIsoContours(self, max_dist, interval, interpolation_raster_path):
         featurelist = []
@@ -385,7 +390,7 @@ class Qneat3AnalysisPoint():
         dist_calculator = QgsDistanceArea()
         dist_calculator.setSourceCrs(self.crs, context.transformContext())
         dist_calculator.setEllipsoid(context.project().ellipsoid())
-        dist = dist_calculator.measureLine(self.point_geom, self.network_vertex.point())
+        dist = dist_calculator.measureLine([self.point_geom, self.network_vertex.point()])
         #entry_linestring_geom = self.calcEntryLinestring()
         if strategy == "Shortest":
             return dist

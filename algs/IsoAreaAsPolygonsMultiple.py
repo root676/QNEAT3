@@ -205,7 +205,7 @@ class IsoAreaAsPolygonsMultiple(QgisAlgorithm):
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
         output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT_INTERPOLATION, context) #string
 
-        analysisCrs = context.project().crs()
+        analysisCrs = network.sourceCrs()
         input_coordinates = getListOfPoints(startPoints)
         
         net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
