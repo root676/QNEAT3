@@ -43,7 +43,7 @@ from qgis.core import (QgsFeatureSink,
 from qgis.analysis import QgsVectorLayerDirector
 
 from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getListOfPoints
+from QNEAT3.Qneat3Utilities import getListOfPoints, getFeaturesFromQgsIterable
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
