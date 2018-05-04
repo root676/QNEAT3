@@ -177,8 +177,8 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
                                                             QgsProcessing.TypeVectorLine))
 
     def processAlgorithm(self, parameters, context, feedback):
-        feedback.pushInfo(self.tr('[ALGORITHM] This is a QNEAT3 Algorithm'))
-        feedback.pushInfo(self.tr('[ALGORITHM] Initializing Variables'))
+        feedback.pushInfo(self.tr('[QNEAT3Algorithm] This is a QNEAT3 Algorithm'))
+        feedback.pushInfo(self.tr('[QNEAT3Algorithm] Initializing Variables'))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
         startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs()) #QgsPointXY
         endPoint = self.parameterAsPoint(parameters, self.END_POINT, context, network.sourceCrs()) #QgsPointXY
@@ -198,7 +198,7 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         input_qgspointxy_list = [startPoint,endPoint]
         input_points = [getFeatureFromPointParameter(startPoint),getFeatureFromPointParameter(endPoint)]
         
-        feedback.pushInfo(self.tr('[ALGORITHM] Building Graph'))
+        feedback.pushInfo(self.tr('[QNEAT3Algorithm] Building Graph'))
         net = Qneat3Network(network, input_qgspointxy_list, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         feedback.setProgress(20)
         
@@ -207,7 +207,7 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         start_vertex_idx = list_analysis_points[0].network_vertex_id
         end_vertex_idx = list_analysis_points[1].network_vertex_id
         
-        feedback.pushInfo("[ALGORITHM] Calculating shortest path...")
+        feedback.pushInfo("[QNEAT3Algorithm] Calculating shortest path...")
         feedback.setProgress(30)
         
         dijkstra_query = net.calcDijkstra(start_vertex_idx,0)
@@ -236,7 +236,7 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         cost_on_graph = dijkstra_query[1][end_vertex_idx]
         total_cost = start_entry_cost + cost_on_graph + end_exit_cost
         
-        feedback.pushInfo("[ALGORITHM] Writing path-feature...")
+        feedback.pushInfo("[QNEAT3Algorithm] Writing path-feature...")
         feedback.setProgress(80)
         feat = QgsFeature()
         
@@ -265,7 +265,7 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         feat.setGeometry(geom)
         
         sink.addFeature(feat, QgsFeatureSink.FastInsert)
-        feedback.pushInfo("[ALGORITHM] Ending Algorithm")        
+        feedback.pushInfo("[QNEAT3Algorithm] Ending Algorithm")        
         feedback.setProgress(100)
         results = {}
         results[self.OUTPUT] = dest_id
