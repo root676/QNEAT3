@@ -3,6 +3,10 @@
 ***************************************************************************
     IsoAreaAsInterpolationPoint.py
     ---------------------
+    
+    Partially based on QGIS3 network analysis algorithms. 
+    Copyright 2016 Alexander Bruy    
+    
     Date                 : March 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
