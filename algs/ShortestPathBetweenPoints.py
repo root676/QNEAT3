@@ -31,9 +31,6 @@ from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (QgsWkbTypes,
-                       QgsDistanceArea,
-                       QgsProject,
-                       QgsPointXY,
                        QgsFeature,
                        QgsFeatureSink,
                        QgsGeometry,
