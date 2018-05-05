@@ -3,6 +3,10 @@
 ***************************************************************************
     OdMatrixFromPointsAsCsv.py
     ---------------------
+        
+    Partially based on QGIS3 network analysis algorithms. 
+    Copyright 2016 Alexander Bruy    
+    
     Date                 : February 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
@@ -151,7 +155,7 @@ class OdMatrixFromPointsAsCsv(QgisAlgorithm):
         self.addParameter(QgsProcessingParameterFileDestination(self.OUTPUT, self.tr('Output OD Matrix'), self.tr('CSV files (*.csv)')),True)
 
     def processAlgorithm(self, parameters, context, feedback):
-        feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
+        feedback.pushInfo(self.tr("[QNEAT3Algorithm] This is a QNEAT3 Algorithm: '{}'".format(self.displayName())))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
         points = self.parameterAsSource(parameters, self.POINTS, context) #QgsProcessingFeatureSource
         id_field = self.parameterAsString(parameters, self.ID_FIELD, context) #str
@@ -168,21 +172,22 @@ class OdMatrixFromPointsAsCsv(QgisAlgorithm):
         output_path = self.parameterAsFileOutput(parameters, self.OUTPUT, context) #str (filepath)
         feedback.pushInfo(pluginPath)
         
-        analysisCrs = context.project().crs()
+        analysisCrs = network.sourceCrs()
         
+        feedback.pushInfo("[QNEAT3Algorithm] Building Graph...")
         net = Qneat3Network(network, points, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         
-        list_analysis_points = [Qneat3AnalysisPoint("point", feature, id_field, net, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(net.input_points))]
+        list_analysis_points = [Qneat3AnalysisPoint("point", feature, id_field, net, net.list_tiedPoints[i], feedback) for i, feature in enumerate(getFeaturesFromQgsIterable(net.input_points))]
         
         total_workload = float(pow(len(list_analysis_points),2))
-        feedback.pushInfo("Expecting total workload of {} iterations".format(int(total_workload)))
+        feedback.pushInfo("[QNEAT3Algorithm] Expecting total workload of {} iterations".format(int(total_workload)))
         
         with open(output_path, 'w', newline='') as csvfile:
             csv_writer = csv.writer(csvfile, delimiter=';',
                                         quotechar='|', 
                                         quoting=csv.QUOTE_MINIMAL)
             #write header
-            csv_writer.writerow(["origin_id","destination_id","cost"])
+            csv_writer.writerow(["origin_id","destination_id","entry_cost", "network_cost", "exit_cost", "total_cost"])
             
             current_workstep_number = 0
             
@@ -191,22 +196,23 @@ class OdMatrixFromPointsAsCsv(QgisAlgorithm):
                 dijkstra_query = net.calcDijkstra(start_point.network_vertex_id, 0)
                 for query_point in list_analysis_points:
                     if (current_workstep_number%1000)==0:
-                        feedback.pushInfo("{} OD-pairs processed...".format(current_workstep_number))
+                        feedback.pushInfo("[QNEAT3Algorithm] {} OD-pairs processed...".format(current_workstep_number))
                     if query_point.point_id == start_point.point_id:
                         csv_writer.writerow([start_point.point_id, query_point.point_id, float(0)])
                     elif dijkstra_query[0][query_point.network_vertex_id] == -1:
                         csv_writer.writerow([start_point.point_id, query_point.point_id, None])
                     else:
-                        entry_cost = start_point.calcEntryCost(strategy, context)+query_point.calcEntryCost(strategy, context)
-                        total_cost = dijkstra_query[1][query_point.network_vertex_id]+entry_cost
-                        csv_writer.writerow([start_point.point_id, query_point.point_id, total_cost])
+                        entry_cost = start_point.entry_cost
+                        network_cost = dijkstra_query[1][query_point.network_vertex_id]
+                        exit_cost = query_point.entry_cost
+                        total_cost = entry_cost + network_cost + exit_cost
+                        csv_writer.writerow([start_point.point_id, query_point.point_id, entry_cost, network_cost, exit_cost, total_cost])
                     current_workstep_number=current_workstep_number+1
-                    feedback.setProgress(current_workstep_number/total_workload)
+                    feedback.setProgress((current_workstep_number/total_workload)*100)
                     
-            feedback.pushInfo("Total number of OD-pairs processed: {}".format(current_workstep_number))
+            feedback.pushInfo("[QNEAT3Algorithm] Total number of OD-pairs processed: {}".format(current_workstep_number))
         
-            feedback.pushInfo("Initialization Done")
-            feedback.pushInfo("Ending Algorithm")
+            feedback.pushInfo("[QNEAT3Algorithm] Ending Algorithm")
 
         results = {self.OUTPUT: output_path}
         return results

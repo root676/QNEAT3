@@ -9,18 +9,17 @@
 ***************************************************************************
 """
 
-import time, datetime
+import time
 import gdal
 
-from math import floor, ceil
-from numpy import array, arange, meshgrid, insert, linspace, nditer
+from math import ceil
+from numpy import arange, meshgrid, linspace, nditer
 from osgeo import osr
-from qgis.core import QgsRasterLayer, QgsFeatureSink, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsPointXY, QgsDistanceArea, QgsUnitTypes
-from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder, QgsInterpolator, QgsTinInterpolator, QgsIDWInterpolator, QgsGridFileWriter
+from qgis.core import QgsProject, QgsRasterLayer, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsPointXY, QgsDistanceArea, QgsUnitTypes
+from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder, QgsInterpolator, QgsTinInterpolator, QgsGridFileWriter
 from qgis.PyQt.QtCore import QVariant
 
 from QNEAT3.Qneat3Utilities import getFieldIndexFromQgsProcessingFeatureSource, getListOfPoints, getFieldDatatypeFromPythontype
-from numpy.polynomial.polynomial import polyline
 
 
 class Qneat3Network():
@@ -77,11 +76,11 @@ class Qneat3Network():
         #initialize feedback
         self.feedback = feedback
         
-        self.feedback.pushInfo("[QNEAT3Network]: setting up parameters")
+        self.feedback.pushInfo("[QNEAT3Network][__init__] Setting up parameters")
         self.AnalysisCrs = input_analysisCrs
         
         #init direction fields
-        self.feedback.pushInfo("[QNEAT3Network]: setting up network direction parameters")
+        self.feedback.pushInfo("[QNEAT3Network][__init__] Setting up network direction parameters")
         self.directedAnalysis = self.setNetworkDirection((input_directionFieldName, input_forwardValue, input_backwardValue, input_bothValue, input_defaultDirection))
         self.director = QgsVectorLayerDirector(input_network,
                                     getFieldIndexFromQgsProcessingFeatureSource(input_network, input_directionFieldName),
@@ -91,7 +90,7 @@ class Qneat3Network():
                                     input_defaultDirection)
 
         #init analysis points
-        self.feedback.pushInfo("[QNEAT3Network]: setting up analysis points")
+        self.feedback.pushInfo("[QNEAT3Network][__init__] Setting up analysis points")
         if isinstance(input_points,(list,)):
             self.list_input_points = input_points #[QgsPointXY]
         else:
@@ -99,7 +98,7 @@ class Qneat3Network():
             self.input_points = input_points
     
         #Setup cost-strategy pattern.
-        self.feedback.pushInfo("[QNEAT3Network]: Setting analysis strategy: {}".format(input_strategy))
+        self.feedback.pushInfo("[QNEAT3Network][__init__] Setting analysis strategy: {}".format(input_strategy))
         self.setNetworkStrategy(input_strategy, input_network, input_speedField, input_defaultSpeed)
         self.director.addStrategy(self.strategy)
         #add the strategy to the QgsGraphDirector
@@ -107,18 +106,18 @@ class Qneat3Network():
         self.builder = QgsGraphBuilder(self.AnalysisCrs)
         #tell the graph-director to make the graph using the builder object and tie the start point geometry to the graph
         
-        self.feedback.pushInfo("[QNEAT3Network]: Start tying analysis points to the graph and building it.")
-        self.feedback.pushInfo("...This is a compute intensive task and may take some time depending on network size")
+        self.feedback.pushInfo("[QNEAT3Network][__init__] Start tying analysis points to the graph and building it.")
+        self.feedback.pushInfo("[QNEAT3Network][__init__] This is a compute intensive task and may take some time depending on network size")
         start_local_time = time.localtime()
         start_time = time.time()
-        self.feedback.pushInfo("...Start Time: {}".format(time.strftime(":%Y-%m-%d %H:%M:%S", start_local_time)))
+        self.feedback.pushInfo("[QNEAT3Network][__init__] Start Time: {}".format(time.strftime(":%Y-%m-%d %H:%M:%S", start_local_time)))
         self.list_tiedPoints = self.director.makeGraph(self.builder, self.list_input_points)
         self.network = self.builder.graph()
         end_local_time = time.localtime()
         end_time = time.time()
-        self.feedback.pushInfo("...End Time: {}".format(time.strftime(":%Y-%m-%d %H:%M:%S", end_local_time)))
-        self.feedback.pushInfo("...Total Build Time: {}".format(end_time-start_time))
-        self.feedback.pushInfo("[QNEAT3Network]: Analysis setup complete")
+        self.feedback.pushInfo("[QNEAT3Network][__init__] End Time: {}".format(time.strftime(":%Y-%m-%d %H:%M:%S", end_local_time)))
+        self.feedback.pushInfo("[QNEAT3Network][__init__] Total Build Time: {}".format(end_time-start_time))
+        self.feedback.pushInfo("[QNEAT3Network][__init__] Analysis setup complete")
         
             
     def setNetworkDirection(self, directionArgs):    
@@ -135,8 +134,10 @@ class Qneat3Network():
         speedFieldId = getFieldIndexFromQgsProcessingFeatureSource(input_network, input_speedField)
         if input_strategy == 0:
             self.strategy = QgsNetworkDistanceStrategy()
+            self.strategy_int = 0
         else:
             self.strategy = QgsNetworkSpeedStrategy(speedFieldId, float(input_defaultSpeed), multiplier * 1000.0 / 3600.0)
+            self.strategy_int = 1
         self.multiplier = 3600
 
     def calcDijkstra(self, startpoint_id, criterion):
@@ -154,14 +155,15 @@ class Qneat3Network():
     def calcIsoPoints(self, analysis_point_list, max_dist, context):
         iso_pointcloud = dict()
         
-        for point in analysis_point_list:
+        for counter, point in enumerate(analysis_point_list):
+            self.feedback.pushInfo("[QNEAT3Network][calcIsoPoints] Processing Point {}".format(counter))
             dijkstra_query = self.calcDijkstra(point.network_vertex_id, 0)
             tree = dijkstra_query[0]
             cost = dijkstra_query[1]
             
             current_start_point_id = point.point_id #id of the input point
             current_vertex_id = point.network_vertex_id
-            entry_cost = point.calcEntryCost(self.strategy, context)
+            entry_cost = point.entry_cost
             
             field_type = getFieldDatatypeFromPythontype(current_start_point_id)
             
@@ -215,9 +217,10 @@ class Qneat3Network():
                         #count up to next vertex
                 i = i + 1 
                 if i%1000 == 0:
-                    self.feedback.pushInfo("Added {} Nodes to iso pointcloud...".format(i))
+                    self.feedback.pushInfo("[QNEAT3Network][calcIsoPoints] Added {} Nodes to iso pointcloud...".format(i))
                     
         return iso_pointcloud.values() #list of QgsFeature (=QgsFeatureList)
+                
                 
     def calcIsoInterpolation(self, iso_point_layer, resolution, interpolation_raster_path):
         layer_data = QgsInterpolator.LayerData()
@@ -236,7 +239,10 @@ class Qneat3Network():
         
         writer = QgsGridFileWriter(tin_interpolator, interpolation_raster_path, rect, ncol, nrows)
         writer.writeFile(self.feedback)  # Creating .asc raste
-        return QgsRasterLayer(interpolation_raster_path, "temp_qneat3_interpolation_raster")        
+        return QgsRasterLayer(interpolation_raster_path, "temp_qneat3_interpolation_raster")
+    
+    def calcIsoLimewiseInterpolation(self, iso_point_layer, resolution, interpolation_raster_path):
+        return 0
 
     def calcIsoContours(self, max_dist, interval, interpolation_raster_path):
         featurelist = []
@@ -271,7 +277,7 @@ class Qneat3Network():
         
         fid = 0
         for current_level in nditer(levels):
-            self.feedback.pushInfo("calculating {}-level contours".format(current_level))
+            self.feedback.pushInfo("[QNEAT3Network][calcIsoContours] Calculating {}-level contours".format(current_level))
             contours = plt.contourf(x_grid, y_grid, raster_values, [0, current_level], antialiased=True)
             
             for collection in contours.collections:
@@ -327,15 +333,10 @@ class Qneat3Network():
         end = interval * ceil(max_dist/interval) +interval
     
         levels = arange(start, end, interval)
-        
-        self.feedback.pushInfo("computing contours using matplotlib.pyplot as plt:")
-        self.feedback.pushInfo("x_grid: {}".format(x_grid.shape))
-        self.feedback.pushInfo("y_grid: {}".format(y_grid.shape))
-        self.feedback.pushInfo("raster_values: {}".format(raster_values.shape))  
-        
+
         fid = 0
         for current_level in nditer(levels):
-            self.feedback.pushInfo("calculating {}-level contours".format(current_level))
+            self.feedback.pushInfo("[QNEAT3Network][calcIsoPolygons] calculating {}-level contours".format(current_level))
             contours = plt.contourf(x_grid, y_grid, raster_values, [0, current_level], antialiased=True)
         
 
@@ -345,7 +346,7 @@ class Qneat3Network():
         
                     polygon_list = []
                     
-                    for vertex in contour_path.to_polygons(closed_only=True):
+                    for vertex in contour_path.to_polygons():
                         x = vertex[:,0]
                         y = vertex[:,1]
 
@@ -367,12 +368,12 @@ class Qneat3Network():
             fid=fid+1    
         """Maybe move to algorithm"""
         #featurelist = featurelist[::-1] #reverse
-        self.feedback.pushInfo("number of elements in contour_featurelist: {}".format(len(featurelist)))
+        self.feedback.pushInfo("[QNEAT3Network][calcIsoPolygons] number of elements in contour_featurelist: {}".format(len(featurelist)))
         return featurelist
         
 class Qneat3AnalysisPoint():
     
-    def __init__(self, layer_name, feature, point_id_field_name, net, vertex_geom):
+    def __init__(self, layer_name, feature, point_id_field_name, net, vertex_geom, feedback):
         self.layer_name = layer_name
         self.point_feature = feature
         self.point_id = feature[point_id_field_name]
@@ -380,17 +381,20 @@ class Qneat3AnalysisPoint():
         self.network_vertex_id = self.getNearestVertexId(net.network, vertex_geom)
         self.network_vertex = self.getNearestVertex(net.network, vertex_geom)
         self.crs = net.AnalysisCrs
+        self.strategy = net.strategy_int
+        self.entry_cost = self.calcEntryCost(feedback)
         
-    def calcEntryCost(self, strategy, context):
+    def calcEntryCost(self, feedback):
         dist_calculator = QgsDistanceArea()
-        dist_calculator.setSourceCrs(self.crs, context.transformContext())
-        dist_calculator.setEllipsoid(context.project().ellipsoid())
-        dist = dist_calculator.measureLine(self.point_geom, self.network_vertex.point())
-        #entry_linestring_geom = self.calcEntryLinestring()
-        if strategy == "Shortest":
+        dist_calculator.setSourceCrs(QgsProject().instance().crs(), QgsProject().instance().transformContext())
+        dist_calculator.setEllipsoid(QgsProject().instance().crs().ellipsoidAcronym())
+        dist = dist_calculator.measureLine([self.point_geom, self.network_vertex.point()])
+        feedback.pushInfo("[QNEAT3Network][calcEntryCost] Ellipsoidal entry cost to vertex {} = {}".format(self.network_vertex_id, dist))
+        if self.strategy == 0:
             return dist
         else:
             return dist/1.3888 #length/(m/s) todo: Make dynamic
+
 
     def calcEntryLinestring(self):
         return QgsGeometry.fromPolylineXY([self.point_geom, self.network_vertex.point()])
@@ -402,9 +406,5 @@ class Qneat3AnalysisPoint():
         return network.vertex(self.getNearestVertexId(network, vertex_geom))
     
     def __str__(self):
-        try:
-            pid = str(self.point_id).decode('utf8')
-        except UnicodeEncodeError:
-            pid = self.point_id
-        return u"QneatAnalysisPoint: {} analysis_id: {:30} FROM {:30} TO {:30} network_id: {:d}".format(self.layer_name, pid, self.point_geom.__str__(), self.network_vertex.point().__str__(), self.network_vertex_id)    
+        return u"QneatAnalysisPoint: {} analysis_id: {:30} FROM {:30} TO {:30} network_id: {:d}".format(self.layer_name, self.point_id, self.point_geom.__str__(), self.network_vertex.point().__str__(), self.network_vertex_id)    
                                                                                                                                                                                                                         
