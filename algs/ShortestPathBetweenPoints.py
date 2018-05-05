@@ -177,7 +177,7 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
                                                             QgsProcessing.TypeVectorLine))
 
     def processAlgorithm(self, parameters, context, feedback):
-        feedback.pushInfo(self.tr('[QNEAT3Algorithm] This is a QNEAT3 Algorithm'))
+        feedback.pushInfo(self.tr("[QNEAT3Algorithm] This is a QNEAT3 Algorithm: '{}'".format(self.displayName())))
         feedback.pushInfo(self.tr('[QNEAT3Algorithm] Initializing Variables'))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
         startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs()) #QgsPointXY
@@ -199,8 +199,9 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         input_points = [getFeatureFromPointParameter(startPoint),getFeatureFromPointParameter(endPoint)]
         
         feedback.pushInfo(self.tr('[QNEAT3Algorithm] Building Graph'))
+        feedback.setProgress(10)
         net = Qneat3Network(network, input_qgspointxy_list, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
-        feedback.setProgress(20)
+        feedback.setProgress(40)
         
         list_analysis_points = [Qneat3AnalysisPoint("point", feature, "point_id", net, net.list_tiedPoints[i]) for i, feature in enumerate(input_points)]
          
@@ -208,7 +209,7 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         end_vertex_idx = list_analysis_points[1].network_vertex_id
         
         feedback.pushInfo("[QNEAT3Algorithm] Calculating shortest path...")
-        feedback.setProgress(30)
+        feedback.setProgress(50)
         
         dijkstra_query = net.calcDijkstra(start_vertex_idx,0)
         
@@ -225,10 +226,10 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
             path_elements.append(net.network.vertex(current_vertex_idx).point())
             count = count + 1
             if count%10 == 0:
-                feedback.pushInfo("Taversed {} Nodes...".format(count))
+                feedback.pushInfo("[QNEAT3Algorithm] Taversed {} Nodes...".format(count))
         
         path_elements.append(list_analysis_points[0].point_geom) #end path with startpoint outside the network   
-        feedback.pushInfo("Total number of Nodes traversed: {}".format(count+1))
+        feedback.pushInfo("[QNEAT3Algorithm] Total number of Nodes traversed: {}".format(count+1))
         path_elements.reverse() #reverse path elements because it was built from end to start
 
         start_entry_cost = list_analysis_points[0].calcEntryCost()

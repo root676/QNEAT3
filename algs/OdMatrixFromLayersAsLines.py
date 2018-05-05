@@ -176,7 +176,7 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Output OD Matrix'), QgsProcessing.TypeVectorLine), True)
 
     def processAlgorithm(self, parameters, context, feedback):
-        feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
+        feedback.pushInfo(self.tr("[QNEAT3Algorithm] This is a QNEAT3 Algorithm: '{}'".format(self.displayName())))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
         from_points = self.parameterAsSource(parameters, self.FROM_POINT_LAYER, context) #QgsProcessingFeatureSource
         from_id_field = self.parameterAsString(parameters, self.FROM_ID_FIELD, context) #str
@@ -202,7 +202,8 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
         to_coord_list = getListOfPoints(to_points)
 
         merged_coords = from_coord_list + to_coord_list
-
+        
+        feedback.pushInfo("[QNEAT3Algorithm] Building Graph...")
         net = Qneat3Network(network, merged_coords, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         
         #read the merged point-list seperately for the two layers --> index at the first element of the second layer begins at len(firstLayer) and gets added the index of the current point of layer b.
@@ -214,14 +215,17 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
         output_id_field_data_type = getFieldDatatype(from_points, from_id_field)
         fields.append(QgsField('origin_id', output_id_field_data_type, '', 254, 0))
         fields.append(QgsField('destination_id', output_id_field_data_type, '', 254, 0))
+        fields.append(QgsField('entry_cost', QVariant.Double, '', 20,7))
         fields.append(QgsField('network_cost', QVariant.Double, '', 20, 7))
+        fields.append(QgsField('exit_cost', QVariant.Double, '', 20,7))
+        fields.append(QgsField('total_cost', QVariant.Double, '', 20,7))
         feat.setFields(fields)
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.LineString, network.sourceCrs())
 
         
         total_workload = float(len(from_coord_list)*len(to_coord_list))
-        feedback.pushInfo("Expecting total workload of {} iterations".format(int(total_workload)))
+        feedback.pushInfo("[QNEAT3Algorithm] Expecting total workload of {} iterations".format(int(total_workload)))
         
         
         current_workstep_number = 0
@@ -231,26 +235,32 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
             dijkstra_query = net.calcDijkstra(start_point.network_vertex_id, 0)
             for query_point in list_to_apoints:
                 if (current_workstep_number%1000)==0:
-                    feedback.pushInfo("{} OD-pairs processed...".format(current_workstep_number))
+                    feedback.pushInfo("[QNEAT3Algorithm] {} OD-pairs processed...".format(current_workstep_number))
                 elif dijkstra_query[0][query_point.network_vertex_id] == -1:
                     feat['origin_id'] = start_point.point_id
                     feat['destination_id'] = query_point.point_id
                     #do not populate cost field so that it defaults to null
                     sink.addFeature(feat, QgsFeatureSink.FastInsert)
                 else:
-                    entry_cost = start_point.calcEntryCost(strategy, context)+query_point.calcEntryCost(strategy,context)
-                    total_cost = dijkstra_query[1][query_point.network_vertex_id]+entry_cost
+                    entry_cost = start_point.calcEntryCost()
+                    network_cost = dijkstra_query[1][query_point.network_vertex_id]
+                    exit_cost = query_point.calcEntryCost()
+                    total_cost = network_cost + entry_cost + exit_cost
+                    
                     feat.setGeometry(QgsGeometry.fromPolylineXY([start_point.point_geom, query_point.point_geom]))
                     feat['origin_id'] = start_point.point_id
                     feat['destination_id'] = query_point.point_id
-                    feat['network_cost'] = total_cost
+                    feat['entry_cost'] = entry_cost
+                    feat['network_cost'] = network_cost
+                    feat['exit_cost'] = exit_cost
+                    feat['total_cost'] = total_cost
                     sink.addFeature(feat, QgsFeatureSink.FastInsert)  
                 current_workstep_number=current_workstep_number+1
-                feedback.setProgress(current_workstep_number/total_workload)
+                feedback.setProgress((current_workstep_number/total_workload)*100)
                     
-        feedback.pushInfo("Total number of OD-pairs processed: {}".format(current_workstep_number))
+        feedback.pushInfo("[QNEAT3Algorithm] Total number of OD-pairs processed: {}".format(current_workstep_number))
     
-        feedback.pushInfo("Ending Algorithm")
+        feedback.pushInfo("[QNEAT3Algorithm] Ending Algorithm")
 
         results = {}
         results[self.OUTPUT] = dest_id

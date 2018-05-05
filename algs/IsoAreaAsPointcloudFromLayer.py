@@ -167,7 +167,7 @@ class IsoAreaAsPointcloudFromLayer(QgisAlgorithm):
                                                             QgsProcessing.TypeVectorLine))
 
     def processAlgorithm(self, parameters, context, feedback):
-        feedback.pushInfo(self.tr('This is a QNEAT Algorithm'))
+        feedback.pushInfo(self.tr("[QNEAT3Algorithm] This is a QNEAT3 Algorithm: '{}'".format(self.displayName())))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
         startPoints = self.parameterAsSource(parameters, self.START_POINTS, context) #QgsProcessingFeatureSource
         id_field = self.parameterAsString(parameters, self.ID_FIELD, context) #str
@@ -186,11 +186,12 @@ class IsoAreaAsPointcloudFromLayer(QgisAlgorithm):
         analysisCrs = network.sourceCrs()
         input_coordinates = getListOfPoints(startPoints)
         
+        feedback.pushInfo("[QNEAT3Algorithm] Building Graph...")
+        feedback.setProgress(10)  
         net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
+        feedback.setProgress(40)
         
         list_apoints = [Qneat3AnalysisPoint("from", feature, id_field, net, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(startPoints))]
-        
-        feedback.pushInfo("Calculating Iso-Pointcloud...")
         
         fields = QgsFields()
         fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
@@ -199,11 +200,14 @@ class IsoAreaAsPointcloudFromLayer(QgisAlgorithm):
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, network.sourceCrs())
         
+        feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Pointcloud...")
         iso_pointcloud = net.calcIsoPoints(list_apoints, max_dist, context)
+        feedback.setProgress(90)
         
         sink.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
         
-        feedback.pushInfo("Ending Algorithm")        
+        feedback.pushInfo("[QNEAT3Algorithm] Ending Algorithm")
+        feedback.setProgress(100)          
         
         results = {}
         results[self.OUTPUT] = dest_id

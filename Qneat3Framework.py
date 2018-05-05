@@ -156,7 +156,8 @@ class Qneat3Network():
     def calcIsoPoints(self, analysis_point_list, max_dist, context):
         iso_pointcloud = dict()
         
-        for point in analysis_point_list:
+        for counter, point in enumerate(analysis_point_list):
+            self.feedback.pushInfo("[QNEAT3Network][calcIsoPoints] Processing Point {}".format(counter))
             dijkstra_query = self.calcDijkstra(point.network_vertex_id, 0)
             tree = dijkstra_query[0]
             cost = dijkstra_query[1]
@@ -242,7 +243,6 @@ class Qneat3Network():
         return QgsRasterLayer(interpolation_raster_path, "temp_qneat3_interpolation_raster")
     
     def calcIsoLimewiseInterpolation(self, iso_point_layer, resolution, interpolation_raster_path):
-                
         return 0
 
     def calcIsoContours(self, max_dist, interval, interpolation_raster_path):
