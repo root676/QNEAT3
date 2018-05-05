@@ -203,7 +203,7 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         net = Qneat3Network(network, input_qgspointxy_list, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         feedback.setProgress(40)
         
-        list_analysis_points = [Qneat3AnalysisPoint("point", feature, "point_id", net, net.list_tiedPoints[i]) for i, feature in enumerate(input_points)]
+        list_analysis_points = [Qneat3AnalysisPoint("point", feature, "point_id", net, net.list_tiedPoints[i], feedback) for i, feature in enumerate(input_points)]
          
         start_vertex_idx = list_analysis_points[0].network_vertex_id
         end_vertex_idx = list_analysis_points[1].network_vertex_id
@@ -232,8 +232,8 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         feedback.pushInfo("[QNEAT3Algorithm] Total number of Nodes traversed: {}".format(count+1))
         path_elements.reverse() #reverse path elements because it was built from end to start
 
-        start_entry_cost = list_analysis_points[0].calcEntryCost()
-        end_exit_cost = list_analysis_points[1].calcEntryCost()
+        start_entry_cost = list_analysis_points[0].entry_cost
+        end_exit_cost = list_analysis_points[1].entry_cost
         cost_on_graph = dijkstra_query[1][end_vertex_idx]
         total_cost = start_entry_cost + cost_on_graph + end_exit_cost
         

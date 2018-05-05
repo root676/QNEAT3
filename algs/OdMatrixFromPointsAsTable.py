@@ -180,7 +180,7 @@ class OdMatrixFromPointsAsTable(QgisAlgorithm):
         feedback.pushInfo("[QNEAT3Algorithm] Building Graph...")
         net = Qneat3Network(network, points, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         
-        list_analysis_points = [Qneat3AnalysisPoint("point", feature, id_field, net, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(net.input_points))]
+        list_analysis_points = [Qneat3AnalysisPoint("point", feature, id_field, net, net.list_tiedPoints[i], feedback) for i, feature in enumerate(getFeaturesFromQgsIterable(net.input_points))]
         
         feat = QgsFeature()
         fields = QgsFields()
@@ -220,15 +220,13 @@ class OdMatrixFromPointsAsTable(QgisAlgorithm):
                     #do not populate cost field so that it defaults to null
                     sink.addFeature(feat, QgsFeatureSink.FastInsert)
                 else:
-                    entry_cost = start_point.calcEntryCost(strategy, context)+query_point.calcEntryCost(strategy, context)
                     network_cost = dijkstra_query[1][query_point.network_vertex_id]
                     feat['origin_id'] = start_point.point_id
                     feat['destination_id'] = query_point.point_id
-                    #feat['entry_cost'] = entry_cost
+                    feat['entry_cost'] = start_point.entry_cost
                     feat['network_cost'] = network_cost
-                    #feat['exit_cost'] = exit_cost
-                    #feat['total_cost'] = total_cost
-                    #feat['network_cost'] = total_cost
+                    feat['exit_cost'] = query_point.entry_cost
+                    feat['total_cost'] = start_point.entry_cost + network_cost + query_point.entry_cost
                     sink.addFeature(feat, QgsFeatureSink.FastInsert)  
                 current_workstep_number=current_workstep_number+1
                 feedback.setProgress(current_workstep_number/total_workload)

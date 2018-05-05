@@ -206,8 +206,8 @@ class OdMatrixFromLayersAsTable(QgisAlgorithm):
         net = Qneat3Network(network, merged_coords, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         
         #read the merged point-list seperately for the two layers --> index at the first element of the second layer begins at len(firstLayer) and gets added the index of the current point of layer b.
-        list_from_apoints = [Qneat3AnalysisPoint("from", feature, from_id_field, net, net.list_tiedPoints[i]) for i, feature in enumerate(getFeaturesFromQgsIterable(from_points))]
-        list_to_apoints = [Qneat3AnalysisPoint("to", feature, to_id_field, net, net.list_tiedPoints[from_coord_list_length+i]) for i, feature in enumerate(getFeaturesFromQgsIterable(to_points))]
+        list_from_apoints = [Qneat3AnalysisPoint("from", feature, from_id_field, net, net.list_tiedPoints[i], feedback) for i, feature in enumerate(getFeaturesFromQgsIterable(from_points))]
+        list_to_apoints = [Qneat3AnalysisPoint("to", feature, to_id_field, net, net.list_tiedPoints[from_coord_list_length+i], feedback) for i, feature in enumerate(getFeaturesFromQgsIterable(to_points))]
         
         feat = QgsFeature()
         fields = QgsFields()
@@ -242,15 +242,13 @@ class OdMatrixFromLayersAsTable(QgisAlgorithm):
                     #do not populate cost field so that it defaults to null
                     sink.addFeature(feat, QgsFeatureSink.FastInsert)
                 else:
-                    entry_cost = start_point.calcEntryCost(strategy, context)+query_point.calcEntryCost(strategy, context)
                     network_cost = dijkstra_query[1][query_point.network_vertex_id]
                     feat['origin_id'] = start_point.point_id
                     feat['destination_id'] = query_point.point_id
-                    #feat['entry_cost'] = entry_cost
+                    feat['entry_cost'] = start_point.entry_cost
                     feat['network_cost'] = network_cost
-                    #feat['exit_cost'] = exit_cost
-                    #feat['total_cost'] = total_cost
-                    #feat['network_cost'] = total_cost
+                    feat['exit_cost'] = query_point.entry_cost
+                    feat['total_cost'] = network_cost + start_point.entry_cost + query_point.entry_cost
                     sink.addFeature(feat, QgsFeatureSink.FastInsert)  
                 current_workstep_number=current_workstep_number+1
                 feedback.setProgress((current_workstep_number/total_workload)*100)

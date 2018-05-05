@@ -9,18 +9,17 @@
 ***************************************************************************
 """
 
-import time, datetime
+import time
 import gdal
 
-from math import floor, ceil
-from numpy import array, arange, meshgrid, insert, linspace, nditer
+from math import ceil
+from numpy import arange, meshgrid, linspace, nditer
 from osgeo import osr
-from qgis.core import QgsProject, QgsRasterLayer, QgsFeatureSink, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsPointXY, QgsDistanceArea, QgsUnitTypes
-from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder, QgsInterpolator, QgsTinInterpolator, QgsIDWInterpolator, QgsGridFileWriter
+from qgis.core import QgsProject, QgsRasterLayer, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsPointXY, QgsDistanceArea, QgsUnitTypes
+from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder, QgsInterpolator, QgsTinInterpolator, QgsGridFileWriter
 from qgis.PyQt.QtCore import QVariant
 
 from QNEAT3.Qneat3Utilities import getFieldIndexFromQgsProcessingFeatureSource, getListOfPoints, getFieldDatatypeFromPythontype
-from numpy.polynomial.polynomial import polyline
 
 
 class Qneat3Network():
@@ -164,7 +163,7 @@ class Qneat3Network():
             
             current_start_point_id = point.point_id #id of the input point
             current_vertex_id = point.network_vertex_id
-            entry_cost = point.calcEntryCost()
+            entry_cost = point.entry_cost
             
             field_type = getFieldDatatypeFromPythontype(current_start_point_id)
             
@@ -374,7 +373,7 @@ class Qneat3Network():
         
 class Qneat3AnalysisPoint():
     
-    def __init__(self, layer_name, feature, point_id_field_name, net, vertex_geom):
+    def __init__(self, layer_name, feature, point_id_field_name, net, vertex_geom, feedback):
         self.layer_name = layer_name
         self.point_feature = feature
         self.point_id = feature[point_id_field_name]
@@ -383,12 +382,14 @@ class Qneat3AnalysisPoint():
         self.network_vertex = self.getNearestVertex(net.network, vertex_geom)
         self.crs = net.AnalysisCrs
         self.strategy = net.strategy_int
+        self.entry_cost = self.calcEntryCost(feedback)
         
-    def calcEntryCost(self):
+    def calcEntryCost(self, feedback):
         dist_calculator = QgsDistanceArea()
         dist_calculator.setSourceCrs(QgsProject().instance().crs(), QgsProject().instance().transformContext())
         dist_calculator.setEllipsoid(QgsProject().instance().crs().ellipsoidAcronym())
         dist = dist_calculator.measureLine([self.point_geom, self.network_vertex.point()])
+        feedback.pushInfo("[QNEAT3Network][calcEntryCost] Ellipsoidal entry cost to vertex {} = {}".format(self.network_vertex_id, dist))
         if self.strategy == 0:
             return dist
         else:
