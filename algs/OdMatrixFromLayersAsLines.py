@@ -92,6 +92,21 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
     def displayName(self):
         return self.tr('OD Matrix from Layers as Lines (m:n)')
     
+    def shortHelpString(self):
+        return  "<b>General:</b><br>"\
+                "This algorithm implements OD-Matrix analysis to return the <b>matrix of origin-destination pairs as lines yielding network based costs</b> on a given <b>network dataset between two layer of points (m:n)</b>.<br>"\
+                "It accounts for <b>points outside of the network</b> (eg. <i>non-network-elements</i>). Distances are measured accounting for <b>ellipsoids</b>, entry-, exit-, network- and total costs are listed in the result attribute-table.<br><br>"\
+                "<b>Parameters (required):</b><br>"\
+                "Following Parameters must be set to run the algorithm:"\
+                "<ul><li>Network Layer</li><li>From-Point Layer</li><li>Unique From-Point ID Field (numerical)</li><li>To-Point Layer</li><li>Unique To-Point ID Field (numerical)</li><li>Cost Strategy</li></ul><br>"\
+                "<b>Parameters (optional):</b><br>"\
+                "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the networks edges."\
+                "<ul><li>Direction Field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed Field</li><li>Default Speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
+                "<b>Output:</b><br>"\
+                "The output of the algorithm is one layer:"\
+                "<ul><li>OD-Matrix as lines with network based distances as attributes</li></ul>"    
+    
+    
     def print_typestring(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
 

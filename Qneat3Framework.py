@@ -233,8 +233,10 @@ class Qneat3Network():
 
         tin_interpolator = QgsTinInterpolator([layer_data], QgsTinInterpolator.Linear)
         
-        distUnit = self.AnalysisCrs.mapUnits()
-        unit_to_meter_factor = QgsUnitTypes.fromUnitToUnitFactor(distUnit, QgsUnitTypes.DistanceMeters)
+        #make cellsize dynamic for 
+        #distUnit = self.AnalysisCrs.mapUnits()
+        #unit_to_meter_factor = QgsUnitTypes.fromUnitToUnitFactor(QgsUnitTypes.DistanceMeters, distUnit)
+        unit_to_meter_factor = 1
         
         rect = iso_point_layer.extent()
         ncol = int((rect.xMaximum() - rect.xMinimum()) / (resolution*unit_to_meter_factor))

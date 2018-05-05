@@ -93,6 +93,21 @@ class IsoAreaAsContoursFromPoint(QgisAlgorithm):
 
     def displayName(self):
         return self.tr('Iso-Area as Contours (from Point)')
+
+    def shortHelpString(self):
+        return  "<b>General:</b><br>"\
+                "This algorithm implements isochrone contours to return the <b>isochrone areas for a maximum cost level and interval levels </b> on a given <b>network dataset for a manually chosen point</b>.<br>"\
+                "It accounts for <b>points outside of the network</b> (eg. <i>non-network-elements</i>) and increments the isochrone areas cost regarding to distance/default speed value. Distances are measured accounting for <b>ellipsoids</b>.<br>Please, <b>only use a projected coordinate system (eg. no WGS84)</b> for this kind of analysis.<br><br>"\
+                "<b>Parameters (required):</b><br>"\
+                "Following Parameters must be set to run the algorithm:"\
+                "<ul><li>Network Layer</li><li>Startpoint</li><li>Maximum cost level for Iso-Area</li><li>Cost Intervals for Iso-Area Bands</li><li>Cellsize in Meters (increase default when analyzing larger networks)</li><li>Cost Strategy</li></ul><br>"\
+                "<b>Parameters (optional):</b><br>"\
+                "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the networks edges."\
+                "<ul><li>Direction Field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed Field</li><li>Default Speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
+                "<b>Output:</b><br>"\
+                "The output of the algorithm are two layers:"\
+                "<ul><li>TIN-Interpolation Distance Raster</li><li>Iso-Area Contours with cost levels as attributes</li></ul>"
+    
     
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
