@@ -129,14 +129,14 @@ class Qneat3Network():
             
     def setNetworkStrategy(self, input_strategy, input_network, input_speedField, input_defaultSpeed):
         distUnit = self.AnalysisCrs.mapUnits()
-        multiplier = QgsUnitTypes.fromUnitToUnitFactor(distUnit, QgsUnitTypes.DistanceMeters)
+        unit_to_meter_factor = QgsUnitTypes.fromUnitToUnitFactor(distUnit, QgsUnitTypes.DistanceMeters)
         
         speedFieldId = getFieldIndexFromQgsProcessingFeatureSource(input_network, input_speedField)
         if input_strategy == 0:
             self.strategy = QgsNetworkDistanceStrategy()
             self.strategy_int = 0
         else:
-            self.strategy = QgsNetworkSpeedStrategy(speedFieldId, float(input_defaultSpeed), multiplier * 1000.0 / 3600.0)
+            self.strategy = QgsNetworkSpeedStrategy(speedFieldId, float(input_defaultSpeed), unit_to_meter_factor * 1000.0 / 3600.0)
             self.strategy_int = 1
         self.multiplier = 3600
 
@@ -233,9 +233,12 @@ class Qneat3Network():
 
         tin_interpolator = QgsTinInterpolator([layer_data], QgsTinInterpolator.Linear)
         
+        distUnit = self.AnalysisCrs.mapUnits()
+        unit_to_meter_factor = QgsUnitTypes.fromUnitToUnitFactor(distUnit, QgsUnitTypes.DistanceMeters)
+        
         rect = iso_point_layer.extent()
-        ncol = int((rect.xMaximum() - rect.xMinimum()) / resolution)
-        nrows = int((rect.yMaximum() - rect.yMinimum()) / resolution)
+        ncol = int((rect.xMaximum() - rect.xMinimum()) / (resolution*unit_to_meter_factor))
+        nrows = int((rect.yMaximum() - rect.yMinimum()) / (resolution*unit_to_meter_factor))
         
         writer = QgsGridFileWriter(tin_interpolator, interpolation_raster_path, rect, ncol, nrows)
         writer.writeFile(self.feedback)  # Creating .asc raste
