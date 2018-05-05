@@ -346,7 +346,7 @@ class Qneat3Network():
         
                     polygon_list = []
                     
-                    for vertex in contour_path.to_polygons(closed_only=True):
+                    for vertex in contour_path.to_polygons():
                         x = vertex[:,0]
                         y = vertex[:,1]
 
