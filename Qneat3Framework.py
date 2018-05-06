@@ -15,7 +15,7 @@ import gdal
 from math import ceil
 from numpy import arange, meshgrid, linspace, nditer
 from osgeo import osr
-from qgis.core import QgsProject, QgsRasterLayer, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsPointXY, QgsDistanceArea, QgsUnitTypes
+from qgis.core import QgsProject, QgsRasterLayer, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsPointXY,QgsProcessingException, QgsDistanceArea, QgsUnitTypes
 from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder, QgsInterpolator, QgsTinInterpolator, QgsGridFileWriter
 from qgis.PyQt.QtCore import QVariant
 
@@ -78,6 +78,10 @@ class Qneat3Network():
         
         self.feedback.pushInfo("[QNEAT3Network][__init__] Setting up parameters")
         self.AnalysisCrs = input_analysisCrs
+        
+        #enable polygon calculation in geographic coordinate systems
+        distUnit = self.AnalysisCrs.mapUnits()
+        self.meter_to_unit_factor = QgsUnitTypes.fromUnitToUnitFactor(QgsUnitTypes.DistanceMeters, distUnit)
         
         #init direction fields
         self.feedback.pushInfo("[QNEAT3Network][__init__] Setting up network direction parameters")
@@ -154,7 +158,7 @@ class Qneat3Network():
         
     def calcIsoPoints(self, analysis_point_list, max_dist, context):
         iso_pointcloud = dict()
-        
+
         for counter, point in enumerate(analysis_point_list):
             self.feedback.pushInfo("[QNEAT3Network][calcIsoPoints] Processing Point {}".format(counter))
             dijkstra_query = self.calcDijkstra(point.network_vertex_id, 0)
@@ -223,6 +227,9 @@ class Qneat3Network():
                 
                 
     def calcIsoInterpolation(self, iso_point_layer, resolution, interpolation_raster_path):
+        if self.AnalysisCrs.isGeographic():
+            raise QgsProcessingException('The TIN-Interpolation algorithm in QGIS is designed to work with projected coordinate systems.Please use a projected coordinate system (eg. UTM zones) instead of geographic coordinate systems (eg. WGS84)!')
+        
         layer_data = QgsInterpolator.LayerData()
         QgsInterpolator.LayerData
         
@@ -233,14 +240,9 @@ class Qneat3Network():
 
         tin_interpolator = QgsTinInterpolator([layer_data], QgsTinInterpolator.Linear)
         
-        #make cellsize dynamic for 
-        #distUnit = self.AnalysisCrs.mapUnits()
-        #unit_to_meter_factor = QgsUnitTypes.fromUnitToUnitFactor(QgsUnitTypes.DistanceMeters, distUnit)
-        unit_to_meter_factor = 1
-        
         rect = iso_point_layer.extent()
-        ncol = int((rect.xMaximum() - rect.xMinimum()) / (resolution*unit_to_meter_factor))
-        nrows = int((rect.yMaximum() - rect.yMinimum()) / (resolution*unit_to_meter_factor))
+        ncol = int((rect.xMaximum() - rect.xMinimum()) / resolution)
+        nrows = int((rect.yMaximum() - rect.yMinimum()) / resolution)
         
         writer = QgsGridFileWriter(tin_interpolator, interpolation_raster_path, rect, ncol, nrows)
         writer.writeFile(self.feedback)  # Creating .asc raste
@@ -411,5 +413,5 @@ class Qneat3AnalysisPoint():
         return network.vertex(self.getNearestVertexId(network, vertex_geom))
     
     def __str__(self):
-        return u"QneatAnalysisPoint: {} analysis_id: {:30} FROM {:30} TO {:30} network_id: {:d}".format(self.layer_name, self.point_id, self.point_geom.__str__(), self.network_vertex.point().__str__(), self.network_vertex_id)    
+        return u"Qneat3AnalysisPoint: {} analysis_id: {:30} FROM {:30} TO {:30} network_id: {:d}".format(self.layer_name, self.point_id, self.point_geom.__str__(), self.network_vertex.point().__str__(), self.network_vertex_id)    
                                                                                                                                                                                                                         
