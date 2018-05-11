@@ -173,7 +173,7 @@ class IsoAreaAsPointcloudFromPoint(QgisAlgorithm):
         
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT,
                                                             self.tr('Output Pointcloud'),
-                                                            QgsProcessing.TypeVectorLine))
+                                                            QgsProcessing.TypeVectorPoint))
 
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr("[QNEAT3Algorithm] This is a QNEAT3 Algorithm: '{}'".format(self.displayName())))
@@ -209,7 +209,7 @@ class IsoAreaAsPointcloudFromPoint(QgisAlgorithm):
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, network.sourceCrs())
         
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Pointcloud...")
-        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist, context)
+        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist)
         feedback.setProgress(90)
         
         sink.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)

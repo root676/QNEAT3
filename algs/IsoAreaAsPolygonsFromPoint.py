@@ -217,7 +217,7 @@ class IsoAreaAsPolygonsFromPoint(QgisAlgorithm):
         analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0], feedback)
         
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Pointcloud...")
-        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist+(max_dist*0.1), context)
+        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist+(max_dist*0.1))
         feedback.setProgress(50)
         
         uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())

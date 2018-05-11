@@ -211,7 +211,7 @@ class IsoAreaAsInterpolationFromLayer(QgisAlgorithm):
         list_apoints = [Qneat3AnalysisPoint("from", feature, id_field, net, net.list_tiedPoints[i], feedback) for i, feature in enumerate(getFeaturesFromQgsIterable(startPoints))]
         
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Pointcloud...")
-        iso_pointcloud = net.calcIsoPoints(list_apoints, max_dist, context)
+        iso_pointcloud = net.calcIsoPoints(list_apoints, max_dist)
         feedback.setProgress(70)
         
         uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())
