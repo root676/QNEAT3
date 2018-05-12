@@ -179,7 +179,7 @@ class IsoAreaAsMBufferFromLayer(QgisAlgorithm):
         
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT,
                                                             self.tr('Output Pointcloud'),
-                                                            QgsProcessing.TypeVectorLine))
+                                                            QgsProcessing.TypeVectorPolygon))
 
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr("[QNEAT3Algorithm] This is a QNEAT3 Algorithm: '{}'".format(self.displayName())))

@@ -231,126 +231,80 @@ class Qneat3Network():
         return iso_pointcloud.values() #list of QgsFeature (=QgsFeatureList)
     
     def calcMIsoArea(self,analysis_point_list, max_dist, interval):
-        return_featurelist = list()
-        current_level_point_buffer_list = list()
+        result_mIsoArea_list = list()
         
         for level in interval:
+            current_level_bufferM_list = list()
             self.feedback.pushInfo("[QNEAT3Network][calcMIsoArea] Calculating Iso-Area for level {}".format(level))
             
             for counter, point in enumerate(analysis_point_list):
-                point_mBuffer_collection = []
-                self.feedback.pushInfo("--[QNEAT3Network][calcMIsoArea] Processing Point {}".format(counter))
+                current_point_bufferM_list = []
+                self.feedback.pushInfo("[QNEAT3Network][calcMIsoArea] Processing Point {}".format(counter))
                 dijkstra_query = self.calcDijkstra(point.network_vertex_id, 0)
-                self.feedback.pushInfo("--[QNEAT3Network][calcMIsoArea] Calculated Dijkstra")
+
                 tree = dijkstra_query[0]
                 cost = dijkstra_query[1]
                 
                 entry_cost = point.entry_cost
                 
+                isoArea_boundary_vertices = list()
+                
                 i = 0
-                self.feedback.pushInfo("--[QNEAT3Network][calcMIsoArea] Starting Dijkstra Iteration and buffering")
                 while i < len(cost): 
                     # as long as the edge is reachable and its outgoing node is inside the current level
                     
-                    if tree[i] != -1: 
+                    if (cost[i]+entry_cost) > level and tree[i] != -1: 
+                        
+                        toVertexId = self.network.edge(tree [i]).toVertex()
+                        
+                        if (cost[toVertexId]+entry_cost) <= level:
+                            isoArea_boundary_vertices.append(toVertexId)
                     
-                        real_cost_to = cost[self.network.edge(tree[i]).toVertex()] + entry_cost
-                        real_cost_from = cost[self.network.edge(tree[i]).fromVertex()] + entry_cost
-                        
-                        if  real_cost_to <= level:
-                            
-                            current_edge_id = tree[i]
-    
-                            current_edge = self.network.edge(current_edge_id)
-                            
-                            fromVertexId = current_edge.fromVertex()
-                            toVertexId = current_edge.toVertex()
-                            
-                            #if the costs of the current vertex are lower than the radius, append the vertex id to results.
-                            edge_from_point = QgsPoint(self.network.vertex(fromVertexId).point())
-                            edge_from_point.addMValue(level-real_cost_from)
-                                
-                            edge_to_point = QgsPoint(self.network.vertex(toVertexId).point())
-                            edge_to_point.addMValue(level-real_cost_to)
-                            
-                            mEdge_linestring = QgsLineString(edge_from_point, edge_to_point)
-                            
-                            """
-                            num_connections_at_endvertex = len(self.network.vertex(toVertexId).outgoingEdges())
-                            self.feedback.pushInfo("num connections: {}".format(num_connections_at_endvertex))
-                            if num_connections_at_endvertex > 0 and num_connections_at_endvertex < 2:
-                                
-                                outgoing_edge_id = self.network.vertex(toVertexId).outgoingEdges()[0]
-                                
-                                if tree[outgoing_edge_id] != -1 and cost[self.network.edge(tree[outgoing_edge_id]).toVertex()] <= level:            
-                                    append_linestring_flag = True
-                                else: 
-                                    append_linestring_flag = False
-                                    
-                                while append_linestring_flag is True:
-                                    appendable_edge_id = tree[outgoing_edge_id]
-                                    self.feedback.pushInfo("new appendable edge {}".format(appendable_edge_id))
-                                    tree[outgoing_edge_id] = -1
-                                    
-                                    appendable_edge = self.network.edge(appendable_edge_id)
-                                    
-                                    appendable_fromVertexId = appendable_edge.fromVertex()
-                                    appendable_toVertexId = appendable_edge.toVertex()
-                                    
-                                    appendable_edge_from_point = QgsPoint(self.network.vertex(appendable_fromVertexId).point())
-                                    appendable_edge_from_point.addMValue(level-cost[appendable_fromVertexId])
-                                    
-                                    appendable_edge_to_point = QgsPoint(self.network.vertex(appendable_toVertexId).point())
-                                    appendable_edge_to_point.addMValue(level-cost[appendable_toVertexId])
-                                    
-                                    appendable_mEdge_linestring = QgsLineString(appendable_edge_from_point, appendable_edge_to_point)
-                                    
-                                    mEdge_linestring.append(appendable_mEdge_linestring)
-                                    #i = i + 1
-                                    
-                                    num_connections_at_endvertex = len(self.network.vertex(appendable_toVertexId).outgoingEdges())
-                                    self.feedback.pushInfo("num connections: {}".format(num_connections_at_endvertex))
-                                    if num_connections_at_endvertex > 0 and num_connections_at_endvertex < 2: 
-                                        outgoing_edge_id = self.network.vertex(toVertexId).outgoingEdges()[0]                      
-                                        if num_connections_at_endvertex == 1 and tree[outgoing_edge_id] != -1 and cost[self.network.edge(tree[outgoing_edge_id]).toVertex()] <= level:            
-                                            append_linestring_flag = True
-                                    else: 
-                                        append_linestring_flag = False
-                            """
-                            
-                            mEdge_geom = QgsGeometry(mEdge_linestring)
-                            
-                            mBuffer = mEdge_geom.variableWidthBufferByM(8)
-            
-                            point_mBuffer_collection.append(mBuffer)
-                    i = i + 1        
-                    if i%10000 == 0:
-                        self.feedback.pushInfo("----[QNEAT3Network][calcMIsoArea] M-Buffered {} edges...".format(i))
-                        
-
+                    i = i + 1
                 
-                self.feedback.pushInfo("--[QNEAT3Network][calcMIsoArea] Unioning M-Buffers of point {}".format(counter))
-                #union for each point at a certain level
-                current_point_mBuffer_union_geom = QgsGeometry().unaryUnion(point_mBuffer_collection);
-                current_level_point_buffer_list.append(current_point_mBuffer_union_geom)
-            
-            self.feedback.pushInfo("[QNEAT3Network][calcMIsoArea] Unioning M-Buffers of level {}".format(level))        
-            current_level_mBuffer_geom = QgsGeometry().unaryUnion(current_level_point_buffer_list)
+                
+                for boundary_vertex in isoArea_boundary_vertices:
+                    #set startpoint of path
+                    linestringM = QgsLineString()
                     
-            mIsoArea_feature = QgsFeature()
-            mIsoArea_fields = QgsFields()
-            #mIsoArea_fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
-            mIsoArea_fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
-            #mIsoArea_fields.append(QgsField('origin_point_id',field_type, '', 254, 7))
-            mIsoArea_feature.setFields(mIsoArea_fields)
-            mIsoArea_feature.setGeometry(current_level_mBuffer_geom)
-            mIsoArea_feature['cost'] = level
+                    boundary_pointM = QgsPoint(self.network.vertex(boundary_vertex).point())
+                    boundary_pointM.addMValue((level-(cost[boundary_vertex]+entry_cost))*2) #diameter cost for bufferByMValue()
+                    
+                    linestringM.addVertex(boundary_pointM)
+                    
+                    current_vertex_idx = boundary_vertex
+                    while current_vertex_idx != point.network_vertex_id:
+                        #build up path by traversing the dijkstra query
+                        current_vertex_idx = self.network.edge(tree[current_vertex_idx]).fromVertex()
+                        current_pointM = QgsPoint(self.network.vertex(current_vertex_idx).point())
+                        current_pointM.addMValue((level-(cost[current_vertex_idx]+entry_cost))*2) #diameter cost for bufferByMValue()
+                        
+                        linestringM.addVertex(current_pointM)
+                        
+                    pathM_geom = QgsGeometry(linestringM)
+                    path_bufferM_geom = pathM_geom.variableWidthBufferByM(4)
+                    current_point_bufferM_list.append(path_bufferM_geom)
+                
+                current_point_bufferM_geom = QgsGeometry().unaryUnion(current_point_bufferM_list)
+                current_level_bufferM_list.append(current_point_bufferM_geom)
             
-            return_featurelist.append(mIsoArea_feature)
-        
-        return_featurelist.reverse()                
-        return return_featurelist #list of QgsFeature (=QgsFeatureList)
-    
+            current_level_bufferM_geom = QgsGeometry().unaryUnion(current_level_bufferM_list)
+            current_level_bufferM_geom.convertToMultiType()
+            
+            current_level_mIsoArea_feature = QgsFeature()
+            current_level_mIsoArea_fields = QgsFields()
+            #mIsoArea_fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
+            current_level_mIsoArea_fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
+            #mIsoArea_fields.append(QgsField('origin_point_id',field_type, '', 254, 7))
+            current_level_mIsoArea_feature.setFields(current_level_mIsoArea_fields)
+            current_level_mIsoArea_feature.setGeometry(current_level_bufferM_geom)
+            current_level_mIsoArea_feature['cost'] = level
+            
+            result_mIsoArea_list.append(current_level_mIsoArea_feature)
+            
+        result_mIsoArea_list.reverse()
+        return result_mIsoArea_list       
+             
     
     def calcIsoInterpolation(self, iso_point_layer, resolution, interpolation_raster_path):
         if self.AnalysisCrs.isGeographic():
