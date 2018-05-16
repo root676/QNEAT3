@@ -38,6 +38,8 @@ from qgis.core import (QgsWkbTypes,
                        QgsFeature,
                        QgsFeatureSink,
                        QgsGeometry,
+                       QgsLineString,
+                       QgsPoint,
                        QgsFields,
                        QgsField,
                        QgsProcessing,
@@ -219,11 +221,21 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         path_elements = [list_analysis_points[1].point_geom] #start route with the endpoint outside the network
         path_elements.append(net.network.vertex(end_vertex_idx).point()) #then append the corresponding vertex of the graph 
         
+        linestringM = QgsLineString()
+        
         count = 1
         current_vertex_idx = end_vertex_idx
         while current_vertex_idx != start_vertex_idx:
             current_vertex_idx = net.network.edge(dijkstra_query[0][current_vertex_idx]).fromVertex()
             path_elements.append(net.network.vertex(current_vertex_idx).point())
+            
+            #remove when m testing is done..
+            current_pointM = QgsPoint(net.network.vertex(current_vertex_idx).point())
+            current_pointM.addMValue((500-(dijkstra_query[1][current_vertex_idx]))) #diameter cost for bufferByMValue()
+            
+            linestringM.addVertex(current_pointM)
+            #remove end
+            
             count = count + 1
             if count%10 == 0:
                 feedback.pushInfo("[QNEAT3Algorithm] Taversed {} Nodes...".format(count))
@@ -262,7 +274,8 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         feat['end_exit_cost'] = end_exit_cost
         feat['cost_on_graph'] = cost_on_graph
         feat['total_cost'] = total_cost 
-        geom = QgsGeometry.fromPolylineXY(path_elements)
+        #geom = QgsGeometry.fromPolylineXY(path_elements)
+        geom = QgsGeometry(linestringM)
         feat.setGeometry(geom)
         
         sink.addFeature(feat, QgsFeatureSink.FastInsert)

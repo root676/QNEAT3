@@ -134,7 +134,7 @@ class IsoAreaAsMBufferFromLayer(QgisAlgorithm):
         self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
                                                    self.tr('Size of Iso-Area (Distance or Seconds depending on Strategy)'),
                                                    QgsProcessingParameterNumber.Double,
-                                                   2500.0, False, 0, 99999999.99))
+                                                   500.0, False, 0, 99999999.99))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
                                                      self.tr('Optimization criterion'),
                                                      self.STRATEGIES,
@@ -213,10 +213,10 @@ class IsoAreaAsMBufferFromLayer(QgisAlgorithm):
         fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
         #fields.append(QgsField('origin_point_id', getFieldDatatype(startPoints, id_field)))
         
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Polygon, network.sourceCrs())
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.MultiPolygon, network.sourceCrs())
         
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Pointcloud...")
-        iso_polygons = net.calcMIsoArea(list_apoints, max_dist, [500,1000,2000,2500])
+        iso_polygons = net.calcMIsoArea(list_apoints, max_dist, [500])
         feedback.setProgress(90)
         
         sink.addFeatures(iso_polygons, QgsFeatureSink.FastInsert)

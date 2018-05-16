@@ -15,7 +15,7 @@ import gdal
 from math import ceil
 from numpy import arange, meshgrid, linspace, nditer
 from osgeo import osr
-from qgis.core import QgsProject, QgsPoint, QgsLineString, QgsRasterLayer, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsPointXY,QgsProcessingException, QgsDistanceArea, QgsUnitTypes
+from qgis.core import QgsProject, QgsPoint, QgsLineString, QgsRasterLayer, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsPointXY,QgsProcessingException, QgsDistanceArea, QgsUnitTypes, QgsWkbTypes
 from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder, QgsInterpolator, QgsTinInterpolator, QgsGridFileWriter
 from qgis.PyQt.QtCore import QVariant
 
@@ -195,8 +195,8 @@ class Qneat3Network():
                 #as long as costs at vertex i is greater than iso_distance and there exists an incoming edge (tree[i]!=-1) 
                 #consider it as a possible catchment polygon element
                 if tree[i] != -1:
-                    toVertexId = self.network.edge(tree[i]).toVertex()
-                    real_cost = cost[toVertexId]+entry_cost
+                    fromVertexId = self.network.edge(tree[i]).toVertex()
+                    real_cost = cost[fromVertexId]+entry_cost
                     #if the costs of the current vertex are lower than the radius, append the vertex id to results.
                     if real_cost <= max_dist:
                         #build feature
@@ -207,22 +207,22 @@ class Qneat3Network():
                         fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
                         fields.append(QgsField('origin_point_id',field_type, '', 254, 7))
                         feat.setFields(fields)
-                        feat['vertex_id'] = toVertexId
+                        feat['vertex_id'] = fromVertexId
                         feat['cost'] = real_cost
                         feat['origin_point_id'] = current_start_point_id
-                        pt_m = QgsPoint(self.network.vertex(toVertexId).point())
-                        pt_m.addMValue((500-real_cost)*2)
+                        pt_m = QgsPoint(self.network.vertex(fromVertexId).point())
+                        pt_m.addMValue((500-cost[fromVertexId])*2)
                         geom = QgsGeometry(pt_m)
                         feat.setGeometry(geom)
                         
-                        if toVertexId not in iso_pointcloud:
+                        if fromVertexId not in iso_pointcloud:
                             #ERROR: FIRST POINT IN POINTCLOUD WILL NEVER BE ADDED
-                            iso_pointcloud.update({toVertexId: feat})
-                        if toVertexId in iso_pointcloud.keys() and iso_pointcloud.get(toVertexId)['cost'] > real_cost:
+                            iso_pointcloud.update({fromVertexId: feat})
+                        if fromVertexId in iso_pointcloud.keys() and iso_pointcloud.get(fromVertexId)['cost'] > real_cost:
                             #if the vertex already exists in the iso_pointcloud and the cost is greater than the existing cost
-                            del iso_pointcloud[toVertexId]
+                            del iso_pointcloud[fromVertexId]
                             #iso_pointcloud.pop(toVertexId)
-                            iso_pointcloud.update({toVertexId: feat})
+                            iso_pointcloud.update({fromVertexId: feat})
                         #count up to next vertex
                 i = i + 1 
                 if i%1000 == 0:
@@ -252,44 +252,49 @@ class Qneat3Network():
                 i = 0
                 while i < len(cost): 
                     # as long as the edge is reachable and its outgoing node is inside the current level
-                    
-                    if (cost[i]+entry_cost) > level and tree[i] != -1: 
-                        
-                        toVertexId = self.network.edge(tree [i]).toVertex()
-                        
-                        if (cost[toVertexId]+entry_cost) <= level:
-                            isoArea_boundary_vertices.append(toVertexId)
-                    
+                    if cost[i] > level and tree[i] != -1: 
+                        fromVertexId = self.network.edge(tree[i]).fromVertex()
+                        if cost[fromVertexId] <= level:
+                            isoArea_boundary_vertices.append(i)
                     i = i + 1
-                
+                 
+                self.feedback.pushInfo("Length Boundary Vertices List: {}".format(len(isoArea_boundary_vertices)))    
                 
                 for boundary_vertex in isoArea_boundary_vertices:
                     #set startpoint of path
                     linestringM = QgsLineString()
-                    
+
                     boundary_pointM = QgsPoint(self.network.vertex(boundary_vertex).point())
                     boundary_pointM.addMValue((level-(cost[boundary_vertex]+entry_cost))*2) #diameter cost for bufferByMValue()
-                    
                     linestringM.addVertex(boundary_pointM)
-                    
+
                     current_vertex_idx = boundary_vertex
                     while current_vertex_idx != point.network_vertex_id:
+                        
+                        edge_cost = self.network.edge(tree[current_vertex_idx]).cost(0)
                         #build up path by traversing the dijkstra query
                         current_vertex_idx = self.network.edge(tree[current_vertex_idx]).fromVertex()
                         current_pointM = QgsPoint(self.network.vertex(current_vertex_idx).point())
-                        current_pointM.addMValue((level-(cost[current_vertex_idx]+entry_cost))*2) #diameter cost for bufferByMValue()
+                        
+                        if ((level-(cost[current_vertex_idx]+entry_cost))*2) > (edge_cost*2):
+                            current_pointM.addMValue(edge_cost*2)
+                        else:
+                            current_pointM.addMValue((level-(cost[current_vertex_idx]+entry_cost))*2) #diameter cost for bufferByMValue()
                         
                         linestringM.addVertex(current_pointM)
-                        
+                    
+
                     pathM_geom = QgsGeometry(linestringM)
-                    path_bufferM_geom = pathM_geom.variableWidthBufferByM(4)
+
+                    path_bufferM_geom = pathM_geom.variableWidthBufferByM(16)
                     current_point_bufferM_list.append(path_bufferM_geom)
                 
-                current_point_bufferM_geom = QgsGeometry().unaryUnion(current_point_bufferM_list)
+                current_point_bufferM_geom = QgsGeometry.unaryUnion(current_point_bufferM_list)
                 current_level_bufferM_list.append(current_point_bufferM_geom)
             
-            current_level_bufferM_geom = QgsGeometry().unaryUnion(current_level_bufferM_list)
-            current_level_bufferM_geom.convertToMultiType()
+            
+            current_level_bufferM_geom = QgsGeometry.unaryUnion(current_level_bufferM_list)
+
             
             current_level_mIsoArea_feature = QgsFeature()
             current_level_mIsoArea_fields = QgsFields()
