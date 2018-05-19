@@ -5,7 +5,7 @@
 
 [general]
 name=QNEAT3
-qgisMinimumVersion=2.99
+qgisMinimumVersion=3.00
 qgisMaximumVersion=3.99
 description=QNEAT3 - Qgis Network Analysis Toolbox 3 
 version=1.0.0
@@ -17,7 +17,7 @@ email=clemens.raffler@gmail.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=1.0.0: Ported the original QNEAT plugin from QGIS2 to QGIS3. Functionality was ported from QGIS-Processing-Script-Collection-Plugin to unique QNEAT3 Processing provider.
+changelog=1.0.0: First release of QNEAT3 Plugin. Enjoy!
 
 
 # tags are comma separated with spaces allowed
@@ -28,7 +28,7 @@ tracker=https://github.com/root676/QNEAT3/issues
 repository=https://github.com/root676/QNEAT3
 icon=icon_qneat3.svg
 # experimental flag
-experimental=True
+experimental=False
 
 # deprecated flag (applies to the whole plugin, not just a single version
 deprecated=False

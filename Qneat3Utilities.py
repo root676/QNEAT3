@@ -3,11 +3,20 @@
 ***************************************************************************
     Qneat3Utilities.py
     ---------------------
-    Date                 : November 2017
-    Copyright            : (C) 2017 by Clemens Raffler
+    
+    Date                 : January 2018
+    Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+***************************************************************************
 """
+
 from qgis.core import QgsWkbTypes, QgsMessageLog, QgsVectorLayer, QgsFeature, QgsGeometry, QgsFields, QgsField, QgsFeatureRequest
 
 from qgis.PyQt.QtCore import QVariant
@@ -43,7 +52,7 @@ def buildQgsVectorLayer(string_geomtype, string_layername, crs, feature_list, li
     
     #fill layer with geom and attrs
     vector_layer.startEditing()
-    for i, feat in enumerate(feature_list):
+    for feat in feature_list:
         vector_layer.addFeature(feat, True)
     vector_layer.commitChanges()
 
