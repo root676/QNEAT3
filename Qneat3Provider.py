@@ -20,7 +20,6 @@
  *   (at your option) any later version.                                   *
  *                                                                         *
  ***************************************************************************/
- Processing Provider Class
 """
 
 import os
@@ -39,7 +38,6 @@ from .algs import (
     IsoAreaAsPointcloudFromLayer, 
     IsoAreaAsInterpolationFromPoint,
     IsoAreaAsInterpolationFromLayer,
-    IsoAreaAsMBufferFromLayer, 
     OdMatrixFromPointsAsCsv, 
     OdMatrixFromPointsAsLines, 
     OdMatrixFromPointsAsTable, 
@@ -73,7 +71,6 @@ class Qneat3Provider(QgsProcessingProvider):
             IsoAreaAsPointcloudFromLayer.IsoAreaAsPointcloudFromLayer(),
             IsoAreaAsInterpolationFromPoint.IsoAreaAsInterpolationFromPoint(),
             IsoAreaAsInterpolationFromLayer.IsoAreaAsInterpolationFromLayer(),
-            IsoAreaAsMBufferFromLayer.IsoAreaAsMBufferFromLayer(),
             OdMatrixFromPointsAsCsv.OdMatrixFromPointsAsCsv(),
             OdMatrixFromPointsAsLines.OdMatrixFromPointsAsLines(),
             OdMatrixFromPointsAsTable.OdMatrixFromPointsAsTable(),

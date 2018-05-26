@@ -3,9 +3,17 @@
 ***************************************************************************
     Qneat3Framework.py
     ---------------------
+    
     Date                 : January 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
+***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
 ***************************************************************************
 """
 
@@ -15,12 +23,12 @@ import gdal
 from math import ceil
 from numpy import arange, meshgrid, linspace, nditer
 from osgeo import osr
-from qgis.core import QgsProject, QgsPoint, QgsLineString, QgsRasterLayer, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsPointXY,QgsProcessingException, QgsDistanceArea, QgsUnitTypes, QgsWkbTypes
+
+from qgis.core import QgsProject, QgsPoint, QgsRasterLayer, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsPointXY, QgsProcessingException, QgsDistanceArea, QgsUnitTypes      
 from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder, QgsInterpolator, QgsTinInterpolator, QgsGridFileWriter
 from qgis.PyQt.QtCore import QVariant
 
 from QNEAT3.Qneat3Utilities import getFieldIndexFromQgsProcessingFeatureSource, getListOfPoints, getFieldDatatypeFromPythontype
-from nose2.plugins import buffer
 
 
 class Qneat3Network():
@@ -71,7 +79,6 @@ class Qneat3Network():
         @param input_tolerance: tolerance value when connecting graph edges
         @type feedback: QgsProcessingFeedback
         @param feedback: feedback object from processing algorithm
-        
         """
         
         #initialize feedback
@@ -230,86 +237,7 @@ class Qneat3Network():
                     
         return iso_pointcloud.values() #list of QgsFeature (=QgsFeatureList)
     
-    def calcMIsoArea(self,analysis_point_list, max_dist, interval):
-        result_mIsoArea_list = list()
-        
-        for level in interval:
-            current_level_bufferM_list = list()
-            self.feedback.pushInfo("[QNEAT3Network][calcMIsoArea] Calculating Iso-Area for level {}".format(level))
-            
-            for counter, point in enumerate(analysis_point_list):
-                current_point_bufferM_list = []
-                self.feedback.pushInfo("[QNEAT3Network][calcMIsoArea] Processing Point {}".format(counter))
-                dijkstra_query = self.calcDijkstra(point.network_vertex_id, 0)
 
-                tree = dijkstra_query[0]
-                cost = dijkstra_query[1]
-                
-                entry_cost = point.entry_cost
-                
-                isoArea_boundary_vertices = list()
-                
-                i = 0
-                while i < len(cost): 
-                    # as long as the edge is reachable and its outgoing node is inside the current level
-                    if cost[i] > level and tree[i] != -1: 
-                        fromVertexId = self.network.edge(tree[i]).fromVertex()
-                        if cost[fromVertexId] <= level:
-                            isoArea_boundary_vertices.append(i)
-                    i = i + 1
-                 
-                self.feedback.pushInfo("Length Boundary Vertices List: {}".format(len(isoArea_boundary_vertices)))    
-                
-                for boundary_vertex in isoArea_boundary_vertices:
-                    #set startpoint of path
-                    linestringM = QgsLineString()
-
-                    boundary_pointM = QgsPoint(self.network.vertex(boundary_vertex).point())
-                    boundary_pointM.addMValue((level-(cost[boundary_vertex]+entry_cost))*2) #diameter cost for bufferByMValue()
-                    linestringM.addVertex(boundary_pointM)
-
-                    current_vertex_idx = boundary_vertex
-                    while current_vertex_idx != point.network_vertex_id:
-                        
-                        edge_cost = self.network.edge(tree[current_vertex_idx]).cost(0)
-                        #build up path by traversing the dijkstra query
-                        current_vertex_idx = self.network.edge(tree[current_vertex_idx]).fromVertex()
-                        current_pointM = QgsPoint(self.network.vertex(current_vertex_idx).point())
-                        
-                        if ((level-(cost[current_vertex_idx]+entry_cost))*2) > (edge_cost*2):
-                            current_pointM.addMValue(edge_cost*2)
-                        else:
-                            current_pointM.addMValue((level-(cost[current_vertex_idx]+entry_cost))*2) #diameter cost for bufferByMValue()
-                        
-                        linestringM.addVertex(current_pointM)
-                    
-
-                    pathM_geom = QgsGeometry(linestringM)
-
-                    path_bufferM_geom = pathM_geom.variableWidthBufferByM(16)
-                    current_point_bufferM_list.append(path_bufferM_geom)
-                
-                current_point_bufferM_geom = QgsGeometry.unaryUnion(current_point_bufferM_list)
-                current_level_bufferM_list.append(current_point_bufferM_geom)
-            
-            
-            current_level_bufferM_geom = QgsGeometry.unaryUnion(current_level_bufferM_list)
-
-            
-            current_level_mIsoArea_feature = QgsFeature()
-            current_level_mIsoArea_fields = QgsFields()
-            #mIsoArea_fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
-            current_level_mIsoArea_fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
-            #mIsoArea_fields.append(QgsField('origin_point_id',field_type, '', 254, 7))
-            current_level_mIsoArea_feature.setFields(current_level_mIsoArea_fields)
-            current_level_mIsoArea_feature.setGeometry(current_level_bufferM_geom)
-            current_level_mIsoArea_feature['cost'] = level
-            
-            result_mIsoArea_list.append(current_level_mIsoArea_feature)
-            
-        result_mIsoArea_list.reverse()
-        return result_mIsoArea_list       
-             
     
     def calcIsoInterpolation(self, iso_point_layer, resolution, interpolation_raster_path):
         if self.AnalysisCrs.isGeographic():
@@ -390,7 +318,7 @@ class Qneat3Network():
                         
             fid=fid+1    
         return featurelist
-
+    
     
     def calcIsoPolygons(self, max_dist, interval, interpolation_raster_path):
         featurelist = []
