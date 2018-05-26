@@ -259,7 +259,7 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
                 else:
                     entry_cost = start_point.entry_cost
                     network_cost = dijkstra_query[1][query_point.network_vertex_id]
-                    exit_cost = query_point.entry_costs
+                    exit_cost = query_point.entry_cost
                     total_cost = network_cost + entry_cost + exit_cost
                     
                     feat.setGeometry(QgsGeometry.fromPolylineXY([start_point.point_geom, query_point.point_geom]))
