@@ -1,5 +1,3 @@
-# This file should be included when you package your plugin.
-
 # Mandatory items:
 
 
@@ -7,7 +5,8 @@
 name=QNEAT3
 qgisMinimumVersion=3.00
 qgisMaximumVersion=3.99
-description=QNEAT3 - Qgis Network Analysis Toolbox 3 
+description=QNEAT3 - QGIS Network Analysis Toolbox 3 
+about=The QNEAT3 (short for Qgis Network Analysis Toolbox 3) Plugin aims to provide sophisticated QGIS Processing-Toolbox algorithms in the Field of Network Analysis. In order to assure usability and consistency in the QGIS software design, the QNEAT3-Plugin is not designed as a simple GUI extension but as an QGIS Processing provider for Processing-Toolbox algorithms.
 version=1.0.0
 author=Clemens Raffler
 email=clemens.raffler@gmail.com
@@ -23,7 +22,7 @@ changelog=1.0.0: First release of QNEAT3 Plugin. Enjoy!
 # tags are comma separated with spaces allowed
 tags= network analysis, graph analysis, od matrix, distance matrix, od matrices, OD, isochrone areas, catchment areas, shortest path, dijkstra
 
-homepage=https://github.com/root676/QNEAT3
+homepage=https://root676.github.io
 tracker=https://github.com/root676/QNEAT3/issues
 repository=https://github.com/root676/QNEAT3
 icon=icon_qneat3.svg

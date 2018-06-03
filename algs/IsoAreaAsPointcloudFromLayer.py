@@ -75,7 +75,7 @@ class IsoAreaAsPointcloudFromLayer(QgisAlgorithm):
     OUTPUT = 'OUTPUT'
 
     def icon(self):
-        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_points.svg'))
+        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_points_multiple.svg'))
 
     def group(self):
         return self.tr('Iso-Areas')

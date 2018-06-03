@@ -80,7 +80,7 @@ class IsoAreaAsContoursFromLayer(QgisAlgorithm):
     OUTPUT_CONTOURS = 'OUTPUT_CONTOURS'
 
     def icon(self):
-        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_contour.svg'))
+        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_contour_multiple.svg'))
 
     def group(self):
         return self.tr('Iso-Areas')

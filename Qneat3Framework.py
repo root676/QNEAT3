@@ -393,7 +393,7 @@ class Qneat3AnalysisPoint():
     def __init__(self, layer_name, feature, point_id_field_name, net, vertex_geom, feedback):
         self.layer_name = layer_name
         self.point_feature = feature
-        self.point_id = feature[point_id_field_name]
+        self.point_id = feature[point_id_field_name] 
         self.point_geom = feature.geometry().asPoint()
         self.network_vertex_id = self.getNearestVertexId(net.network, vertex_geom)
         self.network_vertex = self.getNearestVertex(net.network, vertex_geom)

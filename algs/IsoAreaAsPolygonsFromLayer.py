@@ -80,7 +80,7 @@ class IsoAreaAsPolygonsFromLayer(QgisAlgorithm):
     OUTPUT_POLYGONS = 'OUTPUT_POLYGONS'
 
     def icon(self):
-        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_polygon.svg'))
+        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_polygon_multiple.svg'))
 
     def group(self):
         return self.tr('Iso-Areas')
