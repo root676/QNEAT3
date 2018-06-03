@@ -218,7 +218,7 @@ class IsoAreaAsContoursFromPoint(QgisAlgorithm):
         analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0], feedback)
         
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Pointcloud...")
-        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist+(max_dist*0.1), context)
+        iso_pointcloud = net.calcIsoPoints([analysis_point], (max_dist+(max_dist*0.1)))
         feedback.setProgress(50)
         
         uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())
@@ -238,7 +238,7 @@ class IsoAreaAsContoursFromPoint(QgisAlgorithm):
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_CONTOURS, context, fields, QgsWkbTypes.LineString, network.sourceCrs())
         
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Contours using numpy and matplotlib...")
-        contour_featurelist = net.calcIsoContours(max_dist, interval)
+        contour_featurelist = net.calcIsoContours(max_dist, interval, output_path)
         feedback.setProgress(90)
         
         sink.addFeatures(contour_featurelist, QgsFeatureSink.FastInsert)
