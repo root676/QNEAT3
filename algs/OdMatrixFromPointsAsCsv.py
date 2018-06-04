@@ -73,7 +73,7 @@ class OdMatrixFromPointsAsCsv(QgisAlgorithm):
         return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_matrix.svg'))
 
     def group(self):
-        return self.tr('Distance Matrices (Network based)')
+        return self.tr('Distance Matrices')
 
     def groupId(self):
         return 'networkbaseddistancematrices'

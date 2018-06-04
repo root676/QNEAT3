@@ -83,7 +83,7 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_dijkstra_onetoone.svg'))
 
     def group(self):
-        return self.tr('Network analysis')
+        return self.tr('Routing')
 
     def groupId(self):
         return 'networkanalysis'

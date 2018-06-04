@@ -73,7 +73,7 @@ class IsoAreaAsInterpolationFromLayer(QgisAlgorithm):
     OUTPUT = 'OUTPUT'
 
     def icon(self):
-        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_interpolation.png'))
+        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_interpolation_multiple.png'))
 
     def group(self):
         return self.tr('Iso-Areas')
