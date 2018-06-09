@@ -18,7 +18,7 @@
 """
 
 import time
-import gdal
+import osgeo.gdal as gdal
 
 from math import ceil
 from numpy import arange, meshgrid, linspace, nditer

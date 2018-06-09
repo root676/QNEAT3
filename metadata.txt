@@ -7,7 +7,7 @@ qgisMinimumVersion=3.00
 qgisMaximumVersion=3.99
 description=QNEAT3 - QGIS Network Analysis Toolbox 3 
 about=The QNEAT3 (short for Qgis Network Analysis Toolbox 3) Plugin aims to provide sophisticated QGIS Processing-Toolbox algorithms in the field of network analysis. QNEAT3 is integrated in the QGIS3 Processing Framework. It offers algorithms that range from simple shortest path solving to more complex tasks like Iso-Area (aka service areas, accessibility polygons) and OD-Matrix (Origin-Destination-Matrix) computation. The usage of some Iso-Area algorithms require the installation of the matplotlib python library from OSGeo4W (see algorithm and help page for more information).
-version=1.0.0
+version=1.0.1
 author=Clemens Raffler
 email=clemens.raffler@gmail.com
 
@@ -16,8 +16,11 @@ email=clemens.raffler@gmail.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=1.0.0: First release of QNEAT3 Plugin. Enjoy!
-
+changelog=1.0.0: 
+	- First release of QNEAT3 Plugin. Enjoy!
+	1.0.1: 
+	- Fix fatal QGIS crash: Network Strategy must not be added multiple times. 
+	- Minor user-feedback and icon tweaks.
 
 # tags are comma separated with spaces allowed
 tags= network analysis, graph analysis, od matrix, distance matrix, od matrices, OD, isochrone areas, catchment areas, shortest path, dijkstra
