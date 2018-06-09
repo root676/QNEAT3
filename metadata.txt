@@ -21,6 +21,7 @@ changelog=1.0.0:
 	1.0.1: 
 	- Fix fatal QGIS crash: Network Strategy must not be added multiple times. 
 	- Minor user-feedback and icon tweaks.
+	- Fixed deprecation warning.
 
 # tags are comma separated with spaces allowed
 tags= network analysis, graph analysis, od matrix, distance matrix, od matrices, OD, isochrone areas, catchment areas, shortest path, dijkstra
