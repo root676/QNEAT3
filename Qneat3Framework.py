@@ -112,7 +112,7 @@ class Qneat3Network():
         #Setup cost-strategy pattern.
         self.feedback.pushInfo("[QNEAT3Network][__init__] Setting analysis strategy: {}".format(input_strategy))
         self.setNetworkStrategy(input_strategy, input_network, input_speedField, input_defaultSpeed)
-        self.director.addStrategy(self.strategy)
+
         #add the strategy to the QgsGraphDirector
         self.director.addStrategy(self.strategy)
         self.builder = QgsGraphBuilder(self.AnalysisCrs)
@@ -123,7 +123,8 @@ class Qneat3Network():
         start_local_time = time.localtime()
         start_time = time.time()
         self.feedback.pushInfo("[QNEAT3Network][__init__] Start Time: {}".format(time.strftime(":%Y-%m-%d %H:%M:%S", start_local_time)))
-        self.list_tiedPoints = self.director.makeGraph(self.builder, self.list_input_points)
+        self.feedback.pushInfo("[QNEAT3Network][__init__] Building...")
+        self.list_tiedPoints = self.director.makeGraph(self.builder, self.list_input_points, self.feedback)
         self.network = self.builder.graph()
         end_local_time = time.localtime()
         end_time = time.time()
