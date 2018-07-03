@@ -240,7 +240,7 @@ class Qneat3Network():
     
 
     
-    def calcIsoInterpolation(self, iso_point_layer, resolution, interpolation_raster_path):
+    def calcIsoTinInterpolation(self, iso_point_layer, resolution, interpolation_raster_path):
         if self.AnalysisCrs.isGeographic():
             raise QgsProcessingException('The TIN-Interpolation algorithm in QGIS is designed to work with projected coordinate systems.Please use a projected coordinate system (eg. UTM zones) instead of geographic coordinate systems (eg. WGS84)!')
         

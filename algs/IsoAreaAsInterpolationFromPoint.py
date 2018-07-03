@@ -214,7 +214,7 @@ class IsoAreaAsInterpolationFromPoint(QgisAlgorithm):
         iso_pointcloud_provider.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
         
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Interpolation-Raster using QGIS TIN-Interpolator...")
-        net.calcIsoInterpolation(iso_pointcloud_layer, cell_size, output_path)
+        net.calcIsoTinInterpolation(iso_pointcloud_layer, cell_size, output_path)
         feedback.setProgress(99)
         
         feedback.pushInfo("[QNEAT3Algorithm] Ending Algorithm")
