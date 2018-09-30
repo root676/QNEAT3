@@ -64,6 +64,7 @@ class IsoAreaAsPointcloudFromPoint(QgisAlgorithm):
     START_POINT = 'START_POINT'
     MAX_DIST = "MAX_DIST"
     STRATEGY = 'STRATEGY'
+    ENTRY_COST_CALCULATION_METHOD = 'ENTRY_COST_CALCULATION_METHOD'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
     VALUE_BACKWARD = 'VALUE_BACKWARD'
@@ -116,9 +117,12 @@ class IsoAreaAsPointcloudFromPoint(QgisAlgorithm):
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),
             (self.tr('Both directions'), QgsVectorLayerDirector.DirectionBoth)])
 
-        self.STRATEGIES = [self.tr('Shortest'),
-                           self.tr('Fastest')
+        self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
+                           self.tr('Fastest Path (time optimization)')
                            ]
+
+        self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Ellipsoidal'),
+                                       self.tr('Planar (only use with projected CRS)')]
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Network Layer'),
@@ -135,6 +139,10 @@ class IsoAreaAsPointcloudFromPoint(QgisAlgorithm):
                                                      defaultValue=0))
 
         params = []
+        params.append(QgsProcessingParameterEnum(self.ENTRY_COST_CALCULATION_METHOD,
+                                                 self.tr('Entry Cost calculation method'),
+                                                 self.ENTRY_COST_CALCULATION_METHODS,
+                                                 defaultValue=0))
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
                                                   self.tr('Direction field'),
                                                   None,
@@ -182,6 +190,7 @@ class IsoAreaAsPointcloudFromPoint(QgisAlgorithm):
         max_dist = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
 
+        entry_cost_calc_method = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context) #int
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
         forwardValue = self.parameterAsString(parameters, self.VALUE_FORWARD, context) #str
         backwardValue = self.parameterAsString(parameters, self.VALUE_BACKWARD, context) #str
@@ -200,11 +209,12 @@ class IsoAreaAsPointcloudFromPoint(QgisAlgorithm):
         net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         feedback.setProgress(40)
 
-        analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0], feedback)
+        analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0], entry_cost_calc_method, feedback)
         
         fields = QgsFields()
         fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
         fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
+        fields.append(QgsField('origin_point_id',QVariant.String, '', 254, 7))
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, network.sourceCrs())
         
