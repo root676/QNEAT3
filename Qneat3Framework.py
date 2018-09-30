@@ -21,14 +21,15 @@ import time
 import osgeo.gdal as gdal
 
 from math import ceil
-from numpy import arange, meshgrid, linspace, nditer
+from numpy import arange, meshgrid, linspace, nditer, zeros
 from osgeo import osr
 
-from qgis.core import QgsProject, QgsPoint, QgsRasterLayer, QgsFeature, QgsFields, QgsField, QgsGeometry, QgsPointXY, QgsProcessingException, QgsDistanceArea, QgsUnitTypes      
+from qgis.core import QgsProject, QgsPoint, QgsVectorLayer, QgsRasterLayer, QgsFeature, QgsFeatureSink, QgsFeatureRequest,  QgsFields, QgsField, QgsGeometry, QgsPointXY, QgsLineString, QgsProcessingException, QgsDistanceArea, QgsUnitTypes      
 from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder, QgsInterpolator, QgsTinInterpolator, QgsGridFileWriter
 from qgis.PyQt.QtCore import QVariant
 
 from QNEAT3.Qneat3Utilities import getFieldIndexFromQgsProcessingFeatureSource, getListOfPoints, getFieldDatatypeFromPythontype
+from qgis._core import QgsSpatialIndex
 
 
 class Qneat3Network():
@@ -111,6 +112,8 @@ class Qneat3Network():
     
         #Setup cost-strategy pattern.
         self.feedback.pushInfo("[QNEAT3Network][__init__] Setting analysis strategy: {}".format(input_strategy))
+        self.default_speed = input_defaultSpeed
+        
         self.setNetworkStrategy(input_strategy, input_network, input_speedField, input_defaultSpeed)
 
         #add the strategy to the QgsGraphDirector
@@ -238,8 +241,141 @@ class Qneat3Network():
                     
         return iso_pointcloud.values() #list of QgsFeature (=QgsFeatureList)
     
+    def calcQneatInterpolation(self,iso_pointcloud_featurelist, resolution, interpolation_raster_path):  
+        #prepare spatial index
+        uri = 'PointM?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&key=vertex_id&index=yes'.format(self.AnalysisCrs.authid())
+        
+        mIsoPointcloud = QgsVectorLayer(uri, "mIsoPointcloud_layer", "memory")
+        mIsoPointcloud_provider = mIsoPointcloud.dataProvider()
+        mIsoPointcloud_provider.addFeatures(iso_pointcloud_featurelist, QgsFeatureSink.FastInsert)
+        
+        #implement spatial index for lines (closest line, etc...)
+        spt_idx = QgsSpatialIndex(mIsoPointcloud.getFeatures(QgsFeatureRequest()), self.feedback)
+        
+        #prepare numpy coordinate grids
+        NoData_value = -9999
+        raster_rectangle = mIsoPointcloud.extent()
+        
+        #top left point
+        xmin = raster_rectangle.xMinimum()
+        ymin = raster_rectangle.yMinimum()
+        xmax = raster_rectangle.xMaximum()
+        ymax = raster_rectangle.yMaximum()
+        
+        cols = int((xmax - xmin) / resolution)
+        rows = int((ymax - ymin) / resolution)
+        
+        output_interpolation_raster = gdal.GetDriverByName('GTiff').Create(interpolation_raster_path, cols, rows, 1, gdal.GDT_Float64 )
+        output_interpolation_raster.SetGeoTransform((xmin, resolution, 0, ymax, 0, -resolution))
+        
+        band = output_interpolation_raster.GetRasterBand(1)
+        band.SetNoDataValue(NoData_value)
+        
+        #initialize zero array with 2 dimensions (according to rows and cols)
+        raster_data = zeros(shape=(rows, cols))
+        
+        #compute raster cell MIDpoints
+        x_pos = linspace(xmin+(resolution/2), xmax -(resolution/2), raster_data.shape[1])
+        y_pos = linspace(ymax-(resolution/2), ymin + (resolution/2), raster_data.shape[0])
+        x_grid, y_grid = meshgrid(x_pos, y_pos) 
+        
+        self.feedback.pushInfo('[QNEAT3Network][calcQneatInterpolation] Beginning with interpolation')
+        total_work = rows * cols
+        counter = 0
+        
+        self.feedback.pushInfo('[QNEAT3Network][calcQneatInterpolation] Total workload: {} cells'.format(total_work))
+        self.feedback.setProgress(0)
+        for i in range(rows):
+            for j in range(cols):
+                current_pixel_midpoint = QgsPointXY(x_grid[i,j],y_grid[i,j])
+                
+                nearest_vertex_fid = spt_idx.nearestNeighbor(current_pixel_midpoint, 1)[0]
+                
+                nearest_feature = mIsoPointcloud.getFeature(nearest_vertex_fid)
+                
+                nearest_vertex = self.network.vertex(nearest_feature['vertex_id'])
+                
+                edges = nearest_vertex.incomingEdges() + nearest_vertex.outgoingEdges()
+                
+                vertex_found = False
+                nearest_counter = 2
+                while vertex_found == False:
+                    n_nearest_feature_fid = spt_idx.nearestNeighbor(current_pixel_midpoint, nearest_counter)[nearest_counter-1]
+                    n_nearest_feature = mIsoPointcloud.getFeature(n_nearest_feature_fid)
+                    n_nearest_vertex_id = n_nearest_feature['vertex_id']
+                    
+                    for edge_id in edges:
+                        from_vertex_id = self.network.edge(edge_id).fromVertex()
+                        to_vertex_id = self.network.edge(edge_id).toVertex()
+                        
+                        if n_nearest_vertex_id == from_vertex_id: 
+                            vertex_found = True
+                            vertex_type = "from_vertex"
+                            from_point = n_nearest_feature.geometry().asPoint()
+                            from_vertex_cost = n_nearest_feature['cost']
+                        if n_nearest_vertex_id == to_vertex_id:
+                            vertex_found = True
+                            vertex_type = "to_vertex"
+                            to_point = n_nearest_feature.geometry().asPoint()
+                            to_vertex_cost = n_nearest_feature['cost']
+                    
+                    nearest_counter = nearest_counter + 1
+                    """
+                    if nearest_counter == 5:
+                        vertex_found = True
+                        vertex_type = "end_vertex"
+                    """
+                
+                if vertex_type == "from_vertex":
+                    nearest_edge_geometry = QgsGeometry().fromPolylineXY([from_point, nearest_vertex.point()])
+                    res = nearest_edge_geometry.closestSegmentWithContext(current_pixel_midpoint)
+                    segment_point = res[1] #[0: distance, 1: point, 2: left_of, 3: epsilon for snapping]
+                    dist_to_segment = segment_point.distance(current_pixel_midpoint)
+                    dist_edge = from_point.distance(segment_point)
+                    #self.feedback.pushInfo("dist_to_segment = {}".format(dist_to_segment))
+                    #self.feedback.pushInfo("dist_on_edge = {}".format(dist_edge))
+                    #self.feedback.pushInfo("cost = {}".format(from_vertex_cost))
+                    pixel_cost = from_vertex_cost + dist_edge + dist_to_segment
+                    raster_data[i,j] = pixel_cost
+                elif vertex_type == "to_vertex":
+                    nearest_edge_geometry = QgsGeometry().fromPolylineXY([nearest_vertex.point(), to_point])
+                    res = nearest_edge_geometry.closestSegmentWithContext(current_pixel_midpoint)
+                    segment_point = res[1] #[0: distance, 1: point, 2: left_of, 3: epsilon for snapping]
+                    dist_to_segment = segment_point.distance(current_pixel_midpoint)
+                    dist_edge = to_point.distance(segment_point)
+                    #self.feedback.pushInfo("dist_to_segment = {}".format(dist_to_segment))
+                    #self.feedback.pushInfo("dist_on_edge = {}".format(dist_edge))
+                    #self.feedback.pushInfo("cost = {}".format(from_vertex_cost))
+                    pixel_cost = to_vertex_cost + dist_edge + dist_to_segment
+                    raster_data[i,j] = pixel_cost
+                else:
+                    pixel_cost = -99999#nearest_feature['cost'] + (nearest_vertex.point().distance(current_pixel_midpoint))
+                            
+                    
+                """
+                nearest_feature_pointxy = nearest_feature.geometry().asPoint()
+                nearest_feature_cost = nearest_feature['cost']
+                
+                dist_to_vertex = current_pixel_midpoint.distance(nearest_feature_pointxy)
+                #implement time cost
+                pixel_cost = dist_to_vertex + nearest_feature_cost
+                
+                raster_data[i,j] = pixel_cost
+                """
+                counter = counter+1
+                if counter%1000 == 0:
+                    self.feedback.pushInfo("[QNEAT3Network][calcQneatInterpolation] Interpolated {} cells...".format(counter))
+                self.feedback.setProgress((counter/total_work)*100)
+                
+                
+        band.WriteArray(raster_data)
+        outRasterSRS = osr.SpatialReference()
+        outRasterSRS.ImportFromWkt(self.AnalysisCrs.toWkt())
+        output_interpolation_raster.SetProjection(outRasterSRS.ExportToWkt())
+        band.FlushCache()
 
-    
+        
+        
     def calcIsoTinInterpolation(self, iso_point_layer, resolution, interpolation_raster_path):
         if self.AnalysisCrs.isGeographic():
             raise QgsProcessingException('The TIN-Interpolation algorithm in QGIS is designed to work with projected coordinate systems.Please use a projected coordinate system (eg. UTM zones) instead of geographic coordinate systems (eg. WGS84)!')
@@ -391,7 +527,7 @@ class Qneat3Network():
         
 class Qneat3AnalysisPoint():
     
-    def __init__(self, layer_name, feature, point_id_field_name, net, vertex_geom, feedback):
+    def __init__(self, layer_name, feature, point_id_field_name, net, vertex_geom, entry_cost_calculation_method, feedback):
         self.layer_name = layer_name
         self.point_feature = feature
         self.point_id = feature[point_id_field_name] 
@@ -400,18 +536,36 @@ class Qneat3AnalysisPoint():
         self.network_vertex = self.getNearestVertex(net.network, vertex_geom)
         self.crs = net.AnalysisCrs
         self.strategy = net.strategy_int
-        self.entry_cost = self.calcEntryCost(feedback)
+        self.entry_speed = net.default_speed
+        if entry_cost_calculation_method == 0:
+            self.entry_cost = self.calcEntryCostEllipsoidal(feedback)
+        elif entry_cost_calculation_method == 1:
+            self.entry_cost = self.calcEntryCostPlanar(feedback)
+        else:
+            self.entry_cost = self.calcEntryCostEllipsoidal(feedback)
         
-    def calcEntryCost(self, feedback):
+    def calcEntryCostEllipsoidal(self, feedback):
         dist_calculator = QgsDistanceArea()
         dist_calculator.setSourceCrs(QgsProject().instance().crs(), QgsProject().instance().transformContext())
         dist_calculator.setEllipsoid(QgsProject().instance().crs().ellipsoidAcronym())
         dist = dist_calculator.measureLine([self.point_geom, self.network_vertex.point()])
-        feedback.pushInfo("[QNEAT3Network][calcEntryCost] Ellipsoidal entry cost to vertex {} = {}".format(self.network_vertex_id, dist))
+        feedback.pushInfo("[QNEAT3Network][calcEntryCostEllipsoidal] Ellipsoidal entry cost to vertex {} = {}".format(self.network_vertex_id, dist))
         if self.strategy == 0:
             return dist
         else:
-            return dist/1.3888 #length/(m/s) todo: Make dynamic
+            distUnit = self.crs.mapUnits()
+            unit_to_meter_factor = QgsUnitTypes.fromUnitToUnitFactor(distUnit, QgsUnitTypes.DistanceMeters)
+            return dist/(self.entry_speed*(unit_to_meter_factor * 1000.0 / 3600.0)) #length/(m/s) todo: Make dynamic
+    
+    def calcEntryCostPlanar(self, feedback):
+        dist = self.calcEntryLinestring().length()
+        feedback.pushInfo("[QNEAT3Network][calcEntryCostPlanar] Planar entry cost to vertex {} = {}".format(self.network_vertex_id, dist))
+        if self.strategy == 0:
+            return dist
+        else:
+            distUnit = self.crs.mapUnits()
+            unit_to_meter_factor = QgsUnitTypes.fromUnitToUnitFactor(distUnit, QgsUnitTypes.DistanceMeters)
+            return dist/(self.entry_speed*(unit_to_meter_factor * 1000.0 / 3600.0)) #length/(m/s) todo: Make dynamic
 
 
     def calcEntryLinestring(self):
