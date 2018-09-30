@@ -31,6 +31,7 @@ from importlib import util
 matplotlib_specification = util.find_spec("matplotlib", "pyplot")
 matplotlib_found = matplotlib_specification is not None #evaluates to true if matplotlib.pyplot can be importet
 
+
 #import all algorithms that work with basic qgis modules
 from .algs import ( 
     ShortestPathBetweenPoints,
@@ -38,6 +39,7 @@ from .algs import (
     IsoAreaAsPointcloudFromLayer, 
     IsoAreaAsInterpolationFromPoint,
     IsoAreaAsInterpolationFromLayer,
+    IsoAreaAsQneatInterpolationFromPoint,
     OdMatrixFromPointsAsCsv, 
     OdMatrixFromPointsAsLines, 
     OdMatrixFromPointsAsTable, 
@@ -58,36 +60,14 @@ else: #import dummy if manually installed modules are missing
         DummyAlgorithm 
         )
 
-
-
 pluginPath = os.path.split(os.path.dirname(__file__))[0]
 
 class Qneat3Provider(QgsProcessingProvider):
     def __init__(self):
         super().__init__()
-        self.alglist = [
-            ShortestPathBetweenPoints.ShortestPathBetweenPoints(),
-            IsoAreaAsPointcloudFromPoint.IsoAreaAsPointcloudFromPoint(),
-            IsoAreaAsPointcloudFromLayer.IsoAreaAsPointcloudFromLayer(),
-            IsoAreaAsInterpolationFromPoint.IsoAreaAsInterpolationFromPoint(),
-            IsoAreaAsInterpolationFromLayer.IsoAreaAsInterpolationFromLayer(),
-            OdMatrixFromPointsAsCsv.OdMatrixFromPointsAsCsv(),
-            OdMatrixFromPointsAsLines.OdMatrixFromPointsAsLines(),
-            OdMatrixFromPointsAsTable.OdMatrixFromPointsAsTable(),
-            OdMatrixFromLayersAsTable.OdMatrixFromLayersAsTable(),
-            OdMatrixFromLayersAsLines.OdMatrixFromLayersAsLines(),
-        ]
-        
-        if matplotlib_found:
-            self.alglist.append(IsoAreaAsContoursFromPoint.IsoAreaAsContoursFromPoint())
-            self.alglist.append(IsoAreaAsPolygonsFromPoint.IsoAreaAsPolygonsFromPoint())
-            self.alglist.append(IsoAreaAsPolygonsFromLayer.IsoAreaAsPolygonsFromLayer())
-            self.alglist.append(IsoAreaAsContoursFromLayer.IsoAreaAsContoursFromLayer())
-        else:
-            self.alglist.append(DummyAlgorithm.DummyAlgorithm())
-            
-    def getAlgs(self):
-        return self.alglist
+        self.matplotlib_specification = util.find_spec("matplotlib", "pyplot")
+        self.matplotlib_found = self.matplotlib_specification is not None #evaluates to true if matplotlib.pyplot can be importet
+
 
     def id(self, *args, **kwargs):
         return 'qneat3'
@@ -102,5 +82,22 @@ class Qneat3Provider(QgsProcessingProvider):
         return os.path.join(pluginPath, 'QNEAT3', 'icon_qneat3.svg')
 
     def loadAlgorithms(self, *args, **kwargs):
-        for alg in self.alglist:
-            self.addAlgorithm(alg)
+        self.addAlgorithm(ShortestPathBetweenPoints.ShortestPathBetweenPoints())
+        self.addAlgorithm(IsoAreaAsPointcloudFromPoint.IsoAreaAsPointcloudFromPoint())
+        self.addAlgorithm(IsoAreaAsPointcloudFromLayer.IsoAreaAsPointcloudFromLayer())
+        self.addAlgorithm(IsoAreaAsInterpolationFromPoint.IsoAreaAsInterpolationFromPoint())
+        self.addAlgorithm(IsoAreaAsInterpolationFromLayer.IsoAreaAsInterpolationFromLayer())
+        self.addAlgorithm(IsoAreaAsQneatInterpolationFromPoint.IsoAreaAsQneatInterpolationFromPoint())
+        self.addAlgorithm(OdMatrixFromPointsAsCsv.OdMatrixFromPointsAsCsv())
+        self.addAlgorithm(OdMatrixFromPointsAsLines.OdMatrixFromPointsAsLines())
+        self.addAlgorithm(OdMatrixFromPointsAsTable.OdMatrixFromPointsAsTable())
+        self.addAlgorithm(OdMatrixFromLayersAsTable.OdMatrixFromLayersAsTable())
+        self.addAlgorithm(OdMatrixFromLayersAsLines.OdMatrixFromLayersAsLines())
+        
+        if self.matplotlib_found:
+            self.addAlgorithm(IsoAreaAsContoursFromPoint.IsoAreaAsContoursFromPoint())
+            self.addAlgorithm(IsoAreaAsPolygonsFromPoint.IsoAreaAsPolygonsFromPoint())
+            self.addAlgorithm(IsoAreaAsPolygonsFromLayer.IsoAreaAsPolygonsFromLayer())
+            self.addAlgorithm(IsoAreaAsContoursFromLayer.IsoAreaAsContoursFromLayer())
+        else:
+            self.addAlgorithm(DummyAlgorithm.DummyAlgorithm())
