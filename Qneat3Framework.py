@@ -579,4 +579,3 @@ class Qneat3AnalysisPoint():
     
     def __str__(self):
         return u"Qneat3AnalysisPoint: {} analysis_id: {:30} FROM {:30} TO {:30} network_id: {:d}".format(self.layer_name, self.point_id, self.point_geom.__str__(), self.network_vertex.point().__str__(), self.network_vertex_id)    
-                                                                                                                                                                                                                        
