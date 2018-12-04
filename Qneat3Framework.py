@@ -236,7 +236,7 @@ class Qneat3Network():
                             iso_pointcloud.update({fromVertexId: feat})
                         #count up to next vertex
                 i = i + 1 
-                if i%1000 == 0:
+                if (i%10000)==0:
                     self.feedback.pushInfo("[QNEAT3Network][calcIsoPoints] Added {} Nodes to iso pointcloud...".format(i))
                     
         return iso_pointcloud.values() #list of QgsFeature (=QgsFeatureList)
