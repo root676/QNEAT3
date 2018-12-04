@@ -31,9 +31,17 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
+import osgeo.gdal as gdal
+from osgeo import osr
+
+from numpy import array, meshgrid, linspace, zeros
+
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (QgsFeatureSink,
+                       QgsFeatureRequest,
+                       QgsSpatialIndex,
+                       QgsPointXY,
                        QgsVectorLayer,
                        QgsProcessing,
                        QgsProcessingParameterEnum,
@@ -48,7 +56,7 @@ from qgis.core import (QgsFeatureSink,
 from qgis.analysis import QgsVectorLayerDirector
 
 from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getFeatureFromPointParameter
+from QNEAT3.Qneat3Utilities import getFeatureFromPointParameter, getFeaturesFromQgsIterable
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
@@ -62,6 +70,7 @@ class IsoAreaAsQneatInterpolationFromPoint(QgisAlgorithm):
     MAX_DIST = "MAX_DIST"
     CELL_SIZE = "CELL_SIZE"
     STRATEGY = 'STRATEGY'
+    METHOD = 'METHOD'
     ENTRY_COST_CALCULATION_METHOD = 'ENTRY_COST_CALCULATION_METHOD'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
@@ -117,6 +126,10 @@ class IsoAreaAsQneatInterpolationFromPoint(QgisAlgorithm):
         self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
                            self.tr('Fastest Path (time optimization)')
                            ]
+        
+        self.METHODS = [self.tr('QGIS TIN-Interpolation (faster but not exact)'),
+                        self.tr('QNEAT-Interpolation (slower but more exact')
+                        ]
 
         self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar (only use with projected CRS)')]
             
@@ -138,6 +151,10 @@ class IsoAreaAsQneatInterpolationFromPoint(QgisAlgorithm):
                                                      self.tr('Optimization Criterion'),
                                                      self.STRATEGIES,
                                                      defaultValue=0))
+        self.addParameter(QgsProcessingParameterEnum(self.METHOD,
+                                                     self.tr('Interpolation Method'),
+                                                     self.METHODS,
+                                                     defaultValue=1))
 
         params = []
         params.append(QgsProcessingParameterEnum(self.ENTRY_COST_CALCULATION_METHOD,
@@ -189,6 +206,7 @@ class IsoAreaAsQneatInterpolationFromPoint(QgisAlgorithm):
         max_dist = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
         cell_size = self.parameterAsInt(parameters, self.CELL_SIZE, context)#int
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
+        interpolation_method = self.parameterasEnum(parameters, self.METHOD, context)#int
 
         entry_cost_calc_method = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context) #int
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
@@ -223,8 +241,83 @@ class IsoAreaAsQneatInterpolationFromPoint(QgisAlgorithm):
         iso_pointcloud_provider.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
         
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Interpolation-Raster using QGIS TIN-Interpolator...")
-        net.calcQneatInterpolation(iso_pointcloud, cell_size, output_path)
-        feedback.setProgress(99)
+        if interpolation_method == 0:
+            feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Interpolation-Raster using QGIS TIN-Interpolator...")
+            net.calcIsoTinInterpolation(iso_pointcloud_layer, cell_size, output_path)
+            feedback.setProgress(99)
+        else:
+
+            #implement spatial index for lines (closest line, etc...)
+            spt_idx = QgsSpatialIndex(iso_pointcloud_layer.getFeatures(QgsFeatureRequest()), self.feedback)
+            
+            #prepare numpy coordinate grids
+            NoData_value = -9999
+            raster_rectangle = iso_pointcloud_layer.extent()
+            
+            #top left point
+            xmin = raster_rectangle.xMinimum()
+            ymin = raster_rectangle.yMinimum()
+            xmax = raster_rectangle.xMaximum()
+            ymax = raster_rectangle.yMaximum()
+            
+            cols = int((xmax - xmin) / cell_size)
+            rows = int((ymax - ymin) / cell_size)
+            
+            output_interpolation_raster = gdal.GetDriverByName('GTiff').Create(output_path, cols, rows, 1, gdal.GDT_Float64 )
+            output_interpolation_raster.SetGeoTransform((xmin, cell_size, 0, ymax, 0, -cell_size))
+            
+            band = output_interpolation_raster.GetRasterBand(1)
+            band.SetNoDataValue(NoData_value)
+            
+            #initialize zero array with 2 dimensions (according to rows and cols)
+            raster_routingcost_data = zeros(shape=(rows, cols))
+            
+            #compute raster cell MIDpoints
+            x_pos = linspace(xmin+(cell_size/2), xmax -(cell_size/2), raster_routingcost_data.shape[1])
+            y_pos = linspace(ymax-(cell_size/2), ymin + (cell_size/2), raster_routingcost_data.shape[0])
+            x_grid, y_grid = meshgrid(x_pos, y_pos) 
+            
+            gridpoint_list = array(list(zip(x_grid.flatten(),y_grid.flatten())))
+    
+            list_cellpoints_interpolation = [QgsPointXY(coords[0],coords[1]) for coords in gridpoint_list]
+            list_cellpoints_interpolation.insert(0, startPoint)
+            
+            iso_net = Qneat3Network(network, list_cellpoints_interpolation, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
+            
+            iso_analysis_start_point = Qneat3AnalysisPoint("point", input_point, "point_id", iso_net, iso_net.list_tiedPoints[0], entry_cost_calc_method, feedback)
+            
+            #add 1 because of iso_analysis_start_point that is prepended
+            list_to_apoints = [Qneat3AnalysisPoint("to", feature, "vertex_id", iso_net, iso_net.list_tiedPoints[1+i], entry_cost_calc_method, feedback) for i, feature in enumerate(getFeaturesFromQgsIterable(iso_pointcloud_layer))]
+            
+            total_workload = float(len(list_to_apoints))
+            current_point_index = 0
+            #raster data indices
+            
+            
+            dijkstra_query = net.calcDijkstra(iso_analysis_start_point.network_vertex_id, 0)
+            i = 0
+            while i < len(raster_routingcost_data):
+                j = 0
+                while j < len(raster_routingcost_data[i]):
+                    if (current_point_index%1000)==0:
+                        feedback.pushInfo("[QNEAT3Algorithm] {} cells interpolated...".format(current_point_index))
+                    if dijkstra_query[0][list_to_apoints[current_point_index].network_vertex_id] == -1:
+                        #write nodata to raster
+                        raster_routingcost_data[i][j] = -9999
+                    else:
+                        network_cost = dijkstra_query[1][list_to_apoints[current_point_index].network_vertex_id]
+                        raster_routingcost_data[i][j] = iso_analysis_start_point.entry_cost + network_cost + list_to_apoints[current_point_index].entry_cost 
+                    current_point_index = current_point_index + 1
+                    feedback.setProgress((current_point_index/total_workload)*100)
+                    j=j+1
+                i=i+1
+                    
+            band.WriteArray(raster_routingcost_data)
+            outRasterSRS = osr.SpatialReference()
+            outRasterSRS.ImportFromWkt(self.AnalysisCrs.toWkt())
+            output_interpolation_raster.SetProjection(outRasterSRS.ExportToWkt())
+            band.FlushCache()
+
         
         feedback.pushInfo("[QNEAT3Algorithm] Ending Algorithm")
         feedback.setProgress(100)           
@@ -232,4 +325,3 @@ class IsoAreaAsQneatInterpolationFromPoint(QgisAlgorithm):
         results = {}
         results[self.OUTPUT] = output_path
         return results
-
