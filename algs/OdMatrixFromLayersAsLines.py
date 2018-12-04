@@ -261,7 +261,7 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
             for query_point in list_to_apoints:
                 if (current_workstep_number%1000)==0:
                     feedback.pushInfo("[QNEAT3Algorithm] {} OD-pairs processed...".format(current_workstep_number))
-                elif dijkstra_query[0][query_point.network_vertex_id] == -1:
+                if dijkstra_query[0][query_point.network_vertex_id] == -1:
                     feat['origin_id'] = start_point.point_id
                     feat['destination_id'] = query_point.point_id
                     #do not populate cost field so that it defaults to null
