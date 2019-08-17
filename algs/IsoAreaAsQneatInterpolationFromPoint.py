@@ -39,10 +39,11 @@ from numpy import array, meshgrid, linspace, zeros
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (QgsFeatureSink,
-                       QgsFeatureRequest,
-                       QgsSpatialIndex,
                        QgsPointXY,
                        QgsVectorLayer,
+                       QgsSpatialIndex,
+                       QgsFeatureRequest,
+                       QgsGeometry,
                        QgsProcessing,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterPoint,
@@ -160,7 +161,7 @@ class IsoAreaAsQneatInterpolationFromPoint(QgisAlgorithm):
         params.append(QgsProcessingParameterEnum(self.ENTRY_COST_CALCULATION_METHOD,
                                                  self.tr('Entry Cost calculation method'),
                                                  self.ENTRY_COST_CALCULATION_METHODS,
-                                                 defaultValue=0))
+                                                 defaultValue=1))
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
                                                   self.tr('Direction field'),
                                                   None,
@@ -201,12 +202,12 @@ class IsoAreaAsQneatInterpolationFromPoint(QgisAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr("[QNEAT3Algorithm] This is a QNEAT3 Algorithm: '{}'".format(self.displayName())))
-        network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
+        network = self.parameterAsVectorLayer(parameters, self.INPUT, context) #QgsVectorLayer
         startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs()) #QgsPointXY
         max_dist = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
         cell_size = self.parameterAsInt(parameters, self.CELL_SIZE, context)#int
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
-        interpolation_method = self.parameterasEnum(parameters, self.METHOD, context)#int
+        interpolation_method = self.parameterAsEnum(parameters, self.METHOD, context)#int
 
         entry_cost_calc_method = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context) #int
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
@@ -247,12 +248,13 @@ class IsoAreaAsQneatInterpolationFromPoint(QgisAlgorithm):
             feedback.setProgress(99)
         else:
 
-            #implement spatial index for lines (closest line, etc...)
-            spt_idx = QgsSpatialIndex(iso_pointcloud_layer.getFeatures(QgsFeatureRequest()), self.feedback)
-            
+
             #prepare numpy coordinate grids
             NoData_value = -9999
             raster_rectangle = iso_pointcloud_layer.extent()
+            
+            #implement spatial index for lines (closest line, etc...)
+            spt_idx = QgsSpatialIndex(iso_pointcloud_layer.getFeatures(QgsFeatureRequest()), feedback)
             
             #top left point
             xmin = raster_rectangle.xMinimum()
@@ -277,44 +279,102 @@ class IsoAreaAsQneatInterpolationFromPoint(QgisAlgorithm):
             y_pos = linspace(ymax-(cell_size/2), ymin + (cell_size/2), raster_routingcost_data.shape[0])
             x_grid, y_grid = meshgrid(x_pos, y_pos) 
             
-            gridpoint_list = array(list(zip(x_grid.flatten(),y_grid.flatten())))
+            feedback.pushInfo('[QNEAT3Network][calcQneatInterpolation] Beginning with interpolation')
+            total_work = rows * cols
+            counter = 0
     
-            list_cellpoints_interpolation = [QgsPointXY(coords[0],coords[1]) for coords in gridpoint_list]
-            list_cellpoints_interpolation.insert(0, startPoint)
-            
-            iso_net = Qneat3Network(network, list_cellpoints_interpolation, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
-            
-            iso_analysis_start_point = Qneat3AnalysisPoint("point", input_point, "point_id", iso_net, iso_net.list_tiedPoints[0], entry_cost_calc_method, feedback)
-            
-            #add 1 because of iso_analysis_start_point that is prepended
-            list_to_apoints = [Qneat3AnalysisPoint("to", feature, "vertex_id", iso_net, iso_net.list_tiedPoints[1+i], entry_cost_calc_method, feedback) for i, feature in enumerate(getFeaturesFromQgsIterable(iso_pointcloud_layer))]
-            
-            total_workload = float(len(list_to_apoints))
-            current_point_index = 0
-            #raster data indices
-            
-            
-            dijkstra_query = net.calcDijkstra(iso_analysis_start_point.network_vertex_id, 0)
-            i = 0
-            while i < len(raster_routingcost_data):
-                j = 0
-                while j < len(raster_routingcost_data[i]):
-                    if (current_point_index%1000)==0:
-                        feedback.pushInfo("[QNEAT3Algorithm] {} cells interpolated...".format(current_point_index))
-                    if dijkstra_query[0][list_to_apoints[current_point_index].network_vertex_id] == -1:
-                        #write nodata to raster
-                        raster_routingcost_data[i][j] = -9999
-                    else:
-                        network_cost = dijkstra_query[1][list_to_apoints[current_point_index].network_vertex_id]
-                        raster_routingcost_data[i][j] = iso_analysis_start_point.entry_cost + network_cost + list_to_apoints[current_point_index].entry_cost 
-                    current_point_index = current_point_index + 1
-                    feedback.setProgress((current_point_index/total_workload)*100)
-                    j=j+1
-                i=i+1
+            feedback.pushInfo('[QNEAT3Network][calcQneatInterpolation] Total workload: {} cells'.format(total_work))
+            feedback.setProgress(0)
+            for i in range(rows):
+                for j in range(cols):
+                    current_pixel_midpoint = QgsPointXY(x_grid[i,j],y_grid[i,j])
+    
+                    nearest_vertex_fid = spt_idx.nearestNeighbor(current_pixel_midpoint, 1)[0]
+    
+                    nearest_feature = iso_pointcloud_layer.getFeature(nearest_vertex_fid)
+    
+                    nearest_vertex = net.network.vertex(nearest_feature['vertex_id'])
+    
+                    #yields a list of all incoming and outgoing edges    
+                    edges = nearest_vertex.incomingEdges() + nearest_vertex.outgoingEdges() 
                     
+                    vertex_found = False
+                    nearest_counter = 2
+                    while vertex_found == False:
+                        #find the second nearest vertex (eg, the vertex with least cost of all edges incoming to the first nearest vertex)
+                        second_nearest_feature_fid = spt_idx.nearestNeighbor(current_pixel_midpoint, nearest_counter)[nearest_counter-1] 
+                        second_nearest_feature = iso_pointcloud_layer.getFeature(second_nearest_feature_fid)
+                        second_nearest_vertex_id = second_nearest_feature['vertex_id']
+    
+                        for edge_id in edges:
+                            from_vertex_id = net.network.edge(edge_id).fromVertex()
+                            to_vertex_id = net.network.edge(edge_id).toVertex()
+    
+                            if second_nearest_vertex_id == from_vertex_id: 
+                                vertex_found = True
+                                vertex_type = "from_vertex"
+                                from_point = second_nearest_feature.geometry().asPoint()
+                                from_vertex_cost = second_nearest_feature['cost']
+                                
+                            if second_nearest_vertex_id == to_vertex_id:
+                                vertex_found = True
+                                vertex_type = "to_vertex"
+                                to_point = second_nearest_feature.geometry().asPoint()
+                                to_vertex_cost = second_nearest_feature['cost']
+                                
+    
+                        nearest_counter = nearest_counter + 1
+                        """
+                        if nearest_counter == 5:
+                            vertex_found = True
+                            vertex_type = "end_vertex"
+                        """
+    
+                    if vertex_type == "from_vertex":
+                        nearest_edge_geometry = QgsGeometry().fromPolylineXY([from_point, nearest_vertex.point()])
+                        res = nearest_edge_geometry.closestSegmentWithContext(current_pixel_midpoint)
+                        segment_point = res[1] #[0: distance, 1: point, 2: left_of, 3: epsilon for snapping]
+                        dist_to_segment = segment_point.distance(current_pixel_midpoint)
+                        dist_edge = from_point.distance(segment_point)
+                        #feedback.pushInfo("dist_to_segment = {}".format(dist_to_segment))
+                        #feedback.pushInfo("dist_on_edge = {}".format(dist_edge))
+                        #feedback.pushInfo("cost = {}".format(from_vertex_cost))
+                        pixel_cost = from_vertex_cost + dist_edge + dist_to_segment
+                        raster_routingcost_data[i,j] = pixel_cost
+                    elif vertex_type == "to_vertex":
+                        nearest_edge_geometry = QgsGeometry().fromPolylineXY([nearest_vertex.point(), to_point])
+                        res = nearest_edge_geometry.closestSegmentWithContext(current_pixel_midpoint)
+                        segment_point = res[1] #[0: distance, 1: point, 2: left_of, 3: epsilon for snapping]
+                        dist_to_segment = segment_point.distance(current_pixel_midpoint)
+                        dist_edge = to_point.distance(segment_point)
+                        #feedback.pushInfo("dist_to_segment = {}".format(dist_to_segment))
+                        #feedback.pushInfo("dist_on_edge = {}".format(dist_edge))
+                        #feedback.pushInfo("cost = {}".format(from_vertex_cost))
+                        pixel_cost = to_vertex_cost + dist_edge + dist_to_segment
+                        raster_routingcost_data[i,j] = pixel_cost
+                    else:
+                        pixel_cost = -99999#nearest_feature['cost'] + (nearest_vertex.point().distance(current_pixel_midpoint))
+    
+    
+                    """
+                    nearest_feature_pointxy = nearest_feature.geometry().asPoint()
+                    nearest_feature_cost = nearest_feature['cost']
+                    
+                    dist_to_vertex = current_pixel_midpoint.distance(nearest_feature_pointxy)
+                    #implement time cost
+                    pixel_cost = dist_to_vertex + nearest_feature_cost
+                    
+                    raster_data[i,j] = pixel_cost
+                    """
+                    counter = counter+1
+                    if counter%1000 == 0:
+                        feedback.pushInfo("[QNEAT3Network][calcQneatInterpolation] Interpolated {} cells...".format(counter))
+                    feedback.setProgress((counter/total_work)*100)
+    
+    
             band.WriteArray(raster_routingcost_data)
             outRasterSRS = osr.SpatialReference()
-            outRasterSRS.ImportFromWkt(self.AnalysisCrs.toWkt())
+            outRasterSRS.ImportFromWkt(net.AnalysisCrs.toWkt())
             output_interpolation_raster.SetProjection(outRasterSRS.ExportToWkt())
             band.FlushCache()
 

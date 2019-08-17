@@ -39,7 +39,7 @@ from .algs import (
     IsoAreaAsPointcloudFromLayer, 
     IsoAreaAsInterpolationFromPoint,
     IsoAreaAsInterpolationFromLayer,
-    #IsoAreaAsQneatInterpolationFromPoint,
+    IsoAreaAsQneatInterpolationFromPoint,
     OdMatrixFromPointsAsCsv, 
     OdMatrixFromPointsAsLines, 
     OdMatrixFromPointsAsTable, 
@@ -87,7 +87,7 @@ class Qneat3Provider(QgsProcessingProvider):
         self.addAlgorithm(IsoAreaAsPointcloudFromLayer.IsoAreaAsPointcloudFromLayer())
         self.addAlgorithm(IsoAreaAsInterpolationFromPoint.IsoAreaAsInterpolationFromPoint())
         self.addAlgorithm(IsoAreaAsInterpolationFromLayer.IsoAreaAsInterpolationFromLayer())
-        #self.addAlgorithm(IsoAreaAsQneatInterpolationFromPoint.IsoAreaAsQneatInterpolationFromPoint())
+        self.addAlgorithm(IsoAreaAsQneatInterpolationFromPoint.IsoAreaAsQneatInterpolationFromPoint())
         self.addAlgorithm(OdMatrixFromPointsAsCsv.OdMatrixFromPointsAsCsv())
         self.addAlgorithm(OdMatrixFromPointsAsLines.OdMatrixFromPointsAsLines())
         self.addAlgorithm(OdMatrixFromPointsAsTable.OdMatrixFromPointsAsTable())
