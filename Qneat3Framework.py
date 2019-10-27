@@ -194,7 +194,7 @@ class Qneat3Network():
             start_vertex_feat['vertex_id'] = current_vertex_id
             start_vertex_feat['cost'] = entry_cost
             start_vertex_feat['origin_point_id'] = current_start_point_id
-            pt_m = QgsPoint(self.network.vertex(current_vertex_id).point())
+            pt_m = QgsPoint(self.network.vertex(current_vertex_id).point().x(),self.network.vertex(current_vertex_id).point().y())
             pt_m.addMValue(entry_cost)
             geom = QgsGeometry(pt_m)
             start_vertex_feat.setGeometry(geom)
@@ -221,7 +221,8 @@ class Qneat3Network():
                         feat['vertex_id'] = fromVertexId
                         feat['cost'] = real_cost
                         feat['origin_point_id'] = current_start_point_id
-                        pt_m = QgsPoint(self.network.vertex(fromVertexId).point())
+                        pt_xy = self.network.vertex(fromVertexId).point() #QGIS API BUG: remove line)
+                        pt_m = QgsPoint(pt_xy.x(),pt_xy.y()) #QGIS API BUG: Change back to QgsPoint(self.network.vertex(fromVertexId).point())
                         pt_m.addMValue((500-cost[fromVertexId])*2)
                         geom = QgsGeometry(pt_m)
                         feat.setGeometry(geom)
