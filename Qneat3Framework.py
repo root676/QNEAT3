@@ -118,7 +118,7 @@ class Qneat3Network():
 
         #add the strategy to the QgsGraphDirector
         self.director.addStrategy(self.strategy)
-        self.builder = QgsGraphBuilder(self.AnalysisCrs)
+        self.builder = QgsGraphBuilder(self.AnalysisCrs, True, input_tolerance)
         #tell the graph-director to make the graph using the builder object and tie the start point geometry to the graph
         
         self.feedback.pushInfo("[QNEAT3Network][__init__] Start tying analysis points to the graph and building it.")
