@@ -3,10 +3,10 @@
 ***************************************************************************
     IsoAreaAsInterpolationFromLayer.py
     ---------------------
-    
-    Partially based on QGIS3 network analysis algorithms. 
-    Copyright 2016 Alexander Bruy    
-    
+
+    Partially based on QGIS3 network analysis algorithms.
+    Copyright 2016 Alexander Bruy
+
     Date                 : March 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
@@ -81,13 +81,13 @@ class IsoAreaAsInterpolationFromLayer(QgisAlgorithm):
 
     def groupId(self):
         return 'isoareas'
-    
+
     def name(self):
         return 'isoareaasinterpolationfromlayer'
 
     def displayName(self):
         return self.tr('Iso-Area as Interpolation (from Layer)')
-    
+
     def shortHelpString(self):
         return  "<b>General:</b><br>"\
                 "This algorithm implements iso-area analysis to return the <b>network-distance interpolation for a maximum cost level</b> on a given <b>network dataset for a layer of points</b>.<br>"\
@@ -101,8 +101,8 @@ class IsoAreaAsInterpolationFromLayer(QgisAlgorithm):
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is one layer:"\
                 "<ul><li>TIN-Interpolation Distance Raster</li></ul>"
-        
-    
+
+
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
 
@@ -120,7 +120,7 @@ class IsoAreaAsInterpolationFromLayer(QgisAlgorithm):
                            ]
 
         self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar (only use with projected CRS)')]
-            
+
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Network Layer'),
@@ -186,7 +186,7 @@ class IsoAreaAsInterpolationFromLayer(QgisAlgorithm):
         for p in params:
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
-        
+
         self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT, self.tr('Output Interpolation')))
 
     def processAlgorithm(self, parameters, context, feedback):
@@ -209,34 +209,33 @@ class IsoAreaAsInterpolationFromLayer(QgisAlgorithm):
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
         output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
 
-        analysisCrs = context.project().crs()
+        analysisCrs = network.sourceCrs()
         input_coordinates = getListOfPoints(startPoints)
-        
+
         feedback.pushInfo("[QNEAT3Algorithm] Building Graph...")
-        feedback.setProgress(10)   
+        feedback.setProgress(10)
         net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         feedback.setProgress(40)
-        
+
         list_apoints = [Qneat3AnalysisPoint("from", feature, id_field, net, net.list_tiedPoints[i], entry_cost_calc_method, feedback) for i, feature in enumerate(getFeaturesFromQgsIterable(startPoints))]
-        
+
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Pointcloud...")
         iso_pointcloud = net.calcIsoPoints(list_apoints, max_dist)
         feedback.setProgress(70)
-        
+
         uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())
-        
+
         iso_pointcloud_layer = QgsVectorLayer(uri, "iso_pointcloud_layer", "memory")
         iso_pointcloud_provider = iso_pointcloud_layer.dataProvider()
         iso_pointcloud_provider.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
-        
+
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Interpolation-Raster using QGIS TIN-Interpolator...")
         net.calcIsoTinInterpolation(iso_pointcloud_layer, cell_size, output_path)
         feedback.setProgress(99)
-        
+
         feedback.pushInfo("[QNEAT3Algorithm] Ending Algorithm")
-        feedback.setProgress(100)   
-        
+        feedback.setProgress(100)
+
         results = {}
         results[self.OUTPUT] = output_path
         return results
-
