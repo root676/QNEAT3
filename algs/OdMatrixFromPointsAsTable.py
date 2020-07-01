@@ -3,10 +3,10 @@
 ***************************************************************************
     OdMatrixFromPointsAsTable.py
     ---------------------
-        
-    Partially based on QGIS3 network analysis algorithms. 
-    Copyright 2016 Alexander Bruy    
-    
+
+    Partially based on QGIS3 network analysis algorithms.
+    Copyright 2016 Alexander Bruy
+
     Date                 : February 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
@@ -62,7 +62,7 @@ class OdMatrixFromPointsAsTable(QgisAlgorithm):
 
     INPUT = 'INPUT'
     POINTS = 'POINTS'
-    ID_FIELD = 'ID_FIELD'    
+    ID_FIELD = 'ID_FIELD'
     STRATEGY = 'STRATEGY'
     ENTRY_COST_CALCULATION_METHOD = 'ENTRY_COST_CALCULATION_METHOD'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
@@ -83,7 +83,7 @@ class OdMatrixFromPointsAsTable(QgisAlgorithm):
 
     def groupId(self):
         return 'networkbaseddistancematrices'
-    
+
     def name(self):
         return 'OdMatrixFromPointsAsTable'
 
@@ -92,18 +92,18 @@ class OdMatrixFromPointsAsTable(QgisAlgorithm):
 
     def shortHelpString(self):
         return  "<b>General:</b><br>"\
-                "This algorithm implements OD-Matrix analysis to return the <b>matrix of origin-destination pairs as table yielding network based costs</b> on a given <b>network dataset between the elements of one point layer(n:n)</b>.<br>"\
+                "This algorithm implements OD Matrix analysis to return the <b>matrix of origin-destination pairs as table yielding network based costs</b> on a given <b>network dataset between the elements of one point layer(n:n)</b>.<br>"\
                 "It accounts for <b>points outside of the network</b> (eg. <i>non-network-elements</i>). Distances are measured accounting for <b>ellipsoids</b>, entry-, exit-, network- and total costs are listed in the result attribute-table.<br><br>"\
                 "<b>Parameters (required):</b><br>"\
                 "Following Parameters must be set to run the algorithm:"\
-                "<ul><li>Network Layer</li><li>Point Layer</li><li>Unique Point ID Field (numerical)</li><li>Cost Strategy</li></ul><br>"\
+                "<ul><li>Network Layer</li><li>Input point layer (origin points)</li><li>Input unique ID field</li><li>Path type to calculate</li></ul><br>"\
                 "<b>Parameters (optional):</b><br>"\
                 "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the networks edges."\
                 "<ul><li>Direction Field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed Field</li><li>Default Speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is one table:"\
-                "<ul><li>OD-Matrix as table with network based distances as attributes</li></ul>"  
-    
+                "<ul><li>OD Matrix as table with network based distances as attributes</li></ul>"
+
     def print_typestring(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
 
@@ -116,26 +116,26 @@ class OdMatrixFromPointsAsTable(QgisAlgorithm):
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),
             (self.tr('Both directions'), QgsVectorLayerDirector.DirectionBoth)])
 
-        self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
-                           self.tr('Fastest Path (time optimization)')]
+        self.STRATEGIES = [self.tr('Shortest distance'),
+                           self.tr('Fastest time')]
 
         self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Ellipsoidal'),
                                        self.tr('Planar (only use with projected CRS)')]
 
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
-                                                              self.tr('Network Layer'),
+                                                              self.tr('Network layer'),
                                                               [QgsProcessing.TypeVectorLine]))
         self.addParameter(QgsProcessingParameterFeatureSource(self.POINTS,
-                                                              self.tr('Point Layer'),
+                                                              self.tr('Input point layer (origin points)'),
                                                               [QgsProcessing.TypeVectorPoint]))
         self.addParameter(QgsProcessingParameterField(self.ID_FIELD,
-                                                       self.tr('Unique Point ID Field'),
+                                                       self.tr('Input unique ID field'),
                                                        None,
                                                        self.POINTS,
                                                        optional=False))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
-                                                     self.tr('Optimization Criterion'),
+                                                     self.tr('Path type to calculate'),
                                                      self.STRATEGIES,
                                                      defaultValue=0))
 
@@ -188,7 +188,7 @@ class OdMatrixFromPointsAsTable(QgisAlgorithm):
         points = self.parameterAsSource(parameters, self.POINTS, context) #QgsProcessingFeatureSource
         id_field = self.parameterAsString(parameters, self.ID_FIELD, context) #str
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
-        
+
         entry_cost_calc_method = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context) #int
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
         forwardValue = self.parameterAsString(parameters, self.VALUE_FORWARD, context) #str
@@ -198,35 +198,35 @@ class OdMatrixFromPointsAsTable(QgisAlgorithm):
         speedFieldName = self.parameterAsString(parameters, self.SPEED_FIELD, context) #str
         defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) #float
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
-        
+
         analysisCrs = network.sourceCrs()
-        
+
         feedback.pushInfo("[QNEAT3Algorithm] Building Graph...")
         net = Qneat3Network(network, points, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
-        
+
         list_analysis_points = [Qneat3AnalysisPoint("point", feature, id_field, net, net.list_tiedPoints[i], entry_cost_calc_method, feedback) for i, feature in enumerate(getFeaturesFromQgsIterable(net.input_points))]
-        
+
         feat = QgsFeature()
         fields = QgsFields()
         output_id_field_data_type = getFieldDatatype(points, id_field)
-        fields.append(QgsField('origin_id', output_id_field_data_type, '', 254, 0))
-        fields.append(QgsField('destination_id', output_id_field_data_type, '', 254, 0))
+        fields.append(QgsField('InputID', output_id_field_data_type, '', 254, 0))
+        fields.append(QgsField('TargetID', output_id_field_data_type, '', 254, 0))
         fields.append(QgsField('entry_cost', QVariant.Double, '', 20,7))
         fields.append(QgsField('network_cost', QVariant.Double, '', 20, 7))
         fields.append(QgsField('exit_cost', QVariant.Double, '', 20,7))
         fields.append(QgsField('total_cost', QVariant.Double, '', 20,7))
         feat.setFields(fields)
-        
+
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context,
                                                fields, QgsWkbTypes.NoGeometry, network.sourceCrs())
 
-        
+
         total_workload = float(pow(len(list_analysis_points),2))
         feedback.pushInfo("[QNEAT3Algorithm] Expecting total workload of {} iterations".format(int(total_workload)))
-        
-        
+
+
         current_workstep_number = 0
-        
+
         for start_point in list_analysis_points:
             #optimize in case of undirected (not necessary to call calcDijkstra as it has already been calculated - can be replaced by reading from list)
             dijkstra_query = net.calcDijkstra(start_point.network_vertex_id, 0)
@@ -234,32 +234,31 @@ class OdMatrixFromPointsAsTable(QgisAlgorithm):
                 if (current_workstep_number%1000)==0:
                     feedback.pushInfo("[QNEAT3Algorithm] {} OD-pairs processed...".format(current_workstep_number))
                 if query_point.point_id == start_point.point_id:
-                    feat['origin_id'] = start_point.point_id
-                    feat['destination_id'] = query_point.point_id
+                    feat['InputID'] = start_point.point_id
+                    feat['TargetID'] = query_point.point_id
                     feat['network_cost'] = 0.0
                     sink.addFeature(feat, QgsFeatureSink.FastInsert)
                 elif dijkstra_query[0][query_point.network_vertex_id] == -1:
-                    feat['origin_id'] = start_point.point_id
-                    feat['destination_id'] = query_point.point_id
+                    feat['InputID'] = start_point.point_id
+                    feat['TargetID'] = query_point.point_id
                     #do not populate cost field so that it defaults to null
                     sink.addFeature(feat, QgsFeatureSink.FastInsert)
                 else:
                     network_cost = dijkstra_query[1][query_point.network_vertex_id]
-                    feat['origin_id'] = start_point.point_id
-                    feat['destination_id'] = query_point.point_id
+                    feat['InputID'] = start_point.point_id
+                    feat['TargetID'] = query_point.point_id
                     feat['entry_cost'] = start_point.entry_cost
                     feat['network_cost'] = network_cost
                     feat['exit_cost'] = query_point.entry_cost
                     feat['total_cost'] = start_point.entry_cost + network_cost + query_point.entry_cost
-                    sink.addFeature(feat, QgsFeatureSink.FastInsert)  
+                    sink.addFeature(feat, QgsFeatureSink.FastInsert)
                 current_workstep_number=current_workstep_number+1
                 feedback.setProgress(current_workstep_number/total_workload)
-                    
+
         feedback.pushInfo("[QNEAT3Algorithm] Total number of OD-pairs processed: {}".format(current_workstep_number))
-    
+
         feedback.pushInfo("[QNEAT3Algorithm] Ending Algorithm")
 
         results = {}
         results[self.OUTPUT] = dest_id
         return results
-
