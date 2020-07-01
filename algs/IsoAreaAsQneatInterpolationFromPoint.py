@@ -104,7 +104,7 @@ class IsoAreaAsQneatInterpolationFromPoint(QgisAlgorithm):
                 "It accounts for <b>points outside of the network</b> (eg. <i>non-network-elements</i>) and increments the iso-areas cost regarding to distance/default speed value. Distances are measured accounting for <b>ellipsoids</b>.<br>Please, <b>only use a projected coordinate system (eg. no WGS84)</b> for this kind of analysis.<br><br>"\
                 "<b>Parameters (required):</b><br>"\
                 "Following Parameters must be set to run the algorithm:"\
-                "<ul><li>Network Layer</li><li>Startpoint</li><li>Maximum cost level for Iso-Area</li><li>Cellsize in Meters (increase default when analyzing larger networks)</li><li>Cost Strategy</li></ul><br>"\
+                "<ul><li>Network Layer</li><li>Startpoint</li><li>Maximum cost level of Iso-Area in distance (meters) or time (seconds)</li><li>Cellsize in Meters (increase default when analyzing larger networks)</li><li>Path type to calculate</li></ul><br>"\
                 "<b>Parameters (optional):</b><br>"\
                 "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the networks edges."\
                 "<ul><li>Direction Field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed Field</li><li>Default Speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
@@ -124,8 +124,8 @@ class IsoAreaAsQneatInterpolationFromPoint(QgisAlgorithm):
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),
             (self.tr('Both directions'), QgsVectorLayerDirector.DirectionBoth)])
 
-        self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
-                           self.tr('Fastest Path (time optimization)')
+        self.STRATEGIES = [self.tr('Shortest distance'),
+                           self.tr('Fastest time')
                            ]
         
         self.METHODS = [self.tr('QGIS TIN-Interpolation (faster but not exact)'),
@@ -141,7 +141,7 @@ class IsoAreaAsQneatInterpolationFromPoint(QgisAlgorithm):
         self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
                                                       self.tr('Start point')))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
-                                                   self.tr('Size of Iso-Area (distance or time value)'),
+                                                   self.tr('Maximum cost level of Iso-Area'),
                                                    QgsProcessingParameterNumber.Double,
                                                    2500.0, False, 0, 99999999.99))
         self.addParameter(QgsProcessingParameterNumber(self.CELL_SIZE,
@@ -149,7 +149,7 @@ class IsoAreaAsQneatInterpolationFromPoint(QgisAlgorithm):
                                                     QgsProcessingParameterNumber.Integer,
                                                     10, False, 1, 99999999))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
-                                                     self.tr('Optimization Criterion'),
+                                                     self.tr('Path type to calculate'),
                                                      self.STRATEGIES,
                                                      defaultValue=0))
         self.addParameter(QgsProcessingParameterEnum(self.METHOD,
