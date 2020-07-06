@@ -3,10 +3,10 @@
 ***************************************************************************
     IsoAreaAsPointcloudFromPoint.py
     ---------------------
-    
-    Partially based on QGIS3 network analysis algorithms. 
-    Copyright 2016 Alexander Bruy    
-    
+
+    Partially based on QGIS3 network analysis algorithms.
+    Copyright 2016 Alexander Bruy
+
     Date                 : February 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
@@ -83,13 +83,13 @@ class IsoAreaAsPointcloudFromPoint(QgisAlgorithm):
 
     def groupId(self):
         return 'isoareas'
-    
+
     def name(self):
         return 'isoareaaspointcloudfrompoint'
 
     def displayName(self):
         return self.tr('Iso-Area as Pointcloud (from Point)')
-    
+
     def shortHelpString(self):
         return  "<b>General:</b><br>"\
                 "This algorithm implements iso-pointcloud analysis to return all <b>network nodes reachable within a maximum cost level as pointcloud</b> on a given <b>network dataset for a manually chosen point</b>.<br>"\
@@ -104,7 +104,7 @@ class IsoAreaAsPointcloudFromPoint(QgisAlgorithm):
                 "The output of the algorithm is one layer:"\
                 "<ul><li>Point layer of reachable network nodes</li></ul><br>"\
                 "You may use the output pointcloud as input for further analyses."
-    
+
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
 
@@ -173,12 +173,12 @@ class IsoAreaAsPointcloudFromPoint(QgisAlgorithm):
         params.append(QgsProcessingParameterNumber(self.TOLERANCE,
                                                    self.tr('Topology tolerance'),
                                                    QgsProcessingParameterNumber.Double,
-                                                   0.0, False, 0, 99999999.99))
+                                                   0.00001, False, 0, 99999999.99))
 
         for p in params:
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
-        
+
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT,
                                                             self.tr('Output Pointcloud'),
                                                             QgsProcessing.TypeVectorPoint))
@@ -203,31 +203,30 @@ class IsoAreaAsPointcloudFromPoint(QgisAlgorithm):
         analysisCrs = network.sourceCrs()
         input_coordinates = [startPoint]
         input_point = getFeatureFromPointParameter(startPoint)
-        
+
         feedback.pushInfo("[QNEAT3Algorithm] Building Graph...")
-        feedback.setProgress(10)  
+        feedback.setProgress(10)
         net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         feedback.setProgress(40)
 
         analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0], entry_cost_calc_method, feedback)
-        
+
         fields = QgsFields()
         fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
         fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
         fields.append(QgsField('origin_point_id',QVariant.String, '', 254, 7))
-        
+
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, network.sourceCrs())
-        
+
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Pointcloud...")
         iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist)
         feedback.setProgress(90)
-        
+
         sink.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
-        
+
         feedback.pushInfo("[QNEAT3Algorithm] Ending Algorithm")
-        feedback.setProgress(100)        
-        
+        feedback.setProgress(100)
+
         results = {}
         results[self.OUTPUT] = dest_id
         return results
-

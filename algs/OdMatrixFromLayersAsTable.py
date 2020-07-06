@@ -188,7 +188,7 @@ class OdMatrixFromLayersAsTable(QgisAlgorithm):
         params.append(QgsProcessingParameterNumber(self.TOLERANCE,
                                                    self.tr('Topology tolerance'),
                                                    QgsProcessingParameterNumber.Double,
-                                                   0.0, False, 0, 99999999.99))
+                                                   0.00001, False, 0, 99999999.99))
 
         for p in params:
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)

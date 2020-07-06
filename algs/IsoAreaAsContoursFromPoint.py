@@ -3,10 +3,10 @@
 ***************************************************************************
     IsoAreaAsContourFromPoint.py
     ---------------------
-    
-    Partially based on QGIS3 network analysis algorithms. 
-    Copyright 2016 Alexander Bruy    
-    
+
+    Partially based on QGIS3 network analysis algorithms.
+    Copyright 2016 Alexander Bruy
+
     Date                 : February 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
@@ -88,7 +88,7 @@ class IsoAreaAsContoursFromPoint(QgisAlgorithm):
 
     def groupId(self):
         return 'isoareas'
-    
+
     def name(self):
         return 'isoareaascontoursfrompoint'
 
@@ -108,8 +108,8 @@ class IsoAreaAsContoursFromPoint(QgisAlgorithm):
                 "<b>Output:</b><br>"\
                 "The output of the algorithm are two layers:"\
                 "<ul><li>TIN-Interpolation Distance Raster</li><li>Iso-Area Contours with cost levels as attributes</li></ul>"
-    
-    
+
+
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
 
@@ -127,7 +127,7 @@ class IsoAreaAsContoursFromPoint(QgisAlgorithm):
                            ]
 
         self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar (only use with projected CRS)')]
-            
+
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Network Layer'),
@@ -186,7 +186,7 @@ class IsoAreaAsContoursFromPoint(QgisAlgorithm):
         params.append(QgsProcessingParameterNumber(self.TOLERANCE,
                                                    self.tr('Topology tolerance'),
                                                    QgsProcessingParameterNumber.Double,
-                                                   0.0, False, 0, 99999999.99))
+                                                  0.00001, False, 0, 99999999.99))
 
         for p in params:
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
@@ -194,7 +194,7 @@ class IsoAreaAsContoursFromPoint(QgisAlgorithm):
 
         self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT_INTERPOLATION, self.tr('Output Interpolation')))
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_CONTOURS, self.tr('Output Contours'), QgsProcessing.TypeVectorLine))
-        
+
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr("[QNEAT3Algorithm] This is a QNEAT3 Algorithm: '{}'".format(self.displayName())))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
@@ -218,44 +218,43 @@ class IsoAreaAsContoursFromPoint(QgisAlgorithm):
         analysisCrs = network.sourceCrs()
         input_coordinates = [startPoint]
         input_point = getFeatureFromPointParameter(startPoint)
-        
+
         feedback.pushInfo("[QNEAT3Algorithm] Building Graph...")
-        feedback.setProgress(10)        
+        feedback.setProgress(10)
         net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         feedback.setProgress(40)
-        
+
         analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0], entry_cost_calc_method, feedback)
-        
+
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Pointcloud...")
         iso_pointcloud = net.calcIsoPoints([analysis_point], (max_dist+(max_dist*0.1)))
         feedback.setProgress(50)
-        
+
         uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())
-        
+
         iso_pointcloud_layer = QgsVectorLayer(uri, "iso_pointcloud_layer", "memory")
         iso_pointcloud_provider = iso_pointcloud_layer.dataProvider()
         iso_pointcloud_provider.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
-        
+
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Interpolation-Raster using QGIS TIN-Interpolator...")
         net.calcIsoTinInterpolation(iso_pointcloud_layer, cell_size, output_path)
         feedback.setProgress(70)
-            
+
         fields = QgsFields()
         fields.append(QgsField('id', QVariant.Int, '', 254, 0))
         fields.append(QgsField('cost_level', QVariant.Double, '', 20, 7))
-        
+
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_CONTOURS, context, fields, QgsWkbTypes.LineString, network.sourceCrs())
-        
+
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Contours using numpy and matplotlib...")
         contour_featurelist = net.calcIsoContours(max_dist, interval, output_path)
         feedback.setProgress(90)
-        
+
         sink.addFeatures(contour_featurelist, QgsFeatureSink.FastInsert)
         feedback.pushInfo("[QNEAT3Algorithm] Ending Algorithm")
         feedback.setProgress(100)
-        
+
         results = {}
         results[self.OUTPUT_INTERPOLATION] = output_path
         results[self.OUTPUT_CONTOURS] = dest_id
         return results
-

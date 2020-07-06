@@ -3,10 +3,10 @@
 ***************************************************************************
     IsoAreaAsInterpolationPoint.py
     ---------------------
-    
-    Partially based on QGIS3 network analysis algorithms. 
-    Copyright 2016 Alexander Bruy    
-    
+
+    Partially based on QGIS3 network analysis algorithms.
+    Copyright 2016 Alexander Bruy
+
     Date                 : March 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
@@ -81,7 +81,7 @@ class IsoAreaAsInterpolationFromPoint(QgisAlgorithm):
 
     def groupId(self):
         return 'isoareas'
-    
+
     def name(self):
         return 'isoareaasinterpolationfrompoint'
 
@@ -101,7 +101,7 @@ class IsoAreaAsInterpolationFromPoint(QgisAlgorithm):
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is one layer:"\
                 "<ul><li>TIN-Interpolation Distance Raster</li></ul>"
-    
+
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
 
@@ -119,7 +119,7 @@ class IsoAreaAsInterpolationFromPoint(QgisAlgorithm):
                            ]
 
         self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar (only use with projected CRS)')]
-            
+
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Network Layer'),
@@ -174,12 +174,12 @@ class IsoAreaAsInterpolationFromPoint(QgisAlgorithm):
         params.append(QgsProcessingParameterNumber(self.TOLERANCE,
                                                    self.tr('Topology tolerance'),
                                                    QgsProcessingParameterNumber.Double,
-                                                   0.0, False, 0, 99999999.99))
+                                                   0.00001, False, 0, 99999999.99))
 
         for p in params:
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
-        
+
         self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT, self.tr('Output Interpolation')))
 
     def processAlgorithm(self, parameters, context, feedback):
@@ -204,32 +204,31 @@ class IsoAreaAsInterpolationFromPoint(QgisAlgorithm):
         analysisCrs = network.sourceCrs()
         input_coordinates = [startPoint]
         input_point = getFeatureFromPointParameter(startPoint)
-        
+
         feedback.pushInfo("[QNEAT3Algorithm] Building Graph...")
-        feedback.setProgress(10)  
+        feedback.setProgress(10)
         net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         feedback.setProgress(40)
-        
+
         analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0], entry_cost_calc_method, feedback)
-        
+
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Pointcloud...")
         iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist)
         feedback.setProgress(70)
-        
+
         uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())
-        
+
         iso_pointcloud_layer = QgsVectorLayer(uri, "iso_pointcloud_layer", "memory")
         iso_pointcloud_provider = iso_pointcloud_layer.dataProvider()
         iso_pointcloud_provider.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
-        
+
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Interpolation-Raster using QGIS TIN-Interpolator...")
         net.calcIsoTinInterpolation(iso_pointcloud_layer, cell_size, output_path)
         feedback.setProgress(99)
-        
+
         feedback.pushInfo("[QNEAT3Algorithm] Ending Algorithm")
-        feedback.setProgress(100)           
-        
+        feedback.setProgress(100)
+
         results = {}
         results[self.OUTPUT] = output_path
         return results
-
