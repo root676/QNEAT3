@@ -36,6 +36,7 @@ from qgis.PyQt.QtGui import QIcon
 from qgis.core import (QgsFeatureSink,
                        QgsVectorLayer,
                        QgsProcessing,
+                       QgsProcessingException,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterPoint,
                        QgsProcessingParameterField,
@@ -204,6 +205,12 @@ class IsoAreaAsInterpolationFromPoint(QgisAlgorithm):
         analysisCrs = network.sourceCrs()
         input_coordinates = [startPoint]
         input_point = getFeatureFromPointParameter(startPoint)
+
+        if analysisCrs.isGeographic():
+            raise QgsProcessingException('QNEAT3 algorithms are designed to work with projected coordinate systems. Please use a projected coordinate system (eg. UTM zones) instead of geographic coordinate systems (eg. WGS84)!')
+
+        if analysisCrs != startPoint.sourceCrs():
+            raise QgsProcessingException('QNEAT3 algorithms require that all inputs to be the same projected coordinate reference system.')
 
         feedback.pushInfo("[QNEAT3Algorithm] Building Graph...")
         feedback.setProgress(10)
