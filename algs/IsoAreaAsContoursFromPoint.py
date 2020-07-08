@@ -108,7 +108,8 @@ class IsoAreaAsContoursFromPoint(QgisAlgorithm):
                 "<ul><li>Direction Field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed Field</li><li>Default Speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
                 "<b>Output:</b><br>"\
                 "The output of the algorithm are two layers:"\
-                "<ul><li>TIN-Interpolation Distance Raster</li><li>Iso-Area Contours with cost levels as attributes</li></ul>"
+                "<ul><li>TIN-Interpolation Distance Raster</li><li>Iso-Area Contours with cost levels as attributes</li></ul>"\
+                "Shortest distance cost units are meters and Fastest time cost units are seconds."
 
 
     def msg(self, var):
@@ -176,7 +177,7 @@ class IsoAreaAsContoursFromPoint(QgisAlgorithm):
                                                  list(self.DIRECTIONS.keys()),
                                                  defaultValue=2))
         params.append(QgsProcessingParameterField(self.SPEED_FIELD,
-                                                  self.tr('Speed field'),
+                                                  self.tr('Speed field (km/h)'),
                                                   None,
                                                   self.INPUT,
                                                   optional=True))

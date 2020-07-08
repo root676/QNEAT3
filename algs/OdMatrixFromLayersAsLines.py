@@ -106,7 +106,8 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
                 "<ul><li>Direction Field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed Field</li><li>Default Speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is one layer:"\
-                "<ul><li>OD Matrix as lines with network based distances as attributes</li></ul>"
+                "<ul><li>OD Matrix as lines with network based distances as attributes</li></ul>"\
+                "Shortest distance cost units are meters and Fastest time cost units are seconds."
 
 
     def print_typestring(self, var):
@@ -181,7 +182,7 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
                                                  list(self.DIRECTIONS.keys()),
                                                  defaultValue=2))
         params.append(QgsProcessingParameterField(self.SPEED_FIELD,
-                                                  self.tr('Speed field'),
+                                                  self.tr('Speed field (km/h)'),
                                                   None,
                                                   self.INPUT,
                                                   optional=True))

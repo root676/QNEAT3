@@ -104,7 +104,8 @@ class IsoAreaAsPointcloudFromLayer(QgisAlgorithm):
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is one layer:"\
                 "<ul><li>Point layer of reachable network nodes</li></ul><br>"\
-                "You may use the output pointcloud as input for further analyses."
+                "You may use the output pointcloud as input for further analyses."\
+                "Shortest distance cost units are meters and Fastest time cost units are seconds."
 
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
@@ -169,7 +170,7 @@ class IsoAreaAsPointcloudFromLayer(QgisAlgorithm):
                                                  list(self.DIRECTIONS.keys()),
                                                  defaultValue=2))
         params.append(QgsProcessingParameterField(self.SPEED_FIELD,
-                                                  self.tr('Speed field'),
+                                                  self.tr('Speed field (km/h)'),
                                                   None,
                                                   self.INPUT,
                                                   optional=True))
