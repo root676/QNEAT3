@@ -87,7 +87,11 @@ class Qneat3Network():
 
         self.feedback.pushInfo("[QNEAT3Network][__init__] Setting up parameters")
         self.AnalysisCrs = input_analysisCrs
-                
+        
+        #enable polygon calculation in geographic coordinate systems
+        distUnit = self.AnalysisCrs.mapUnits()
+        self.meter_to_unit_factor = QgsUnitTypes.fromUnitToUnitFactor(QgsUnitTypes.DistanceMeters, distUnit)
+
         #init direction fields
         self.feedback.pushInfo("[QNEAT3Network][__init__] Setting up network direction parameters")
         self.directedAnalysis = self.setNetworkDirection((input_directionFieldName, input_forwardValue, input_backwardValue, input_bothValue, input_defaultDirection))
