@@ -89,8 +89,8 @@ class Qneat3Network():
         self.AnalysisCrs = input_analysisCrs
         
         #enable polygon calculation in geographic coordinate systems
-        distUnit = self.AnalysisCrs.mapUnits()
-        self.meter_to_unit_factor = QgsUnitTypes.fromUnitToUnitFactor(QgsUnitTypes.DistanceMeters, distUnit)
+        # distUnit = self.AnalysisCrs.mapUnits()
+        # self.meter_to_unit_factor = QgsUnitTypes.fromUnitToUnitFactor(QgsUnitTypes.DistanceMeters, distUnit)
 
         #init direction fields
         self.feedback.pushInfo("[QNEAT3Network][__init__] Setting up network direction parameters")
@@ -118,8 +118,11 @@ class Qneat3Network():
 
         #add the strategy to the QgsGraphDirector
         self.director.addStrategy(self.strategy)
-        self.builder = QgsGraphBuilder(self.AnalysisCrs, True, input_tolerance)
+        self.builder = QgsGraphBuilder(self.AnalysisCrs, False, input_tolerance)
         #tell the graph-director to make the graph using the builder object and tie the start point geometry to the graph
+        #switched the transformation option to False because we're already checking that all inputs use the same CRS
+        #consistent with the Entry & Exit cost portion of this plugin, which was not handling coordinate transformations
+        #by default this is using WGS84 ellipsoidal distance calculations by not passing a 4th parameter for an ellipsoid acronym, resulting in linear units of METERS
 
         self.feedback.pushInfo("[QNEAT3Network][__init__] Start tying analysis points to the graph and building it.")
         self.feedback.pushInfo("[QNEAT3Network][__init__] This is a compute intensive task and may take some time depending on network size")
@@ -151,7 +154,7 @@ class Qneat3Network():
         else:
             self.strategy = QgsNetworkSpeedStrategy(speedFieldId, float(input_defaultSpeed), 1000.0 / 3600.0)
             self.strategy_int = 1
-        self.multiplier = 3600
+        # self.multiplier = 3600
 
     def calcDijkstra(self, startpoint_id, criterion):
         """Calculates Dijkstra on whole network beginning from one startPoint. Returns a list containing a TreeId-Array and Cost-Array that match up with their indices [[tree],[cost]] """
@@ -535,24 +538,29 @@ class Qneat3AnalysisPoint():
         self.crs = net.AnalysisCrs
         self.strategy = net.strategy_int
         self.entry_speed = net.default_speed
+        #BETTER TO ALWAYS USE ELLIPSOIDAL for consistency with the NETWORK COST calculation by the NETWORK BUILDER
+        '''
         if entry_cost_calculation_method == 0:
             self.entry_cost = self.calcEntryCostEllipsoidal(feedback)
         elif entry_cost_calculation_method == 1:
             self.entry_cost = self.calcEntryCostPlanar(feedback)
         else:
             self.entry_cost = self.calcEntryCostEllipsoidal(feedback)
+        '''
+        self.entry_cost = self.calcEntryCostEllipsoidal(feedback)
 
     def calcEntryCostEllipsoidal(self, feedback):
         dist_calculator = QgsDistanceArea()
-        dist_calculator.setSourceCrs(QgsProject().instance().crs(), QgsProject().instance().transformContext())
-        dist_calculator.setEllipsoid(QgsProject().instance().crs().ellipsoidAcronym())
+        dist_calculator.setSourceCrs(self.crs, QgsProject().instance().transformContext())  #set distance calculator CRS to that of the input network
+        dist_calculator.setEllipsoid("WGS84")  #always use WGS84 for distance calculations for consistency with the QgsNetworkBuilder
         dist = dist_calculator.measureLine([self.point_geom, self.network_vertex.point()])
         feedback.pushInfo("[QNEAT3Network][calcEntryCostEllipsoidal] Ellipsoidal entry cost to vertex {} = {}".format(self.network_vertex_id, dist))
         if self.strategy == 0:
             return dist
         else:
             return dist/(self.entry_speed*(1000.0 / 3600.0)) #length/(m/s) todo: Make dynamic
-
+    
+    # I THINK THIS FUNCITON AND ITS OPTIONS IN EACH ALGORITHM SHOULD BE REMOVED. ALWAYS USE ELLIPSOIDAL
     def calcEntryCostPlanar(self, feedback):
         dist = self.calcEntryLinestring().length()
         feedback.pushInfo("[QNEAT3Network][calcEntryCostPlanar] Planar entry cost to vertex {} = {}".format(self.network_vertex_id, dist))
