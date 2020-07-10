@@ -209,7 +209,7 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
             raise QgsProcessingException('QNEAT3 algorithms are designed to work with projected coordinate systems. Please use a projected coordinate system (eg. UTM zones) instead of geographic coordinate systems (eg. WGS84)!')
 
         if analysisCrs != points.sourceCrs():
-            raise QgsProcessingException('QNEAT3 algorithms require that all inputs to be the same projected coordinate reference system.')
+            raise QgsProcessingException('QNEAT3 algorithms require that all inputs to be the same projected coordinate reference system (including project coordinate system).')
 
         feedback.pushInfo("[QNEAT3Algorithm] Building Graph...")
         net = Qneat3Network(network, points, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)

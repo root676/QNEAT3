@@ -209,8 +209,8 @@ class ShortestPathBetweenPoints(QgisAlgorithm):
         if analysisCrs.isGeographic():
             raise QgsProcessingException('QNEAT3 algorithms are designed to work with projected coordinate systems. Please use a projected coordinate system (eg. UTM zones) instead of geographic coordinate systems (eg. WGS84)!')
 
-        if analysisCrs != startPoint.sourceCrs() | startPoint.sourceCrs() != endPoint.sourceCrs():
-            raise QgsProcessingException('QNEAT3 algorithms require that all inputs to be the same projected coordinate reference system.')
+        if analysisCrs != context.project().crs():
+            raise QgsProcessingException('QNEAT3 algorithms require that all inputs to be the same projected coordinate reference system (including project coordinate system).')
 
         input_qgspointxy_list = [startPoint,endPoint]
         input_points = [getFeatureFromPointParameter(startPoint),getFeatureFromPointParameter(endPoint)]

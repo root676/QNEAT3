@@ -223,7 +223,7 @@ class OdMatrixFromLayersAsTable(QgisAlgorithm):
             raise QgsProcessingException('QNEAT3 algorithms are designed to work with projected coordinate systems. Please use a projected coordinate system (eg. UTM zones) instead of geographic coordinate systems (eg. WGS84)!')
 
         if analysisCrs != from_points.sourceCrs() or from_points.sourceCrs() != to_points.sourceCrs():
-            raise QgsProcessingException('QNEAT3 algorithms require that all inputs to be the same projected coordinate reference system.')
+            raise QgsProcessingException('QNEAT3 algorithms require that all inputs to be the same projected coordinate reference system (including project coordinate system).')
 
         #Points of both layers have to be merged into one layer --> then tied to the Qneat3Network
         #get point list of from layer
