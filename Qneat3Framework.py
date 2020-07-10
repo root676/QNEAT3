@@ -87,7 +87,7 @@ class Qneat3Network():
 
         self.feedback.pushInfo("[QNEAT3Network][__init__] Setting up parameters")
         self.AnalysisCrs = input_analysisCrs
-        
+
         #enable polygon calculation in geographic coordinate systems
         # distUnit = self.AnalysisCrs.mapUnits()
         # self.meter_to_unit_factor = QgsUnitTypes.fromUnitToUnitFactor(QgsUnitTypes.DistanceMeters, distUnit)
@@ -528,7 +528,7 @@ class Qneat3Network():
 
 class Qneat3AnalysisPoint():
 
-    def __init__(self, layer_name, feature, point_id_field_name, net, vertex_geom, entry_cost_calculation_method, feedback):
+    def __init__(self, layer_name, feature, point_id_field_name, net, vertex_geom, feedback):
         self.layer_name = layer_name
         self.point_feature = feature
         self.point_id = feature[point_id_field_name]
@@ -559,7 +559,7 @@ class Qneat3AnalysisPoint():
             return dist
         else:
             return dist/(self.entry_speed*(1000.0 / 3600.0)) #length/(m/s) todo: Make dynamic
-    
+
     # I THINK THIS FUNCITON AND ITS OPTIONS IN EACH ALGORITHM SHOULD BE REMOVED. ALWAYS USE ELLIPSOIDAL
     def calcEntryCostPlanar(self, feedback):
         dist = self.calcEntryLinestring().length()

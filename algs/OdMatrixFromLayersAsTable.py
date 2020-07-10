@@ -67,7 +67,6 @@ class OdMatrixFromLayersAsTable(QgisAlgorithm):
     TO_POINT_LAYER = 'TO_POINT_LAYER'
     TO_ID_FIELD = 'TO_ID_FIELD'
     STRATEGY = 'STRATEGY'
-    ENTRY_COST_CALCULATION_METHOD = 'ENTRY_COST_CALCULATION_METHOD'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
     VALUE_BACKWARD = 'VALUE_BACKWARD'
@@ -123,9 +122,6 @@ class OdMatrixFromLayersAsTable(QgisAlgorithm):
         self.STRATEGIES = [self.tr('Shortest distance'),
                            self.tr('Fastest time')]
 
-        self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Ellipsoidal'),
-                                               self.tr('Planar (only use with projected CRS)')]
-
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Network layer'),
                                                               [QgsProcessing.TypeVectorLine]))
@@ -156,10 +152,6 @@ class OdMatrixFromLayersAsTable(QgisAlgorithm):
                                                      defaultValue=0))
 
         params = []
-        params.append(QgsProcessingParameterEnum(self.ENTRY_COST_CALCULATION_METHOD,
-                                                 self.tr('Entry Cost calculation method'),
-                                                 self.ENTRY_COST_CALCULATION_METHODS,
-                                                 defaultValue=0))
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
                                                   self.tr('Direction field'),
                                                   None,
@@ -207,7 +199,6 @@ class OdMatrixFromLayersAsTable(QgisAlgorithm):
         to_id_field = self.parameterAsString(parameters, self.TO_ID_FIELD, context)
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
 
-        entry_cost_calc_method = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context) #int
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
         forwardValue = self.parameterAsString(parameters, self.VALUE_FORWARD, context) #str
         backwardValue = self.parameterAsString(parameters, self.VALUE_BACKWARD, context) #str
@@ -237,8 +228,8 @@ class OdMatrixFromLayersAsTable(QgisAlgorithm):
         net = Qneat3Network(network, merged_coords, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
 
         #read the merged point-list seperately for the two layers --> index at the first element of the second layer begins at len(firstLayer) and gets added the index of the current point of layer b.
-        list_from_apoints = [Qneat3AnalysisPoint("from", feature, from_id_field, net, net.list_tiedPoints[i], entry_cost_calc_method, feedback) for i, feature in enumerate(getFeaturesFromQgsIterable(from_points))]
-        list_to_apoints = [Qneat3AnalysisPoint("to", feature, to_id_field, net, net.list_tiedPoints[from_coord_list_length+i], entry_cost_calc_method, feedback) for i, feature in enumerate(getFeaturesFromQgsIterable(to_points))]
+        list_from_apoints = [Qneat3AnalysisPoint("from", feature, from_id_field, net, net.list_tiedPoints[i], feedback) for i, feature in enumerate(getFeaturesFromQgsIterable(from_points))]
+        list_to_apoints = [Qneat3AnalysisPoint("to", feature, to_id_field, net, net.list_tiedPoints[from_coord_list_length+i], feedback) for i, feature in enumerate(getFeaturesFromQgsIterable(to_points))]
 
         feat = QgsFeature()
         fields = QgsFields()
