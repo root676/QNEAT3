@@ -3,10 +3,10 @@
 ***************************************************************************
     IsoAreaAsPolygonFromPoint.py
     ---------------------
-        
-    Partially based on QGIS3 network analysis algorithms. 
-    Copyright 2016 Alexander Bruy    
-    
+
+    Partially based on QGIS3 network analysis algorithms.
+    Copyright 2016 Alexander Bruy
+
     Date                 : April 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
@@ -40,6 +40,7 @@ from qgis.core import (QgsWkbTypes,
                        QgsFields,
                        QgsField,
                        QgsProcessing,
+                       QgsProcessingException,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterPoint,
                        QgsProcessingParameterField,
@@ -68,7 +69,6 @@ class IsoAreaAsPolygonsFromPoint(QgisAlgorithm):
     CELL_SIZE = "CELL_SIZE"
     INTERVAL = "INTERVAL"
     STRATEGY = 'STRATEGY'
-    ENTRY_COST_CALCULATION_METHOD = 'ENTRY_COST_CALCULATION_METHOD'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
     VALUE_BACKWARD = 'VALUE_BACKWARD'
@@ -88,27 +88,28 @@ class IsoAreaAsPolygonsFromPoint(QgisAlgorithm):
 
     def groupId(self):
         return 'isoareas'
-    
+
     def shortHelpString(self):
         return  "<b>General:</b><br>"\
                 "This algorithm implements iso-area analysis to return the <b>iso-area polygons for a maximum cost level and interval levels </b> on a given <b>network dataset for a manually chosen point</b>.<br>"\
                 "It accounts for <b>points outside of the network</b> (eg. <i>non-network-elements</i>) and increments the iso-areas cost regarding to distance/default speed value. Distances are measured accounting for <b>ellipsoids</b>.<br>Please, <b>only use a projected coordinate system (eg. no WGS84)</b> for this kind of analysis.<br><br>"\
                 "<b>Parameters (required):</b><br>"\
                 "Following Parameters must be set to run the algorithm:"\
-                "<ul><li>Network Layer</li><li>Startpoint</li><li>Maximum cost level for Iso-Area</li><li>Cost Intervals for Iso-Area Bands</li><li>Cellsize in Meters (increase default when analyzing larger networks)</li><li>Cost Strategy</li></ul><br>"\
+                "<ul><li>Network Layer</li><li>Startpoint</li><li>Maximum cost level of Iso-Area in distance (meters) or time (seconds)</li><li>Contour Intervals in distance (meters) or time (seconds)</li><li>Cellsize in Meters (increase default when analyzing larger networks)</li><li>Path type to calculate</li></ul><br>"\
                 "<b>Parameters (optional):</b><br>"\
                 "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the networks edges."\
                 "<ul><li>Direction Field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed Field</li><li>Default Speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
                 "<b>Output:</b><br>"\
                 "The output of the algorithm are two layers:"\
-                "<ul><li>TIN-Interpolation Distance Raster</li><li>Iso-Area Polygons with cost levels as attributes</li></ul>"    
-    
+                "<ul><li>TIN-Interpolation Distance Raster</li><li>Iso-Area Polygons with cost levels as attributes</li></ul>"\
+                "Shortest distance cost units are meters and Fastest time cost units are seconds."
+
     def name(self):
         return 'isoareaaspolygonsfrompoint'
 
     def displayName(self):
         return self.tr('Iso-Area as Polygons (from Point)')
-    
+
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
 
@@ -121,12 +122,9 @@ class IsoAreaAsPolygonsFromPoint(QgisAlgorithm):
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),
             (self.tr('Both directions'), QgsVectorLayerDirector.DirectionBoth)])
 
-        self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
-                           self.tr('Fastest Path (time optimization)')
+        self.STRATEGIES = [self.tr('Shortest distance'),
+                           self.tr('Fastest time')
                            ]
-
-        self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar (only use with projected CRS)')]
-            
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Network Layer'),
@@ -134,7 +132,7 @@ class IsoAreaAsPolygonsFromPoint(QgisAlgorithm):
         self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
                                                       self.tr('Start Point')))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
-                                                   self.tr('Size of Iso-Area (distance or time value)'),
+                                                   self.tr('Maximum cost level of Iso-Area'),
                                                    QgsProcessingParameterNumber.Double,
                                                    2500.0, False, 0, 99999999.99))
         self.addParameter(QgsProcessingParameterNumber(self.INTERVAL,
@@ -146,15 +144,11 @@ class IsoAreaAsPolygonsFromPoint(QgisAlgorithm):
                                                     QgsProcessingParameterNumber.Integer,
                                                     10, False, 1, 99999999))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
-                                                     self.tr('Optimization Criterion'),
+                                                     self.tr('Path type to calculate'),
                                                      self.STRATEGIES,
                                                      defaultValue=0))
 
         params = []
-        params.append(QgsProcessingParameterEnum(self.ENTRY_COST_CALCULATION_METHOD,
-                                                 self.tr('Entry Cost calculation method'),
-                                                 self.ENTRY_COST_CALCULATION_METHODS,
-                                                 defaultValue=0))
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
                                                   self.tr('Direction field'),
                                                   None,
@@ -174,7 +168,7 @@ class IsoAreaAsPolygonsFromPoint(QgisAlgorithm):
                                                  list(self.DIRECTIONS.keys()),
                                                  defaultValue=2))
         params.append(QgsProcessingParameterField(self.SPEED_FIELD,
-                                                  self.tr('Speed field'),
+                                                  self.tr('Speed field (km/h)'),
                                                   None,
                                                   self.INPUT,
                                                   optional=True))
@@ -185,7 +179,7 @@ class IsoAreaAsPolygonsFromPoint(QgisAlgorithm):
         params.append(QgsProcessingParameterNumber(self.TOLERANCE,
                                                    self.tr('Topology tolerance'),
                                                    QgsProcessingParameterNumber.Double,
-                                                   0.0, False, 0, 99999999.99))
+                                                   0.00001, False, 0, 99999999.99))
 
         for p in params:
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
@@ -193,7 +187,7 @@ class IsoAreaAsPolygonsFromPoint(QgisAlgorithm):
 
         self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT_INTERPOLATION, self.tr('Output Interpolation')))
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_POLYGONS, self.tr('Output Polygon'), QgsProcessing.TypeVectorPolygon))
-        
+
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr("[QNEAT3Algorithm] This is a QNEAT3 Algorithm: '{}'".format(self.displayName())))
         network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
@@ -203,7 +197,6 @@ class IsoAreaAsPolygonsFromPoint(QgisAlgorithm):
         cell_size = self.parameterAsInt(parameters, self.CELL_SIZE, context)#int
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
 
-        entry_cost_calc_method = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context) #int
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
         forwardValue = self.parameterAsString(parameters, self.VALUE_FORWARD, context) #str
         backwardValue = self.parameterAsString(parameters, self.VALUE_BACKWARD, context) #str
@@ -217,45 +210,49 @@ class IsoAreaAsPolygonsFromPoint(QgisAlgorithm):
         analysisCrs = network.sourceCrs()
         input_coordinates = [startPoint]
         input_point = getFeatureFromPointParameter(startPoint)
-        
+
+        if analysisCrs.isGeographic():
+            raise QgsProcessingException('QNEAT3 algorithms are designed to work with projected coordinate systems. Please use a projected coordinate system (eg. UTM zones) instead of geographic coordinate systems (eg. WGS84)!')
+
+        if analysisCrs != context.project().crs():
+            raise QgsProcessingException('QNEAT3 algorithms require that all inputs to be the same projected coordinate reference system (including project coordinate system).')
+
         feedback.pushInfo("[QNEAT3Algorithm] Building Graph...")
         feedback.setProgress(10)
         net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
         feedback.setProgress(40)
-        
-        analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0], entry_cost_calc_method, feedback)
-        
+
+        analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0], feedback)
+
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Pointcloud...")
         iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist+(max_dist*0.1))
         feedback.setProgress(50)
-        
+
         uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())
-        
+
         iso_pointcloud_layer = QgsVectorLayer(uri, "iso_pointcloud_layer", "memory")
         iso_pointcloud_provider = iso_pointcloud_layer.dataProvider()
         iso_pointcloud_provider.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
-        
+
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Interpolation-Raster using QGIS TIN-Interpolator...")
         net.calcIsoTinInterpolation(iso_pointcloud_layer, cell_size, output_path)
         feedback.setProgress(70)
-            
+
         fields = QgsFields()
         fields.append(QgsField('id', QVariant.Int, '', 254, 0))
         fields.append(QgsField('cost_level', QVariant.Double, '', 20, 7))
-        
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_POLYGONS, context, fields, QgsWkbTypes.Polygon, network.sourceCrs())   
-        
+
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_POLYGONS, context, fields, QgsWkbTypes.Polygon, network.sourceCrs())
+
         feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Polygons using numpy and matplotlib...")
         polygon_featurelist = net.calcIsoPolygons(max_dist, interval, output_path)
         feedback.setProgress(90)
-        
+
         sink.addFeatures(polygon_featurelist, QgsFeatureSink.FastInsert)
         feedback.pushInfo("[QNEAT3Algorithm] Ending Algorithm")
         feedback.setProgress(100)
-        
+
         results = {}
         results[self.OUTPUT_INTERPOLATION] = output_path
         results[self.OUTPUT_POLYGONS] = dest_id
         return results
-
-
