@@ -223,9 +223,9 @@ class OdMatrixFromPointsAsCsv(QgisAlgorithm):
                     if (current_workstep_number%1000)==0:
                         feedback.pushInfo("[QNEAT3Algorithm] {} OD-pairs processed...".format(current_workstep_number))
                     if query_point.point_id == start_point.point_id:
-                        csv_writer.writerow([start_point.point_id, query_point.point_id, float(0)])
+                        csv_writer.writerow([start_point.point_id, query_point.point_id, float(0), float(0), float(0), float(0)])
                     elif dijkstra_query[0][query_point.network_vertex_id] == -1:
-                        csv_writer.writerow([start_point.point_id, query_point.point_id, None])
+                        csv_writer.writerow([start_point.point_id, query_point.point_id, None, None, None, None])
                     else:
                         entry_cost = start_point.entry_cost
                         network_cost = dijkstra_query[1][query_point.network_vertex_id]

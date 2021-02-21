@@ -34,7 +34,8 @@ from collections import OrderedDict
 from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import (QgsWkbTypes,
+from qgis.core import (
+                       QgsWkbTypes,
                        QgsFields,
                        QgsField,
                        QgsFeature,
@@ -47,7 +48,8 @@ from qgis.core import (QgsWkbTypes,
                        QgsProcessingParameterField,
                        QgsProcessingParameterNumber,
                        QgsProcessingParameterString,
-                       QgsProcessingParameterDefinition)
+                       QgsProcessingParameterDefinition
+                       )
 
 from qgis.analysis import (QgsVectorLayerDirector)
 
@@ -264,7 +266,10 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
                 if dijkstra_query[0][query_point.network_vertex_id] == -1:
                     feat['origin_id'] = start_point.point_id
                     feat['destination_id'] = query_point.point_id
-                    #do not populate cost field so that it defaults to null
+                    feat['entry_cost'] = None
+                    feat['network_cost'] = None
+                    feat['exit_cost'] = None
+                    feat['total_cost'] = None
                     sink.addFeature(feat, QgsFeatureSink.FastInsert)
                 else:
                     entry_cost = start_point.entry_cost
