@@ -42,6 +42,9 @@ icon=icon_qneat3.svg
 # experimental flag
 experimental=False
 
+#set processing provider flag
+hasProcessingProvider=yes
+
 # deprecated flag (applies to the whole plugin, not just a single version
 deprecated=False
 
