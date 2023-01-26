@@ -120,10 +120,12 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
             (self.tr('Both directions'), QgsVectorLayerDirector.DirectionBoth)])
 
         self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
-                           self.tr('Fastest Path (time optimization)')]
+                           self.tr('Fastest Path (time optimization)')
+                           ]
 
         self.PATH_TYPES = [self.tr('Straight  Line (as the crow flies)'),
                            self.tr('Line Follows Path')
+                          ]
 
         self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Ellipsoidal'),
                                        self.tr('Planar (only use with projected CRS)')]
@@ -264,7 +266,7 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
                     sink.addFeature(feat, QgsFeatureSink.FastInsert)
                 else:
                     network_cost = dijkstra_query[1][query_point.network_vertex_id] 
-                    
+
                     if path_type != 0:
                         this_tree=dijkstra_query[0]
                         idx_start = start_point.network_vertex_id
