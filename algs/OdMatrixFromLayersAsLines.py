@@ -31,6 +31,7 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
+
 from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
@@ -79,6 +80,7 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
     DEFAULT_SPEED = 'DEFAULT_SPEED'
     TOLERANCE = 'TOLERANCE'
     OUTPUT = 'OUTPUT'
+    PATH_TYPE = 'PATH_TYPE'
 
     def icon(self):
         return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_matrix.svg'))
@@ -126,6 +128,10 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
                            self.tr('Fastest Path (time optimization)')
                            ]
 
+        self.PATH_TYPES = [self.tr('Straight  Line (as the crow flies)'),
+                           self.tr('Line Follows Path')
+                           ]
+
         self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Ellipsoidal'),
                                        self.tr('Planar (only use with projected CRS)')]
             
@@ -156,6 +162,11 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
                                                      self.tr('Optimization Criterion'),
                                                      self.STRATEGIES,
+                                                     defaultValue=0))
+
+        self.addParameter(QgsProcessingParameterEnum(self.PATH_TYPE,
+                                                     self.tr('Generated line type'),
+                                                     self.PATH_TYPES,
                                                      defaultValue=0))
 
         params = []
@@ -209,6 +220,7 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
         to_points = self.parameterAsSource(parameters, self.TO_POINT_LAYER, context)
         to_id_field = self.parameterAsString(parameters, self.TO_ID_FIELD, context)
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
+        path_type =  self.parameterAsEnum(parameters, self.PATH_TYPE, context) #int
 
         entry_cost_calc_method = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context) #int
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
@@ -280,14 +292,20 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
                     total_cost = network_cost + entry_cost + exit_cost
                     
                     this_tree=dijkstra_query[0]
-                    route=[query_point.point_geom]
                     idx_start = start_point.network_vertex_id
                     idx_end = query_point.network_vertex_id
                     
-                    # Iterate the graph and add hops to route
-                    while idx_end != idx_start:
-                        idx_end = net.network.edge(this_tree[idx_end]).fromVertex()
-                        route.insert(0, net.network.vertex(idx_end).point())
+                    if path_type != 0:
+                        # create a geometry following the complete path
+                        route = [net.network.vertex(idx_end).point(),query_point.point_geom]
+                        # Iterate the graph and add hops to route
+                        while idx_end != idx_start:
+                            idx_end = net.network.edge(this_tree[idx_end]).fromVertex()
+                            route.insert(0, net.network.vertex(idx_end).point())
+                        route.insert(0,start_point.point_geom)
+                    else:
+                        # geometry "as the crow flies"
+                        route = [start_point.point_geom, query_point.point_geom]
 
                     feat['origin_id'] = start_point.point_id
                     feat['destination_id'] = query_point.point_id
