@@ -270,6 +270,8 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
                     feat['network_cost'] = None
                     feat['exit_cost'] = None
                     feat['total_cost'] = None
+                    #Create a null geometry since no real route was found
+                    feat.setGeometry(QgsGeometry())
                     sink.addFeature(feat, QgsFeatureSink.FastInsert)
                 else:
                     entry_cost = start_point.entry_cost
@@ -277,13 +279,23 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
                     exit_cost = query_point.entry_cost
                     total_cost = network_cost + entry_cost + exit_cost
                     
-                    feat.setGeometry(QgsGeometry.fromPolylineXY([start_point.point_geom, query_point.point_geom]))
+                    this_tree=dijkstra_query[0]
+                    route=[query_point.point_geom]
+                    idx_start = start_point.network_vertex_id
+                    idx_end = query_point.network_vertex_id
+                    
+                    # Iterate the graph and add hops to route
+                    while idx_end != idx_start:
+                        idx_end = net.network.edge(this_tree[idx_end]).fromVertex()
+                        route.insert(0, net.network.vertex(idx_end).point())
+
                     feat['origin_id'] = start_point.point_id
                     feat['destination_id'] = query_point.point_id
                     feat['entry_cost'] = entry_cost
                     feat['network_cost'] = network_cost
                     feat['exit_cost'] = exit_cost
                     feat['total_cost'] = total_cost
+                    feat.setGeometry(QgsGeometry.fromPolylineXY(route))
                     sink.addFeature(feat, QgsFeatureSink.FastInsert)  
                 current_workstep_number=current_workstep_number+1
                 feedback.setProgress((current_workstep_number/total_workload)*100)
