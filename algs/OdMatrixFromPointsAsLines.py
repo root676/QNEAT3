@@ -75,6 +75,7 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
     DEFAULT_SPEED = 'DEFAULT_SPEED'
     TOLERANCE = 'TOLERANCE'
     OUTPUT = 'OUTPUT'
+    PATH_TYPE = 'PATH_TYPE'
 
     def icon(self):
         return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_matrix.svg'))
@@ -121,6 +122,9 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
         self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
                            self.tr('Fastest Path (time optimization)')]
 
+        self.PATH_TYPES = [self.tr('Straight  Line (as the crow flies)'),
+                           self.tr('Line Follows Path')
+
         self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Ellipsoidal'),
                                        self.tr('Planar (only use with projected CRS)')]
 
@@ -144,6 +148,10 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
         params.append(QgsProcessingParameterEnum(self.ENTRY_COST_CALCULATION_METHOD,
                                                  self.tr('Entry Cost calculation method'),
                                                  self.ENTRY_COST_CALCULATION_METHODS,
+                                                 defaultValue=0))
+        params.append(QgsProcessingParameterEnum(self.PATH_TYPE,
+                                                 self.tr('Generated line type'),
+                                                 self.PATH_TYPES,
                                                  defaultValue=0))
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
                                                   self.tr('Direction field'),
@@ -190,6 +198,7 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
         points = self.parameterAsSource(parameters, self.POINTS, context) #QgsProcessingFeatureSource
         id_field = self.parameterAsString(parameters, self.ID_FIELD, context) #str
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
+        path_type =  self.parameterAsEnum(parameters, self.PATH_TYPE, context) #int
 
         entry_cost_calc_method = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context) #int
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
@@ -242,6 +251,7 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
                     feat['network_cost'] = 0.0
                     feat['exit_cost'] = 0.0
                     feat['total_cost'] = 0.0
+                    feat.setGeometry(QgsGeometry())
                     sink.addFeature(feat, QgsFeatureSink.FastInsert)
                 elif dijkstra_query[0][query_point.network_vertex_id] == -1:
                     feat['origin_id'] = start_point.point_id
@@ -250,10 +260,27 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
                     feat['network_cost'] = None
                     feat['exit_cost'] = None
                     feat['total_cost'] = None
+                    feat.setGeometry(QgsGeometry())
                     sink.addFeature(feat, QgsFeatureSink.FastInsert)
                 else:
-                    network_cost = dijkstra_query[1][query_point.network_vertex_id]
-                    feat.setGeometry(QgsGeometry.fromPolylineXY([start_point.point_geom, query_point.point_geom]))
+                    network_cost = dijkstra_query[1][query_point.network_vertex_id] 
+                    
+                    if path_type != 0:
+                        this_tree=dijkstra_query[0]
+                        idx_start = start_point.network_vertex_id
+                        idx_end = query_point.network_vertex_id
+                        # create a geometry following the complete path
+                        route = [net.network.vertex(idx_end).point(),query_point.point_geom]
+                        # Iterate the graph and add hops to route
+                        while idx_end != idx_start:
+                            idx_end = net.network.edge(this_tree[idx_end]).fromVertex()
+                            route.insert(0, net.network.vertex(idx_end).point())
+                        route.insert(0,start_point.point_geom)
+                    else:
+                        # geometry "as the crow flies"
+                        route = [start_point.point_geom, query_point.point_geom]
+                    
+                    feat.setGeometry(QgsGeometry.fromPolylineXY(route))
                     feat['origin_id'] = start_point.point_id
                     feat['destination_id'] = query_point.point_id
                     feat['entry_cost'] = start_point.entry_cost
