@@ -75,7 +75,7 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
     DEFAULT_SPEED = 'DEFAULT_SPEED'
     TOLERANCE = 'TOLERANCE'
     OUTPUT = 'OUTPUT'
-    PATH_TYPE = 'PATH_TYPE'
+    MATRIX_GEOMETRY_TYPE = 'MATRIX_GEOMETRY_TYPE'
 
     def icon(self):
         return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_matrix.svg'))
@@ -123,9 +123,9 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
                            self.tr('Fastest Path (time optimization)')
                            ]
 
-        self.PATH_TYPES = [self.tr('Straight  Line (as the crow flies)'),
-                           self.tr('Line Follows Path')
-                          ]
+        self.MATRIX_GEOMETRY_TYPES = [self.tr('Matrix geometry follows straight lines (as the crow flies)'),
+                                    self.tr('Matrix geometry follows routes')
+                                    ]
 
         self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Ellipsoidal'),
                                        self.tr('Planar (only use with projected CRS)')]
@@ -151,9 +151,9 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
                                                  self.tr('Entry Cost calculation method'),
                                                  self.ENTRY_COST_CALCULATION_METHODS,
                                                  defaultValue=0))
-        params.append(QgsProcessingParameterEnum(self.PATH_TYPE,
-                                                 self.tr('Generated line type'),
-                                                 self.PATH_TYPES,
+        params.append(QgsProcessingParameterEnum(self.MATRIX_GEOMETRY_TYPE,
+                                                 self.tr('Generated matrix geometry style'),
+                                                 self.MATRIX_GEOMETRY_TYPES,
                                                  defaultValue=0))
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
                                                   self.tr('Direction field'),
@@ -200,7 +200,7 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
         points = self.parameterAsSource(parameters, self.POINTS, context) #QgsProcessingFeatureSource
         id_field = self.parameterAsString(parameters, self.ID_FIELD, context) #str
         strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
-        path_type =  self.parameterAsEnum(parameters, self.PATH_TYPE, context) #int
+        matrix_geometry_type =  self.parameterAsEnum(parameters, self.MATRIX_GEOMETRY_TYPE, context) #int
 
         entry_cost_calc_method = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context) #int
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
@@ -267,7 +267,7 @@ class OdMatrixFromPointsAsLines(QgisAlgorithm):
                 else:
                     network_cost = dijkstra_query[1][query_point.network_vertex_id] 
 
-                    if path_type != 0:
+                    if matrix_geometry_type != 0:
                         this_tree=dijkstra_query[0]
                         idx_start = start_point.network_vertex_id
                         idx_end = query_point.network_vertex_id
