@@ -87,11 +87,7 @@ class Qneat3Network():
         
         self.feedback.pushInfo("[QNEAT3Network][__init__] Setting up parameters")
         self.AnalysisCrs = input_analysisCrs
-        
-        #enable polygon calculation in geographic coordinate systems
-        distUnit = self.AnalysisCrs.mapUnits()
-        self.meter_to_unit_factor = QgsUnitTypes.fromUnitToUnitFactor(QgsUnitTypes.DistanceMeters, distUnit)
-        
+
         #init direction fields
         self.feedback.pushInfo("[QNEAT3Network][__init__] Setting up network direction parameters")
         self.directedAnalysis = self.setNetworkDirection((input_directionFieldName, input_forwardValue, input_backwardValue, input_bothValue, input_defaultDirection))
@@ -144,15 +140,13 @@ class Qneat3Network():
             self.directedAnalysis = False
             
     def setNetworkStrategy(self, input_strategy, input_network, input_speedField, input_defaultSpeed):
-        distUnit = self.AnalysisCrs.mapUnits()
-        unit_to_meter_factor = QgsUnitTypes.fromUnitToUnitFactor(distUnit, QgsUnitTypes.DistanceMeters)
-        
+
         speedFieldId = getFieldIndexFromQgsProcessingFeatureSource(input_network, input_speedField)
         if input_strategy == 0:
             self.strategy = QgsNetworkDistanceStrategy()
             self.strategy_int = 0
         else:
-            self.strategy = QgsNetworkSpeedStrategy(speedFieldId, float(input_defaultSpeed), unit_to_meter_factor * 1000.0 / 3600.0)
+            self.strategy = QgsNetworkSpeedStrategy(speedFieldId, float(input_defaultSpeed), 1000.0 / 3600.0)
             self.strategy_int = 1
         self.multiplier = 3600
 
@@ -554,9 +548,7 @@ class Qneat3AnalysisPoint():
         if self.strategy == 0:
             return dist
         else:
-            distUnit = self.crs.mapUnits()
-            unit_to_meter_factor = QgsUnitTypes.fromUnitToUnitFactor(distUnit, QgsUnitTypes.DistanceMeters)
-            return dist/(self.entry_speed*(unit_to_meter_factor * 1000.0 / 3600.0)) #length/(m/s) todo: Make dynamic
+            return dist/(self.entry_speed*(1000.0 / 3600.0)) #length/(m/s) todo: Make dynamic
     
     def calcEntryCostPlanar(self, feedback):
         dist = self.calcEntryLinestring().length()
@@ -564,9 +556,7 @@ class Qneat3AnalysisPoint():
         if self.strategy == 0:
             return dist
         else:
-            distUnit = self.crs.mapUnits()
-            unit_to_meter_factor = QgsUnitTypes.fromUnitToUnitFactor(distUnit, QgsUnitTypes.DistanceMeters)
-            return dist/(self.entry_speed*(unit_to_meter_factor * 1000.0 / 3600.0)) #length/(m/s) todo: Make dynamic
+            return dist/(self.entry_speed*(1000.0 / 3600.0)) #length/(m/s) todo: Make dynamic
 
 
     def calcEntryLinestring(self):
