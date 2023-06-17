@@ -86,14 +86,13 @@ def getFieldIndexFromQgsProcessingFeatureSource(feature_source, field_name):
         return -1
     
 def getListOfPoints(qgs_feature_storage): #qgs_feature_storage can be any vectorLayer/QgsProcessingParameterFeatureSource/etc
-    given_geom_type = QgsWkbTypes().displayString(qgs_feature_storage.wkbType()) #GetStringRepresentation of WKB Type
-    expected_geom_type = QgsWkbTypes.displayString(1) #Point
-    
-    if given_geom_type == expected_geom_type: 
+    given_geom_type = qgs_feature_storage.wkbType() #GetStringRepresentation of WKB Type
+
+    if given_geom_type == QgsWkbTypes().Point:
         qgsfeatureiterator = getFeaturesFromQgsIterable(qgs_feature_storage)
         return [f.geometry().asPoint() for f in qgsfeatureiterator]
     else:
-        raise Qneat3GeometryException(given_geom_type, expected_geom_type)
+        raise Qneat3GeometryException(given_geom_type, QgsWkbTypes().Point)
         
 def getFieldDatatype(qgs_feature_storage, fieldname):
     fields_list = qgs_feature_storage.fields()
