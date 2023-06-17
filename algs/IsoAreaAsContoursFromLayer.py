@@ -221,7 +221,7 @@ class IsoAreaAsContoursFromLayer(QgisAlgorithm):
         tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
         output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT_INTERPOLATION, context) #string
 
-        analysisCrs = context.project().crs()
+        analysisCrs = network.sourceCrs()
         input_coordinates = getListOfPoints(startPoints) 
        
         feedback.pushInfo("[QNEAT3Algorithm] Building Graph...")
