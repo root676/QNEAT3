@@ -250,9 +250,10 @@ class OdMatrixFromLayersAsLines(QgisAlgorithm):
         
         feat = QgsFeature()
         fields = QgsFields()
-        output_id_field_data_type = getFieldDatatype(from_points, from_id_field)
-        fields.append(QgsField('origin_id', output_id_field_data_type, '', 254, 0))
-        fields.append(QgsField('destination_id', output_id_field_data_type, '', 254, 0))
+        orig_id_field_data_type = getFieldDatatype(from_points, from_id_field)
+        dest_id_field_data_type = getFieldDatatype(to_points, to_id_field)
+        fields.append(QgsField('origin_id', orig_id_field_data_type, '', 254, 0))
+        fields.append(QgsField('destination_id', dest_id_field_data_type, '', 254, 0))
         fields.append(QgsField('entry_cost', QVariant.Double, '', 20,7))
         fields.append(QgsField('network_cost', QVariant.Double, '', 20, 7))
         fields.append(QgsField('exit_cost', QVariant.Double, '', 20,7))
