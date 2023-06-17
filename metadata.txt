@@ -31,7 +31,15 @@ changelog=1.0.0:
 	- Fix bug #22 Issue with QgsPoint() being constructed from QgsPointXY() in QGIS 3.10 is resolved temporary 
 	1.0.4:
 	- Fix bug #25 Wire tolerance parameter permanently to QgsGraphBuilder
-
+    1.0.5:
+    - New Feature: allow output of route geometry from OD Matrix algorithms (thanks to @garci66)
+    - Fix issue #26: report NULL or delete OD pairs with no routes
+    - Fix issue #57: Current processing setup does not allow qgis_process (CLI) to access QNEAT3 (thanks to @JanCaha)
+    - Fix issue #62: API break in wkbType() (thanks to @merkato)
+    - Fix issue #29: fix analysis crs in contours and interpolation algorithms (thanks to @kufreu and @josephholler)
+    - fix issue #36: OD Matrix miscalculates time cost if network CRS does not use linear units of meters (thanks to @kufreu and @josephholler)
+    - fix issue #31: Allow for different origin and destination ID data types (thanks to @kufreu and @josephholler)
+    
 # tags are comma separated with spaces allowed
 tags= network analysis, graph analysis, od matrix, distance matrix, od matrices, OD, isochrone areas, catchment areas, shortest path, dijkstra
 
