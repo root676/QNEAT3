@@ -429,24 +429,23 @@ class Qneat3Network():
             self.feedback.pushInfo("[QNEAT3Network][calcIsoContours] Calculating {}-level contours".format(current_level))
             contours = plt.contourf(x_grid, y_grid, raster_values, [0, current_level], antialiased=True)
             
-            for collection in contours.collections:
-                for contour_paths in collection.get_paths():                    
-                    for polygon in contour_paths.to_polygons():
-                        x = polygon[:,0]
-                        y = polygon[:,1]
+            for contour_paths in contours.get_paths():                    
+                for polygon in contour_paths.to_polygons():
+                    x = polygon[:,0]
+                    y = polygon[:,1]
 
-                        polylinexy_list = [QgsPointXY(i[0], i[1]) for i in zip(x,y)]
-                    
-                        feat = QgsFeature()
-                        fields = QgsFields()
-                        fields.append(QgsField('id', QVariant.Int, '', 254, 0))
-                        fields.append(QgsField('cost_level', QVariant.Double, '', 20, 7))
-                        feat.setFields(fields)
-                        geom = QgsGeometry().fromPolylineXY(polylinexy_list)
-                        feat.setGeometry(geom)
-                        feat['id'] = fid
-                        feat['cost_level'] = float(current_level)
-                        featurelist.insert(0, feat)
+                    polylinexy_list = [QgsPointXY(i[0], i[1]) for i in zip(x,y)]
+                
+                    feat = QgsFeature()
+                    fields = QgsFields()
+                    fields.append(QgsField('id', QVariant.Int, '', 254, 0))
+                    fields.append(QgsField('cost_level', QVariant.Double, '', 20, 7))
+                    feat.setFields(fields)
+                    geom = QgsGeometry().fromPolylineXY(polylinexy_list)
+                    feat.setGeometry(geom)
+                    feat['id'] = fid
+                    feat['cost_level'] = float(current_level)
+                    featurelist.insert(0, feat)
                         
             fid=fid+1    
         return featurelist
@@ -488,32 +487,29 @@ class Qneat3Network():
             self.feedback.pushInfo("[QNEAT3Network][calcIsoPolygons] calculating {}-level contours".format(current_level))
             contours = plt.contourf(x_grid, y_grid, raster_values, [0, current_level], antialiased=True)
         
+            for contour_path in contours.get_paths(): 
+    
+                polygon_list = []
+                
+                for vertex in contour_path.to_polygons():
+                    x = vertex[:,0]
+                    y = vertex[:,1]
 
-            
-            for collection in contours.collections:
-                for contour_path in collection.get_paths(): 
-        
-                    polygon_list = []
-                    
-                    for vertex in contour_path.to_polygons():
-                        x = vertex[:,0]
-                        y = vertex[:,1]
+                    polylinexy_list = [QgsPointXY(i[0], i[1]) for i in zip(x,y)]
+                    polygon_list.append(polylinexy_list)
+                
+                feat = QgsFeature()
+                fields = QgsFields()
+                fields.append(QgsField('id', QVariant.Int, '', 254, 0))
+                fields.append(QgsField('cost_level', QVariant.Double, '', 20, 7))
+                feat.setFields(fields)
+                geom = QgsGeometry().fromPolygonXY(polygon_list)
+                feat.setGeometry(geom)
+                feat['id'] = fid
+                feat['cost_level'] = float(current_level)
+                
 
-                        polylinexy_list = [QgsPointXY(i[0], i[1]) for i in zip(x,y)]
-                        polygon_list.append(polylinexy_list)
-                    
-                    feat = QgsFeature()
-                    fields = QgsFields()
-                    fields.append(QgsField('id', QVariant.Int, '', 254, 0))
-                    fields.append(QgsField('cost_level', QVariant.Double, '', 20, 7))
-                    feat.setFields(fields)
-                    geom = QgsGeometry().fromPolygonXY(polygon_list)
-                    feat.setGeometry(geom)
-                    feat['id'] = fid
-                    feat['cost_level'] = float(current_level)
-                    
-
-                    featurelist.insert(0, feat)
+                featurelist.insert(0, feat)
             fid=fid+1    
         """Maybe move to algorithm"""
         #featurelist = featurelist[::-1] #reverse
