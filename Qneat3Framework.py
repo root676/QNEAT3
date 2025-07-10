@@ -384,7 +384,7 @@ class Qneat3Network():
         layer_data.interpolationAttribute =  1 #take second field to get costs
         layer_data.sourceType = QgsInterpolator.SourcePoints
 
-        tin_interpolator = QgsTinInterpolator([layer_data], QgsTinInterpolator.Linear)
+        tin_interpolator = QgsTinInterpolator([layer_data], QgsTinInterpolator.TinInterpolation.Linear)
         
         rect = iso_point_layer.extent()
         ncol = int((rect.xMaximum() - rect.xMinimum()) / resolution)
