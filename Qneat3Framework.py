@@ -152,8 +152,7 @@ class Qneat3Network():
 
     def calcDijkstra(self, startpoint_id, criterion):
         """Calculates Dijkstra on whole network beginning from one startPoint. Returns a list containing a TreeId-Array and Cost-Array that match up with their indices [[tree],[cost]] """
-        result = QgsGraphAnalyzer.dijkstra(self.network, startpoint_id, criterion)
-        (tree,cost) = result[0]
+        tree, cost = QgsGraphAnalyzer.dijkstra(self.network, startpoint_id, criterion)
         dijkstra_query = list()
         dijkstra_query.insert(0, tree)
         dijkstra_query.insert(1, cost)
