@@ -64,7 +64,6 @@ from qgis.PyQt.QtCore import QVariant
 
 from QNEAT3.Qneat3Utilities import ( 
     getFieldDatatypeFromPythontype,
-    getFieldIndexFromQgsProcessingFeatureSource, 
     getListOfPoints
     )
 
@@ -107,28 +106,24 @@ class Qneat3Network():
                  input_defaultSpeed:float,
                  input_tolerance:float,
                  feedback:QgsProcessingFeedback,
-                 input_directionFieldName:Optional[str] = None, 
-                 input_forwardValue:Optional[str] = None,
-                 input_backwardValue:Optional[str] = None, 
-                 input_bothValue:Optional[str] = None,
-                 input_defaultDirection:Optional[int] = None
+                 directionFieldName:Optional[str] = None, 
+                 forwardValue:Optional[str] = None,
+                 backwardValue:Optional[str] = None, 
+                 bothValue:Optional[str] = None,
+                 defaultDirection:Optional[int] = None
                  ): 
         
         #initialize feedback
         self.feedback = feedback
-        
-        self.feedback.pushInfo("[QNEAT3Network][__init__] Setting up parameters")
         self.AnalysisCrs = input_analysisCrs
 
         #init direction fields
-        self.feedback.pushInfo("[QNEAT3Network][__init__] Setting up network direction parameters")
-        self.directedAnalysis = self.setNetworkDirection((input_directionFieldName, input_forwardValue, input_backwardValue, input_bothValue, input_defaultDirection))
         self.director = QgsVectorLayerDirector(input_network,
-                                    getFieldIndexFromQgsProcessingFeatureSource(input_network, input_directionFieldName),
-                                    input_forwardValue,
-                                    input_backwardValue,
-                                    input_bothValue,
-                                    input_defaultDirection)
+                                    input_network.fields().lookupField(directionFieldName),
+                                    forwardValue,
+                                    backwardValue,
+                                    bothValue,
+                                    defaultDirection)
 
         #init analysis points
         self.feedback.pushInfo("[QNEAT3Network][__init__] Setting up analysis points")
@@ -163,17 +158,10 @@ class Qneat3Network():
         self.feedback.pushInfo("[QNEAT3Network][__init__] Total Build Time: {}".format(end_time-start_time))
         self.feedback.pushInfo("[QNEAT3Network][__init__] Analysis setup complete")
         
-            
-    def setNetworkDirection(self, directionArgs):    
-        if directionArgs.count("") == 0:
-            self.directedAnalysis = True
-            self.directionFieldId, self.input_forwardValue, self.input_backwardValue, self.input_bothValue, self.input_defaultDirection = directionArgs
-        else:
-            self.directedAnalysis = False
-            
-    def setNetworkStrategy(self, optimization_strategy, input_network, input_speedField, input_defaultSpeed):
+          
+    def setNetworkStrategy(self, optimization_strategy, input_network, speedField, input_defaultSpeed):
 
-        speedFieldId = getFieldIndexFromQgsProcessingFeatureSource(input_network, input_speedField)
+        speedFieldId = input_network.fields().lookupField(speedField)
         if optimization_strategy == 0:
             self.strategy = QgsNetworkDistanceStrategy()
             self.strategy_int = 0

@@ -77,13 +77,6 @@ def mergeFeaturesFromQgsIterable(qgs_feature_storage_list):
         fRequest = QgsFeatureRequest().setFilterFids(qgs_feature_storage.allFeatureIds())
         result_feature_list.extend(qgs_feature_storage.getFeatures(fRequest))
     return result_feature_list
-        
-        
-def getFieldIndexFromQgsProcessingFeatureSource(feature_source, field_name):
-    if field_name != "":
-        return feature_source.fields().lookupField(field_name)
-    else:
-        return -1
     
 def getListOfPoints(qgs_feature_storage): #qgs_feature_storage can be any vectorLayer/QgsProcessingParameterFeatureSource/etc
     given_geom_type = qgs_feature_storage.wkbType() #GetStringRepresentation of WKB Type
