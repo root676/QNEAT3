@@ -80,6 +80,7 @@ from typing import (
 if TYPE_CHECKING:
     from qgis.core import (
         QgsCoordinateReferenceSystem,
+        QgsPolylineXY,
         QgsProcessingFeedback,
         QgsProcessingParameterFeatureSource,
         QgsProcessingFeatureSource
@@ -94,17 +95,13 @@ class Qneat3Network():
 
     def __init__(self, 
                  input_network: QgsProcessingParameterFeatureSource,
-                 input_points: Union[
-                     Sequence[QgsPointXY],
-                    QgsProcessingParameterFeatureSource,
-                    QgsProcessingFeatureSource,
-                    QgsVectorLayer
-                 ],
+                 input_points: list[QgsFeature],
                  optimization_strategy: int,
                  input_analysisCrs: QgsCoordinateReferenceSystem,
                  input_speedField: str,
                  input_defaultSpeed: float,
                  input_tolerance: float,
+                 entry_cost_calculation_method: int,
                  feedback: QgsProcessingFeedback,
                  directionFieldName: Optional[str] = None, 
                  forwardValue: Optional[str] = None,
@@ -112,25 +109,24 @@ class Qneat3Network():
                  bothValue: Optional[str] = None,
                  defaultDirection: Optional[int] = None
                  ): 
+    
+        xy_points = list()
+
+        for point in input_points:
+            pt = point.feature.geometry().asPoint()
+            xy_points.append(pt)
         
         #initialize feedback
         self.feedback = feedback
         self.AnalysisCrs = input_analysisCrs
 
         #init direction fields
-        self.director = QgsVectorLayerDirector(input_network,
+        director = QgsVectorLayerDirector(input_network,
                                     input_network.fields().lookupField(directionFieldName),
                                     forwardValue,
                                     backwardValue,
                                     bothValue,
                                     defaultDirection)
-
-        #init analysis points
-        if isinstance(input_points,(list,)):
-            self.list_input_points = input_points #[QgsPointXY]
-        else:
-            self.list_input_points = getListOfPoints(input_points) #[QgsPointXY]
-            self.input_points = input_points
     
         #Setup cost-strategy pattern.
         self.feedback.pushInfo("[QNEAT3Network][__init__] Setting analysis strategy: {}".format(optimization_strategy))
@@ -139,8 +135,8 @@ class Qneat3Network():
         self.setNetworkStrategy(optimization_strategy, input_network, input_speedField, input_defaultSpeed)
 
         #add the strategy to the QgsGraphDirector
-        self.director.addStrategy(self.strategy)
-        self.builder = QgsGraphBuilder(self.AnalysisCrs, True, input_tolerance)
+        director.addStrategy(self.strategy)
+        builder = QgsGraphBuilder(self.AnalysisCrs, True, input_tolerance)
         #tell the graph-director to make the graph using the builder object and tie the start point geometry to the graph
         
         self.feedback.pushInfo("[QNEAT3Network][__init__] Start tying analysis points to the graph and building it.")
@@ -149,8 +145,34 @@ class Qneat3Network():
         start_time = time.time()
         self.feedback.pushInfo("[QNEAT3Network][__init__] Start Time: {}".format(time.strftime(":%Y-%m-%d %H:%M:%S", start_local_time)))
         self.feedback.pushInfo("[QNEAT3Network][__init__] Building...")
-        self.list_tiedPoints = self.director.makeGraph(self.builder, self.list_input_points, self.feedback)
-        self.network = self.builder.graph()
+        
+        tiedPoints: list[QgsPointXY] = self.director.makeGraph(builder, xy_points, self.feedback)
+        graph = builder.graph()
+
+        self.analysisPoints = list()
+
+        if entry_cost_calculation_method == 0: 
+            dist_calculator = QgsDistanceArea()
+            dist_calculator.setSourceCrs(QgsProject().instance().crs(), QgsProject().instance().transformContext())
+            dist_calculator.setEllipsoid(QgsProject().instance().crs().ellipsoidAcronym())
+
+        #build snapping info for analysis_points
+        for i, tied_point in enumerate(tiedPoints):
+            graph_vertex_id: int = graph.findVertex(tied_point)
+            input_point: QgsPointXY = input_points[i].feature.geometry().asPoint()
+            if entry_cost_calculation_method == 0: 
+                dist = dist_calculator.measureLine(input_point, tied_point)
+            else: 
+                dist = input_point.distance(tied_point)
+            
+            if self.strategy == 0: 
+                entry_cost = dist
+            else:
+                entry_cost = dist/(self.default_speed*(1000.0 / 3600.0))
+
+            self.analysisPoints.append(QneatAnalysisPoint(input_points[i].feature, graph_vertex_id, tied_point, entry_cost))
+            
+
         end_local_time = time.localtime()
         end_time = time.time()
         self.feedback.pushInfo("[QNEAT3Network][__init__] End Time: {}".format(time.strftime(":%Y-%m-%d %H:%M:%S", end_local_time)))
@@ -535,54 +557,15 @@ class Qneat3Network():
         self.feedback.pushInfo("[QNEAT3Network][calcIsoPolygons] number of elements in contour_featurelist: {}".format(len(featurelist)))
         return featurelist
         
-class Qneat3AnalysisPoint():
+class QneatAnalysisPoint():
     
-    def __init__(self, layer_name, feature, point_id_field_name, net, vertex_geom, entry_cost_calculation_method, feedback):
-        self.layer_name = layer_name
-        self.point_feature = feature
-        self.point_id = feature[point_id_field_name] 
-        self.point_geom = feature.geometry().asPoint()
-        self.network_vertex_id = self.getNearestVertexId(net.network, vertex_geom)
-        self.network_vertex = self.getNearestVertex(net.network, vertex_geom)
-        self.crs = net.AnalysisCrs
-        self.strategy = net.strategy_int
-        self.entry_speed = net.default_speed
-        if entry_cost_calculation_method == 0:
-            self.entry_cost = self.calcEntryCostEllipsoidal(feedback)
-        elif entry_cost_calculation_method == 1:
-            self.entry_cost = self.calcEntryCostPlanar(feedback)
-        else:
-            self.entry_cost = self.calcEntryCostEllipsoidal(feedback)
-        
-    def calcEntryCostEllipsoidal(self, feedback):
-        dist_calculator = QgsDistanceArea()
-        dist_calculator.setSourceCrs(QgsProject().instance().crs(), QgsProject().instance().transformContext())
-        dist_calculator.setEllipsoid(QgsProject().instance().crs().ellipsoidAcronym())
-        dist = dist_calculator.measureLine([self.point_geom, self.network_vertex.point()])
-        feedback.pushInfo("[QNEAT3Network][calcEntryCostEllipsoidal] Ellipsoidal entry cost to vertex {} = {}".format(self.network_vertex_id, dist))
-        if self.strategy == 0:
-            return dist
-        else:
-            return dist/(self.entry_speed*(1000.0 / 3600.0)) #length/(m/s) todo: Make dynamic
-    
-    def calcEntryCostPlanar(self, feedback):
-        dist = self.calcEntryLinestring().length()
-        feedback.pushInfo("[QNEAT3Network][calcEntryCostPlanar] Planar entry cost to vertex {} = {}".format(self.network_vertex_id, dist))
-        if self.strategy == 0:
-            return dist
-        else:
-            return dist/(self.entry_speed*(1000.0 / 3600.0)) #length/(m/s) todo: Make dynamic
-
-
-    def calcEntryLinestring(self):
-        return QgsGeometry.fromPolylineXY([self.point_geom, self.network_vertex.point()])
-    
-    def getNearestVertexId(self, network, vertex_geom):
-        return network.findVertex(vertex_geom)
-        
-    def getNearestVertex(self, network, vertex_geom):
-        return network.vertex(self.getNearestVertexId(network, vertex_geom))
+    def __init__(self, feature: QgsFeature, graph_vertex_id: int, graph_vertex_geom: QgsPointXY, graph_entry_cost: float):
+        self.feature: QgsFeature = feature
+        self.graph_vertex_id: int = graph_vertex_id
+        self.graph_vertex_geom: QgsPointXY = graph_vertex_geom
+        self.graph_entry_cost: float = graph_entry_cost
+        self.graph_entry_geom: QgsGeometry = QgsGeometry().fromPolylineXY([self.feature.geometry.asPoint(), self.graph_entry_geom])
     
     def __str__(self):
-        return u"Qneat3AnalysisPoint: {} analysis_id: {:30} FROM {:30} TO {:30} network_id: {:d}".format(self.layer_name, self.point_id, self.point_geom.__str__(), self.network_vertex.point().__str__(), self.network_vertex_id)    
+        return "Qneat3AnalysisPoint: feature_id: {:30} referencing graph_vertex_id: {:d}".format(self.feature.id(), self.graph_vertex_id)    
                                                                                                                                                                                                                         

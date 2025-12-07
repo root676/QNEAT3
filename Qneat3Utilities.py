@@ -20,7 +20,18 @@
 from qgis.core import QgsWkbTypes, QgsMessageLog, QgsVectorLayer, QgsFeature, QgsGeometry, QgsFields, QgsField, QgsFeatureRequest
 
 from qgis.PyQt.QtCore import QVariant
-from QNEAT3.Qneat3Exceptions import Qneat3GeometryException
+from QNEAT3.Qneat3Exceptions import QneatAnalysisGeometryException
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from qgis.core import (
+        QgsProcessingFeatureSource
+    )
+
+    from Qneat3Framework import(
+        QneatAnalysisPoint
+    )
 
 def AssignAnalysisCrs(vlayer):
     logPanel("Setting analysis CRS")
@@ -67,10 +78,6 @@ def getFeatureFromPointParameter(qgs_point_xy):
     feature['point_id']="Start Point"
     return feature
 
-def getFeaturesFromQgsIterable(qgs_feature_storage):#qgs_feature_storage can be any vectorLayer/QgsProcessingParameterFeatureSource/etc
-    fRequest = QgsFeatureRequest().setFilterFids(qgs_feature_storage.allFeatureIds())
-    return qgs_feature_storage.getFeatures(fRequest)
-
 def mergeFeaturesFromQgsIterable(qgs_feature_storage_list):
     result_feature_list = []
     for qgs_feature_storage in qgs_feature_storage_list:
@@ -78,14 +85,18 @@ def mergeFeaturesFromQgsIterable(qgs_feature_storage_list):
         result_feature_list.extend(qgs_feature_storage.getFeatures(fRequest))
     return result_feature_list
     
-def getListOfPoints(qgs_feature_storage): #qgs_feature_storage can be any vectorLayer/QgsProcessingParameterFeatureSource/etc
-    given_geom_type = qgs_feature_storage.wkbType() #GetStringRepresentation of WKB Type
+def getAnalysisPoints(source: QgsProcessingFeatureSource) -> list[QneatAnalysisPoint]: 
+    analysisPoints = []
+    features = source.getFeatures()
 
-    if given_geom_type == QgsWkbTypes().Point:
-        qgsfeatureiterator = getFeaturesFromQgsIterable(qgs_feature_storage)
-        return [f.geometry().asPoint() for f in qgsfeatureiterator]
-    else:
-        raise Qneat3GeometryException(given_geom_type, QgsWkbTypes().Point)
+    for feature in features:
+        if feature.geometry() and feature.geometry().isEmpty() is False:
+            analysisPoints.append(QneatAnalysisPoint(feature))
+        else:
+            raise QneatAnalysisGeometryException(feature)
+    
+    return analysisPoints
+
         
 def getFieldDatatype(qgs_feature_storage, fieldname):
     fields_list = qgs_feature_storage.fields()

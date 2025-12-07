@@ -23,6 +23,12 @@ class Qneat3GeometryException(Exception):
         self.message = "Dataset has wrong geometry type. Got {} dataset but expected {} dataset instead. ".format( given_geom_type, expected_geom_type)
 
         super(Qneat3GeometryException, self).__init__(self.message)
+
+class QneatAnalysisGeometryException(Exception):
+    def __init__(self, feature):
+        self.message = "The point with id {} doesn't have a valid geometry.".format(feature.id())
+
+        super(Qneat3GeometryException, self).__init(self.message)
         
 class Qneat3CrsException(Exception):
     def __init__(self, *crs):
