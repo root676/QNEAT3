@@ -101,16 +101,16 @@ class Qneat3Network():
                     QgsVectorLayer
                  ],
                  optimization_strategy: int,
-                 input_analysisCrs:QgsCoordinateReferenceSystem,
-                 input_speedField:str,
-                 input_defaultSpeed:float,
-                 input_tolerance:float,
-                 feedback:QgsProcessingFeedback,
-                 directionFieldName:Optional[str] = None, 
-                 forwardValue:Optional[str] = None,
-                 backwardValue:Optional[str] = None, 
-                 bothValue:Optional[str] = None,
-                 defaultDirection:Optional[int] = None
+                 input_analysisCrs: QgsCoordinateReferenceSystem,
+                 input_speedField: str,
+                 input_defaultSpeed: float,
+                 input_tolerance: float,
+                 feedback: QgsProcessingFeedback,
+                 directionFieldName: Optional[str] = None, 
+                 forwardValue: Optional[str] = None,
+                 backwardValue: Optional[str] = None, 
+                 bothValue: Optional[str] = None,
+                 defaultDirection: Optional[int] = None
                  ): 
         
         #initialize feedback
@@ -126,7 +126,6 @@ class Qneat3Network():
                                     defaultDirection)
 
         #init analysis points
-        self.feedback.pushInfo("[QNEAT3Network][__init__] Setting up analysis points")
         if isinstance(input_points,(list,)):
             self.list_input_points = input_points #[QgsPointXY]
         else:
