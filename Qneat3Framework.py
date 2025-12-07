@@ -21,16 +21,71 @@ import time
 import osgeo.gdal as gdal
 
 from math import ceil
-from numpy import arange, meshgrid, linspace, nditer, zeros
-from osgeo import osr
 
-from qgis.core import QgsProject, QgsPoint, QgsVectorLayer, QgsRasterLayer, QgsFeature, QgsFeatureSink, QgsFeatureRequest,  QgsFields, QgsField, QgsGeometry, QgsPointXY, QgsLineString, QgsProcessingException, QgsDistanceArea, QgsUnitTypes      
-from qgis.analysis import QgsVectorLayerDirector, QgsNetworkDistanceStrategy, QgsNetworkSpeedStrategy, QgsGraphAnalyzer, QgsGraphBuilder, QgsInterpolator, QgsTinInterpolator, QgsGridFileWriter
+from numpy import (
+    arange, 
+    linspace,
+    meshgrid,  
+    nditer, 
+    zeros
+    )
+
+from qgis.analysis import (
+    QgsGraphAnalyzer, 
+    QgsGraphBuilder, 
+    QgsGridFileWriter,
+    QgsInterpolator, 
+    QgsNetworkDistanceStrategy, 
+    QgsNetworkSpeedStrategy, 
+    QgsTinInterpolator, 
+    QgsVectorLayerDirector
+    )
+
+from qgis.core import (
+    QgsDistanceArea, 
+    QgsFeature, 
+    QgsFeatureRequest,
+    QgsFeatureSink, 
+    QgsField, 
+    QgsFields,
+    QgsGeometry, 
+    QgsLineString, 
+    QgsPoint, 
+    QgsPointXY, 
+    QgsProcessingException,
+    QgsProject,
+    QgsRasterLayer,  
+    QgsVectorLayer,
+    QgsUnitTypes,     
+    QgsSpatialIndex
+    )
+
 from qgis.PyQt.QtCore import QVariant
 
-from QNEAT3.Qneat3Utilities import getFieldIndexFromQgsProcessingFeatureSource, getListOfPoints, getFieldDatatypeFromPythontype
-from qgis._core import QgsSpatialIndex
+from QNEAT3.Qneat3Utilities import ( 
+    getFieldDatatypeFromPythontype,
+    getFieldIndexFromQgsProcessingFeatureSource, 
+    getListOfPoints
+    )
 
+
+from osgeo import osr
+
+from typing import (
+    Optional,
+    Sequence, 
+    TYPE_CHECKING,
+    Union
+    )  
+
+if TYPE_CHECKING:
+    from qgis.core import (
+        QgsCoordinateReferenceSystem,
+        QgsProcessingFeedback,
+        QgsProcessingParameterFeatureSource,
+        QgsProcessingFeatureSource
+        )
+        
 
 class Qneat3Network():
     """
@@ -39,48 +94,25 @@ class Qneat3Network():
     """
 
     def __init__(self, 
-                 input_network, #QgsProcessingParameterFeatureSource
-                 input_points, #[QgsPointXY] or QgsProcessingParameterFeatureSource or QgsVectorLayer --> Implement List of QgsFeatures [QgsFeatures]
-                 input_strategy, #int
-                 input_directionFieldName, #str, empty if field not given
-                 input_forwardValue, #str
-                 input_backwardValue, #str
-                 input_bothValue, #str
-                 input_defaultDirection, #int
-                 input_analysisCrs, #QgsCoordinateReferenceSystem
-                 input_speedField, #str
-                 input_defaultSpeed, #float
-                 input_tolerance, #float
-                 feedback #feedback object from processing (log window)
+                 input_network: QgsProcessingParameterFeatureSource,
+                 input_points: Union[
+                     Sequence[QgsPointXY],
+                    QgsProcessingParameterFeatureSource,
+                    QgsProcessingFeatureSource,
+                    QgsVectorLayer
+                 ],
+                 optimization_strategy: int,
+                 input_analysisCrs:QgsCoordinateReferenceSystem,
+                 input_speedField:str,
+                 input_defaultSpeed:float,
+                 input_tolerance:float,
+                 feedback:QgsProcessingFeedback,
+                 input_directionFieldName:Optional[str] = None, 
+                 input_forwardValue:Optional[str] = None,
+                 input_backwardValue:Optional[str] = None, 
+                 input_bothValue:Optional[str] = None,
+                 input_defaultDirection:Optional[int] = None
                  ): 
-        
-        """
-        Constructor for a Qneat3Network object.
-        @type input_network: QgsProcessingParameterFeatureSource
-        @param input_network: input network dataset from processing algorithm 
-        @type input_points: QgsProcessingParameterFeatureSource/QgsVectorLayer/[QgsPointXY]
-        @param input_points: input point dataset from processing algorithm
-        @type input_strategy: int
-        @param input_strategy: Strategy parameter (0 for distance evaluation, 1 time evaluation)
-        @type directionFieldName: string
-        @param directionFieldName: Field name of field containing direction information
-        @type input_forwardValue: string
-        @param input_forwardValue: Value assigned to forward-directed edges
-        @type input_backwardValue: string
-        @param input_backwardValue: Value assigned to backward-directed edges
-        @type input_bothValue: string
-        @param input_bothValues: Value assigned to undirected edges (accessible from both directions)
-        @type input_defaultDirection: QgsVectorLayerDirector.DirectionForward/DirectionBackward/DirectionBoth
-        @param input_defaultDirection: QgsVectorLayerDirector Direction enum to determine default direction
-        @type input_analysisCrs: QgsCoordinateReferenceSystem
-        @param input_analysisCrs: Analysis coordinate system
-        @type input_speedField: string
-        @param input_speedField: Field name of field containing speed information
-        @type input_tolerance: float
-        @param input_tolerance: tolerance value when connecting graph edges
-        @type feedback: QgsProcessingFeedback
-        @param feedback: feedback object from processing algorithm
-        """
         
         #initialize feedback
         self.feedback = feedback
@@ -107,10 +139,10 @@ class Qneat3Network():
             self.input_points = input_points
     
         #Setup cost-strategy pattern.
-        self.feedback.pushInfo("[QNEAT3Network][__init__] Setting analysis strategy: {}".format(input_strategy))
+        self.feedback.pushInfo("[QNEAT3Network][__init__] Setting analysis strategy: {}".format(optimization_strategy))
         self.default_speed = input_defaultSpeed
         
-        self.setNetworkStrategy(input_strategy, input_network, input_speedField, input_defaultSpeed)
+        self.setNetworkStrategy(optimization_strategy, input_network, input_speedField, input_defaultSpeed)
 
         #add the strategy to the QgsGraphDirector
         self.director.addStrategy(self.strategy)
@@ -139,10 +171,10 @@ class Qneat3Network():
         else:
             self.directedAnalysis = False
             
-    def setNetworkStrategy(self, input_strategy, input_network, input_speedField, input_defaultSpeed):
+    def setNetworkStrategy(self, optimization_strategy, input_network, input_speedField, input_defaultSpeed):
 
         speedFieldId = getFieldIndexFromQgsProcessingFeatureSource(input_network, input_speedField)
-        if input_strategy == 0:
+        if optimization_strategy == 0:
             self.strategy = QgsNetworkDistanceStrategy()
             self.strategy_int = 0
         else:
