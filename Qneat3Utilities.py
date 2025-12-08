@@ -20,7 +20,6 @@
 from qgis.core import QgsWkbTypes, QgsMessageLog, QgsVectorLayer, QgsFeature, QgsGeometry, QgsFields, QgsField, QgsFeatureRequest
 
 from qgis.PyQt.QtCore import QVariant
-from QNEAT3.Qneat3Exceptions import QneatAnalysisGeometryException
 
 from typing import TYPE_CHECKING
 
@@ -84,18 +83,6 @@ def mergeFeaturesFromQgsIterable(qgs_feature_storage_list):
         fRequest = QgsFeatureRequest().setFilterFids(qgs_feature_storage.allFeatureIds())
         result_feature_list.extend(qgs_feature_storage.getFeatures(fRequest))
     return result_feature_list
-    
-def getAnalysisPoints(source: QgsProcessingFeatureSource) -> list[QneatAnalysisPoint]: 
-    analysisPoints = []
-    features = source.getFeatures()
-
-    for feature in features:
-        if feature.geometry() and feature.geometry().isEmpty() is False:
-            analysisPoints.append(QneatAnalysisPoint(feature))
-        else:
-            raise QneatAnalysisGeometryException(feature)
-    
-    return analysisPoints
 
         
 def getFieldDatatype(qgs_feature_storage, fieldname):

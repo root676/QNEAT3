@@ -48,23 +48,25 @@ from qgis.core import (
     QgsFeatureSink, 
     QgsField, 
     QgsFields,
-    QgsGeometry, 
-    QgsLineString, 
+    QgsGeometry,  
     QgsPoint, 
     QgsPointXY, 
     QgsProcessingException,
     QgsProject,
     QgsRasterLayer,  
-    QgsVectorLayer,
-    QgsUnitTypes,     
+    QgsVectorLayer,   
     QgsSpatialIndex
     )
 
 from qgis.PyQt.QtCore import QVariant
 
+from QNEAT3.Qneat3Exceptions import (
+    QneatAnalysisGeometryException,
+    QneatCrsException
+    )
+
 from QNEAT3.Qneat3Utilities import ( 
-    getFieldDatatypeFromPythontype,
-    getListOfPoints
+    getFieldDatatypeFromPythontype
     )
 
 
@@ -72,17 +74,12 @@ from osgeo import osr
 
 from typing import (
     Optional,
-    Sequence, 
-    TYPE_CHECKING,
-    Union
+    TYPE_CHECKING
     )  
 
 if TYPE_CHECKING:
     from qgis.core import (
-        QgsCoordinateReferenceSystem,
-        QgsPolylineXY,
         QgsProcessingFeedback,
-        QgsProcessingParameterFeatureSource,
         QgsProcessingFeatureSource
         )
         
@@ -94,13 +91,12 @@ class Qneat3Network():
     """
 
     def __init__(self, 
-                 input_network: QgsProcessingParameterFeatureSource,
-                 input_points: list[QgsFeature],
+                 graph_source: QgsProcessingFeatureSource,
+                 point_source: QgsProcessingFeatureSource,
                  optimization_strategy: int,
-                 input_analysisCrs: QgsCoordinateReferenceSystem,
-                 input_speedField: str,
-                 input_defaultSpeed: float,
-                 input_tolerance: float,
+                 speed_field: str,
+                 default_speed: float,
+                 tolerance: float,
                  entry_cost_calculation_method: int,
                  feedback: QgsProcessingFeedback,
                  directionFieldName: Optional[str] = None, 
@@ -109,57 +105,58 @@ class Qneat3Network():
                  bothValue: Optional[str] = None,
                  defaultDirection: Optional[int] = None
                  ): 
-    
-        xy_points = list()
 
-        for point in input_points:
-            pt = point.feature.geometry().asPoint()
-            xy_points.append(pt)
-        
-        #initialize feedback
-        self.feedback = feedback
-        self.AnalysisCrs = input_analysisCrs
+        #check if network and points have the same crs
+        graph_crs = graph_source.sourceCrs()
+        points_crs = point_source.sourceCrs()
+        if graph_crs != points_crs:
+            raise QneatCrsException(graph_crs, points_crs)
+        else:
+            self.analysis_crs = graph_crs
+
+        #read points as QgsPointXY
+        xy_points = list()
+        point_featurelist = list(point_source.getFeatures())
+
+        for feature in point_featurelist:
+            if feature.geometry() and feature.geometry().isEmpty() is False:
+                xy_points.append(feature.geometry().asPoint())
+            else:
+                raise QneatAnalysisGeometryException(feature)
 
         #init direction fields
-        director = QgsVectorLayerDirector(input_network,
-                                    input_network.fields().lookupField(directionFieldName),
+        director = QgsVectorLayerDirector(graph_source,
+                                    graph_source.fields().lookupField(directionFieldName),
                                     forwardValue,
                                     backwardValue,
                                     bothValue,
                                     defaultDirection)
     
         #Setup cost-strategy pattern.
-        self.feedback.pushInfo("[QNEAT3Network][__init__] Setting analysis strategy: {}".format(optimization_strategy))
-        self.default_speed = input_defaultSpeed
+        self.default_speed = default_speed
         
-        self.setNetworkStrategy(optimization_strategy, input_network, input_speedField, input_defaultSpeed)
+        self.setNetworkStrategy(optimization_strategy, graph, speed_field, self.default_speed)
 
         #add the strategy to the QgsGraphDirector
         director.addStrategy(self.strategy)
-        builder = QgsGraphBuilder(self.AnalysisCrs, True, input_tolerance)
-        #tell the graph-director to make the graph using the builder object and tie the start point geometry to the graph
+        builder = QgsGraphBuilder(self.analysis_crs, True, tolerance)
         
-        self.feedback.pushInfo("[QNEAT3Network][__init__] Start tying analysis points to the graph and building it.")
-        self.feedback.pushInfo("[QNEAT3Network][__init__] This is a compute intensive task and may take some time depending on network size")
-        start_local_time = time.localtime()
-        start_time = time.time()
-        self.feedback.pushInfo("[QNEAT3Network][__init__] Start Time: {}".format(time.strftime(":%Y-%m-%d %H:%M:%S", start_local_time)))
-        self.feedback.pushInfo("[QNEAT3Network][__init__] Building...")
-        
-        tiedPoints: list[QgsPointXY] = self.director.makeGraph(builder, xy_points, self.feedback)
-        graph = builder.graph()
+        #tell the graph-director to make the graph using the builder object and tie the start point geometries to the graph
+        feedback.pushInfo("building graph...")
+        tiedPoints: list[QgsPointXY] = self.director.makeGraph(builder, xy_points)
+        qgsgraph = builder.graph()
 
-        self.analysisPoints = list()
+        self.analysis_points = list()
 
         if entry_cost_calculation_method == 0: 
             dist_calculator = QgsDistanceArea()
-            dist_calculator.setSourceCrs(QgsProject().instance().crs(), QgsProject().instance().transformContext())
-            dist_calculator.setEllipsoid(QgsProject().instance().crs().ellipsoidAcronym())
+            dist_calculator.setSourceCrs(self.analysis_crs, QgsProject().instance().transformContext())
+            dist_calculator.setEllipsoid(self.analysis_crs.ellipsoidAcronym())
 
         #build snapping info for analysis_points
         for i, tied_point in enumerate(tiedPoints):
-            graph_vertex_id: int = graph.findVertex(tied_point)
-            input_point: QgsPointXY = input_points[i].feature.geometry().asPoint()
+            graph_vertex_id: int = qgsgraph.findVertex(tied_point)
+            input_point: QgsPointXY = xy_points[i]
             if entry_cost_calculation_method == 0: 
                 dist = dist_calculator.measureLine(input_point, tied_point)
             else: 
@@ -170,38 +167,23 @@ class Qneat3Network():
             else:
                 entry_cost = dist/(self.default_speed*(1000.0 / 3600.0))
 
-            self.analysisPoints.append(QneatAnalysisPoint(input_points[i].feature, graph_vertex_id, tied_point, entry_cost))
+            self.analysis_points.append(QneatAnalysisPoint(point_featurelist[i], graph_vertex_id, tied_point, entry_cost))
             
-
-        end_local_time = time.localtime()
-        end_time = time.time()
-        self.feedback.pushInfo("[QNEAT3Network][__init__] End Time: {}".format(time.strftime(":%Y-%m-%d %H:%M:%S", end_local_time)))
-        self.feedback.pushInfo("[QNEAT3Network][__init__] Total Build Time: {}".format(end_time-start_time))
-        self.feedback.pushInfo("[QNEAT3Network][__init__] Analysis setup complete")
-        
           
-    def setNetworkStrategy(self, optimization_strategy, input_network, speedField, input_defaultSpeed):
+    def setNetworkStrategy(self, optimization_strategy, graph, speedField, default_speed):
 
-        speedFieldId = input_network.fields().lookupField(speedField)
+        speedFieldId = graph.fields().lookupField(speedField)
         if optimization_strategy == 0:
             self.strategy = QgsNetworkDistanceStrategy()
-            self.strategy_int = 0
         else:
-            self.strategy = QgsNetworkSpeedStrategy(speedFieldId, float(input_defaultSpeed), 1000.0 / 3600.0)
-            self.strategy_int = 1
-        self.multiplier = 3600
+            self.strategy = QgsNetworkSpeedStrategy(speedFieldId, float(default_speed), 1000.0 / 3600.0)
 
-    def calcDijkstra(self, startpoint_id, criterion):
-        """Calculates Dijkstra on whole network beginning from one startPoint. Returns a list containing a TreeId-Array and Cost-Array that match up with their indices [[tree],[cost]] """
-        tree, cost = QgsGraphAnalyzer.dijkstra(self.network, startpoint_id, criterion)
+    def calcDijkstra(self, source_vertex_id: int):
+        tree, cost = QgsGraphAnalyzer.dijkstra(self.network, source_vertex_id, 0)
         dijkstra_query = list()
         dijkstra_query.insert(0, tree)
         dijkstra_query.insert(1, cost)
         return dijkstra_query
-    
-    def calcShortestTree(self, startpoint_id, criterion):
-        tree = QgsGraphAnalyzer.shortestTree(self.network, startpoint_id, criterion)
-        return tree
         
     def calcIsoPoints(self, analysis_point_list, max_dist):
         iso_pointcloud = dict()
@@ -567,5 +549,5 @@ class QneatAnalysisPoint():
         self.graph_entry_geom: QgsGeometry = QgsGeometry().fromPolylineXY([self.feature.geometry.asPoint(), self.graph_entry_geom])
     
     def __str__(self):
-        return "Qneat3AnalysisPoint: feature_id: {:30} referencing graph_vertex_id: {:d}".format(self.feature.id(), self.graph_vertex_id)    
+        return "QneatAnalysisPoint: feature_id: {:30} referencing graph_vertex_id: {:d}".format(self.feature.id(), self.graph_vertex_id)    
                                                                                                                                                                                                                         
