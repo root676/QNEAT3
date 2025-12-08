@@ -55,17 +55,18 @@ from qgis.core import (
     QgsProject,
     QgsRasterLayer,  
     QgsVectorLayer,   
-    QgsSpatialIndex
+    QgsSpatialIndex,
+    QgsWkbTypes
     )
 
 from qgis.PyQt.QtCore import QVariant
 
-from QNEAT3.Qneat3Exceptions import (
+from Qneat3Exceptions import (
     QneatAnalysisGeometryException,
     QneatCrsException
     )
 
-from QNEAT3.Qneat3Utilities import ( 
+from Qneat3Utilities import ( 
     getFieldDatatypeFromPythontype
     )
 
@@ -126,7 +127,7 @@ class QneatCore():
             if feature.geometry() and feature.geometry().isEmpty() is False:
                 xy_points.append(feature.geometry().asPoint())
             else:
-                raise QneatAnalysisGeometryException(feature)
+                raise QgsProcessingException(f"Dataset has wrong geometry type. Got {QgsWkbTypes.displayString(feature.geometry.wkbType())} dataset but expected Point dataset instead. ")
 
         #init direction fields
         director = QgsVectorLayerDirector(graph_source,
@@ -159,7 +160,7 @@ class QneatCore():
 
         #build snapping info for analysis_points
         for i, tied_point in enumerate(tiedPoints):
-            graph_vertex_id: int = qgsgraph.findVertex(tied_point)
+            graph_vertex_id: int = self.qgsgraph.findVertex(tied_point)
             input_point: QgsPointXY = xy_points[i]
             if entry_cost_calculation_method == 0: 
                 dist = dist_calculator.measureLine(input_point, tied_point)
