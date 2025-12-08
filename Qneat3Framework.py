@@ -82,6 +82,10 @@ if TYPE_CHECKING:
         QgsProcessingFeedback,
         QgsProcessingFeatureSource
         )
+    
+    from qgis.analysis import (
+        QgsGraph
+    )
         
 
 class QneatCore():
@@ -144,9 +148,9 @@ class QneatCore():
         #tell the graph-director to make the graph using the builder object and tie the start point geometries to the graph
         feedback.pushInfo("building graph...")
         tiedPoints: list[QgsPointXY] = self.director.makeGraph(builder, xy_points)
-        qgsgraph = builder.graph()
+        self.qgsgraph: QgsGraph = builder.graph()
 
-        self.analysis_points = list()
+        self.analysis_points: list[QneatAnalysisPoint] = list()
 
         if entry_cost_calculation_method == 0: 
             dist_calculator = QgsDistanceArea()
