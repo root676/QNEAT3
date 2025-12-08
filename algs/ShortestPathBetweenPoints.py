@@ -4,9 +4,6 @@
     ShortestPathPointToPoint.py
     ---------------------
     
-    Partially based on QGIS3 network analysis algorithms. 
-    Copyright 2016 Alexander Bruy    
-    
     Date                 : February 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
@@ -23,10 +20,6 @@
 __author__ = 'Clemens Raffler'
 __date__ = 'February 2018'
 __copyright__ = '(C) 2018, Clemens Raffler'
-
-# This will get replaced with a git SHA1 when you do a git archive
-
-__revision__ = '$Format:%H$'
 
 import os
 from collections import OrderedDict
@@ -54,8 +47,18 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from ..Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from ..Qneat3Utilities import getFeatureFromPointParameter
+from ..Qneat3Framework import QneatCore, Qneat3AnalysisPoint
+from ..Qneat3Utilities import buildQgsVectorLayer, getFeatureFromPoint
+
+from typing import (
+    TYPE_CHECKING
+    )  
+
+if TYPE_CHECKING:
+    from qgis.core import (
+        QgsPointXY,
+        QgsProcessingFeatureSource
+        )
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
@@ -94,18 +97,18 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
     
     def shortHelpString(self):
         return  "<b>General:</b><br>"\
-                "This algorithm implements the Dijkstra-Search to return the <b>shortest path between two points</b> on a given <b>network dataset</b>.<br>"\
+                "This algorithm implements the dijkstra-search to return the <b>shortest path between two points</b> on a given <b>network dataset</b>.<br>"\
                 "It accounts for <b>points outside of the network</b> (eg. <i>non-network-elements</i>) and calculates "\
                 "<b>separate entry-</b> and <b>exit-costs</b>. Distances are measured accounting for <b>ellipsoids</b>.<br><br>"\
                 "<b>Parameters (required):</b><br>"\
-                "Following Parameters must be set to run the algorithm:"\
-                "<ul><li>Network Layer</li><li>Startpoint Coordinates</li><li>Endpoint Coordinates</li><li>Cost Strategy</li></ul><br>"\
+                "Following parameters must be set to run the algorithm:"\
+                "<ul><li>Network Layer</li><li>Startpoint coordinates</li><li>Endpoint coordinates</li><li>Cost strategy</li></ul><br>"\
                 "<b>Parameters (optional):</b><br>"\
-                "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the networks edges."\
-                "<ul><li>Direction Field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed Field</li><li>Default Speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
+                "There are a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the network edges."\
+                "<ul><li>Direction Field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
                 "<b>Output:</b><br>"\
-                "The output of the algorithm is a Layer containing a <b>single linestring</b>, the attributes showcase the"\
-                "<ul><li>Name and coordinates of startpoint</li><li>Name and coordinates of endpoint</li><li>Entry-cost to enter network</li><li>Exit-cost to exit network</li><li>Cost of shortest path on graph</li><li>Total cost as sum of all cost elements</li></ul>"
+                "The output of the algorithm is a layer containing a <b>single linestring</b>, the attributes showcase the"\
+                "<ul><li>name and coordinates of startpoint</li><li>name and coordinates of endpoint</li><li>entry-cost to enter network</li><li>exit-cost to exit network</li><li>cost of shortest path on graph</li><li>total cost as sum of all cost elements</li></ul>"
     
     def msg(self, var):
         return "Type:"+str(type(var))+" repr: "+var.__str__()
@@ -119,12 +122,12 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),
             (self.tr('Both directions'), QgsVectorLayerDirector.DirectionBoth)])
 
-        self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
-                           self.tr('Fastest Path (time optimization)')
+        self.STRATEGIES = [self.tr('Shortest path (distance optimization)'),
+                           self.tr('Fastest path (time optimization)')
                            ]
 
-        self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Ellipsoidal'),
-                                       self.tr('Planar (only use with projected CRS)')]
+        self.ENTRY_COST_CALCULATION_METHODS = [self.tr('ellipsoidal'),
+                                       self.tr('planar (only use with projected CRS)')]
             
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
@@ -185,71 +188,70 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
                                                             QgsProcessing.TypeVectorLine))
 
     def processAlgorithm(self, parameters, context, feedback):
-        feedback.pushInfo(self.tr("[QNEAT3Algorithm] This is a QNEAT3 Algorithm: '{}'".format(self.displayName())))
-        feedback.pushInfo(self.tr('[QNEAT3Algorithm] Initializing Variables'))
-        network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
-        startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs()) #QgsPointXY
-        endPoint = self.parameterAsPoint(parameters, self.END_POINT, context, network.sourceCrs()) #QgsPointXY
-        strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
+        feedback.setProgress(0)
+        feedback.pushInfo(self.tr("Running '{}'".format(self.displayName())))
+        network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.INPUT, context)
+        startPoint: QgsPointXY = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs())
+        endPoint: QgsPointXY = self.parameterAsPoint(parameters, self.END_POINT, context, network.sourceCrs())
+        strategy: int = self.parameterAsEnum(parameters, self.STRATEGY, context)
 
-        entry_cost_calc_method = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context) #int
-        directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
-        forwardValue = self.parameterAsString(parameters, self.VALUE_FORWARD, context) #str
-        backwardValue = self.parameterAsString(parameters, self.VALUE_BACKWARD, context) #str
-        bothValue = self.parameterAsString(parameters, self.VALUE_BOTH, context) #str
-        defaultDirection = self.parameterAsEnum(parameters, self.DEFAULT_DIRECTION, context) #int
-        speedFieldName = self.parameterAsString(parameters, self.SPEED_FIELD, context) #str
-        defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) #float
-        tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
+        entry_cost_calc_method: int = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context)
+        directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context)
+        forwardValue: str = self.parameterAsString(parameters, self.VALUE_FORWARD, context)
+        backwardValue: str = self.parameterAsString(parameters, self.VALUE_BACKWARD, context)
+        bothValue: str = self.parameterAsString(parameters, self.VALUE_BOTH, context)
+        defaultDirection: int = self.parameterAsEnum(parameters, self.DEFAULT_DIRECTION, context)
+        speedFieldName: str = self.parameterAsString(parameters, self.SPEED_FIELD, context)
+        defaultSpeed: float = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) 
+        tolerance: float = self.parameterAsDouble(parameters, self.TOLERANCE, context) 
 
         analysisCrs = network.sourceCrs()
         
-        input_qgspointxy_list = [startPoint,endPoint]
-        input_points = [getFeatureFromPointParameter(startPoint),getFeatureFromPointParameter(endPoint)]
-        
-        feedback.pushInfo(self.tr('[QNEAT3Algorithm] Building Graph'))
-        feedback.setProgress(10)
-        net = Qneat3Network(network, input_qgspointxy_list, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
-        feedback.setProgress(40)
-        
-        list_analysis_points = [Qneat3AnalysisPoint("point", feature, "point_id", net, net.list_tiedPoints[i], entry_cost_calc_method, feedback) for i, feature in enumerate(input_points)]
-         
-        start_vertex_idx = list_analysis_points[0].network_vertex_id
-        end_vertex_idx = list_analysis_points[1].network_vertex_id
-        
-        feedback.pushInfo("[QNEAT3Algorithm] Calculating shortest path...")
-        feedback.setProgress(50)
-        
-        dijkstra_query = net.calcDijkstra(start_vertex_idx,0)
-        
-        if dijkstra_query[0][end_vertex_idx] == -1:
-            raise QgsProcessingException(self.tr('Could not find a path from start point to end point - Check your graph or alter the input points.'))
-        
-        path_elements = [list_analysis_points[1].point_geom] #start route with the endpoint outside the network
-        path_elements.append(net.network.vertex(end_vertex_idx).point()) #then append the corresponding vertex of the graph 
-        
-        count = 1
-        current_vertex_idx = end_vertex_idx
-        while current_vertex_idx != start_vertex_idx:
-            current_vertex_idx = net.network.edge(dijkstra_query[0][current_vertex_idx]).fromVertex()
-            path_elements.append(net.network.vertex(current_vertex_idx).point())
-            
-            
-            count = count + 1
-            if count%10 == 0:
-                feedback.pushInfo("[QNEAT3Algorithm] Taversed {} Nodes...".format(count))
-        
-        path_elements.append(list_analysis_points[0].point_geom) #end path with startpoint outside the network   
-        feedback.pushInfo("[QNEAT3Algorithm] Total number of Nodes traversed: {}".format(count+1))
-        path_elements.reverse() #reverse path elements because it was built from end to start
+        point_crs = context.project().crs()
+        input_point_features = [getFeatureFromPoint(0, startPoint),getFeatureFromPoint(1, endPoint)]
 
-        start_entry_cost = list_analysis_points[0].entry_cost
-        end_exit_cost = list_analysis_points[1].entry_cost
-        cost_on_graph = dijkstra_query[1][end_vertex_idx]
-        total_cost = start_entry_cost + cost_on_graph + end_exit_cost
+        input_points = buildQgsVectorLayer(f"point?crs={point_crs.authid()}", 'input_points', input_point_features)
         
-        feedback.pushInfo("[QNEAT3Algorithm] Writing path-feature...")
-        feedback.setProgress(80)
+        core = QneatCore(network, input_points, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, feedback, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
+        
+        origin_analysis_point = core.analysis_points[0]
+        destination_analysis_point = core.analysis_points[1]
+        origin_vertex_id = origin_analysis_point.graph_vertex_id
+        destination_vertex_id = destination_analysis_point.graph_vertex_id
+
+        if origin_vertex_id == destination_vertex_id:
+            #only output the entry geometries and costs of the two points
+            route_geom: QgsGeometry = origin_analysis_point.graph_entry_geom.union(destination_analysis_point.graph_entry_geom)
+            start_entry_cost: float = origin_analysis_point.graph_entry_cost
+            cost_on_graph: float = 0.0
+            end_exit_cost: float = destination_analysis_point.graph_entry_cost
+            total_cost: float = start_entry_cost + end_exit_cost
+        else:
+            #do routing 
+            dijkstra_query = core.calcDijkstra(origin_vertex_id)
+            
+            if dijkstra_query[0][destination_vertex_id] == -1:
+                raise QgsProcessingException(self.tr('Could not find a path from start point to end point - Check your graph or change the input points.'))
+            
+            route_points: list[QgsPointXY] = list()
+            route_points.append(origin_analysis_point.feature.geometry().asPoint())
+            route_points.append(origin_analysis_point.graph_vertex_geom)
+
+            current_vertex_id = destination_vertex_id
+            while current_vertex_id != origin_vertex_id:
+                current_vertex_idx = core.qgsgraph.edge(dijkstra_query[0][current_vertex_idx]).fromVertex()
+                route_points.append(core.qgsgraph.vertex(current_vertex_idx).point())
+            
+            route_points.append(destination_analysis_point.graph_vertex_geom)
+            route_points.append(destination_analysis_point.feature.geometry().asPoint())
+
+            route_geom: QgsGeometry = QgsGeometry().fromPolylineXY(route_points)
+
+            start_entry_cost = origin_analysis_point.graph_entry_cost
+            end_exit_cost = destination_vertex_id.graph_entry_cost
+            cost_on_graph = dijkstra_query[1][destination_vertex_id]
+            total_cost = start_entry_cost + cost_on_graph + end_exit_cost
+            
         feat = QgsFeature()
         
         fields = QgsFields()
@@ -263,7 +265,7 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
         fields.append(QgsField('total_cost', QVariant.Double, '', 20, 7))
         feat.setFields(fields)
         
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.LineString, network.sourceCrs())
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.LineString, analysisCrs)
         
         feat['start_id'] = "A"
         feat['start_coordinates'] = startPoint.toString()
@@ -273,11 +275,9 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
         feat['end_exit_cost'] = end_exit_cost
         feat['cost_on_graph'] = cost_on_graph
         feat['total_cost'] = total_cost 
-        geom = QgsGeometry.fromPolylineXY(path_elements)
-        feat.setGeometry(geom)
-        
+        feat.setGeometry(route_geom)
+            
         sink.addFeature(feat, QgsFeatureSink.FastInsert)
-        feedback.pushInfo("[QNEAT3Algorithm] Ending Algorithm")        
         feedback.setProgress(100)
         results = {}
         results[self.OUTPUT] = dest_id
