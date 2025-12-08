@@ -40,6 +40,7 @@ from qgis.core import (QgsWkbTypes,
                        QgsFields,
                        QgsField,
                        QgsProcessing,
+                       QgsProcessingAlgorithm,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterPoint,
                        QgsProcessingParameterField,
@@ -52,15 +53,14 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getFeatureFromPointParameter
+from ..Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
+from ..Qneat3Utilities import getFeatureFromPointParameter
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
-
-class IsoAreaAsContoursFromPoint(QgisAlgorithm):
+class IsoAreaAsContoursFromPoint(QgsProcessingAlgorithm):
 
     INPUT = 'INPUT'
     START_POINT = 'START_POINT'

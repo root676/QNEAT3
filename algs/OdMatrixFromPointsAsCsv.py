@@ -35,6 +35,7 @@ from collections import OrderedDict
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (QgsProcessing,
+                       QgsProcessingAlgorithm,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterFileDestination,
                        QgsProcessingParameterFeatureSource,
@@ -45,15 +46,13 @@ from qgis.core import (QgsProcessing,
 
 from qgis.analysis import (QgsVectorLayerDirector)
 
-from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable
-
-from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
+from ..Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
+from ..Qneat3Utilities import getFeaturesFromQgsIterable
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class OdMatrixFromPointsAsCsv(QgisAlgorithm):
+class OdMatrixFromPointsAsCsv(QgsProcessingAlgorithm):
 
     INPUT = 'INPUT'
     POINTS = 'POINTS'

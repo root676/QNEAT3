@@ -40,6 +40,7 @@ from qgis.core import (QgsWkbTypes,
                        QgsFields,
                        QgsField,
                        QgsProcessing,
+                       QgsProcessingAlgorithm,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterField,
                        QgsProcessingParameterNumber,
@@ -51,15 +52,12 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable, getListOfPoints
-
-from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
+from ..Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
+from ..Qneat3Utilities import getFeaturesFromQgsIterable, getListOfPoints
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
-
-class IsoAreaAsPolygonsFromLayer(QgisAlgorithm):
+class IsoAreaAsPolygonsFromLayer(QgsProcessingAlgorithm):
 
     INPUT = 'INPUT'
     START_POINTS = 'START_POINTS'

@@ -27,13 +27,11 @@ __revision__ = '$Format:%H$'
 import os
 
 from qgis.PyQt.QtGui import QIcon
-from qgis.core import  QgsProcessingParameterString
-from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
+from qgis.core import  QgsProcessingAlgorithm, QgsProcessingParameterString
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
-
-class DummyAlgorithm(QgisAlgorithm):
+class DummyAlgorithm(QgsProcessingAlgorithm):
 
     MESSAGE1 = 'MESSAGE1'
     MESSAGE2 = 'MESSAGE2'

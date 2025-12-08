@@ -36,6 +36,7 @@ from qgis.PyQt.QtGui import QIcon
 from qgis.core import (QgsFeatureSink,
                        QgsVectorLayer,
                        QgsProcessing,
+                       QgsProcessingAlgorithm,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterField,
                        QgsProcessingParameterNumber,
@@ -46,15 +47,12 @@ from qgis.core import (QgsFeatureSink,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getListOfPoints, getFeaturesFromQgsIterable
-
-from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
+from ..Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
+from ..Qneat3Utilities import getListOfPoints, getFeaturesFromQgsIterable
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
-
-class IsoAreaAsInterpolationFromLayer(QgisAlgorithm):
+class IsoAreaAsInterpolationFromLayer(QgsProcessingAlgorithm):
 
     INPUT = 'INPUT'
     START_POINTS = 'START_POINTS'

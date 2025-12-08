@@ -43,6 +43,7 @@ from qgis.core import (
                        QgsGeometry,
                        QgsFeatureSink,
                        QgsProcessing,
+                       QgsProcessingAlgorithm,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterFeatureSink,
                        QgsProcessingParameterFeatureSource,
@@ -54,15 +55,13 @@ from qgis.core import (
 
 from qgis.analysis import (QgsVectorLayerDirector)
 
-from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable, getFieldDatatype, getListOfPoints
-
-from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
+from ..Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
+from ..Qneat3Utilities import getFeaturesFromQgsIterable, getFieldDatatype, getListOfPoints
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 
-class OdMatrixFromLayersAsLines(QgisAlgorithm):
+class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
 
     INPUT = 'INPUT'
     FROM_POINT_LAYER = 'FROM_POINT_LAYER'
