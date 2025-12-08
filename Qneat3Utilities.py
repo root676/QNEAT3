@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from qgis.core import (
-        QgsProcessingFeatureSource
+        QgsCoordinateReferenceSystem
     )
 
     from Qneat3Framework import(
@@ -47,34 +47,26 @@ def isGeometryType(vlayer, type_obj):
     else:
         return False
 
-def buildQgsVectorLayer(string_geomtype, string_layername, crs, feature_list, list_qgsfield):
+def buildQgsVectorLayer(string_geomtype: str, string_layername: str, crs: QgsCoordinateReferenceSystem, feature_list: list[QgsFeature], list_qgsfield: list[QgsField] = None) -> QgsVectorLayer:
     
-    #create new vector layer from self.crs
     vector_layer = QgsVectorLayer(string_geomtype, string_layername, "memory")
     
-    #set crs from class
     vector_layer.setCrs(crs)
     
-    #set fields
     provider = vector_layer.dataProvider()
-    provider.addAttributes(list_qgsfield) #[QgsField('fid',QVariant.Int),QgsField("origin_point_id", QVariant.Double),QgsField("iso", QVariant.Int)]
-    vector_layer.updateFields()
     
-    #fill layer with geom and attrs
-    vector_layer.startEditing()
-    for feat in feature_list:
-        vector_layer.addFeature(feat, True)
-    vector_layer.commitChanges()
+    provider.addFeatures(feature_list)
+    vector_layer.updateExtents()
 
     return vector_layer
 
-def getFeatureFromPointParameter(qgs_point_xy):     
+def getFeatureFromPoint(point_id: int, qgs_point_xy: QgsPointXY) -> QgsFeature:     
     feature = QgsFeature()
     fields = QgsFields()
     fields.append(QgsField('point_id', QVariant.String, '', 254, 0))
     feature.setFields(fields)
     feature.setGeometry(QgsGeometry.fromPointXY(qgs_point_xy))
-    feature['point_id']="Start Point"
+    feature['point_id']=point_id
     return feature
 
 def mergeFeaturesFromQgsIterable(qgs_feature_storage_list):
