@@ -30,9 +30,9 @@ class QneatAnalysisGeometryException(Exception):
 
         super(Qneat3GeometryException, self).__init(self.message)
         
-class Qneat3CrsException(Exception):
-    def __init__(self, *crs):
+class QneatCrsException(Exception):
+    def __init__(self, graph_crs, point_crs):
     
-        self.message = "Coordinate Reference Systems don't match up: {} Reproject all datasets so that their CRSs match up.".format(list(crs))
+        self.message = "Coordinate Reference Systems of graph and points don't match up (graph CRS: {}; point CRS: {}) Reproject all datasets so that their CRSs match up.".format(graph_crs, point_crs)
 
-        super(Qneat3CrsException, self).__init__(self.message)
+        super(QneatCrsException, self).__init__(self.message)
