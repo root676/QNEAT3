@@ -135,7 +135,7 @@ class QneatCore():
         #Setup cost-strategy pattern.
         self.default_speed = default_speed
         
-        self.setNetworkStrategy(optimization_strategy, graph, speed_field, self.default_speed)
+        self.setNetworkStrategy(optimization_strategy, graph_source, speed_field, self.default_speed)
 
         #add the strategy to the QgsGraphDirector
         director.addStrategy(self.strategy)
