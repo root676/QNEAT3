@@ -25,7 +25,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from qgis.core import (
-        QgsCoordinateReferenceSystem
+        QgsCoordinateReferenceSystem,
+        QgsPointXY
     )
 
     from Qneat3Framework import(
