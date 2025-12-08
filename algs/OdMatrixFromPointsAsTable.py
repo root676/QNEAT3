@@ -3,7 +3,7 @@
 ***************************************************************************
     OdMatrixFromPointsAsTable.py
     ---------------------
-    
+
     Date                 : February 2018
     Copyright            : (C) 2018 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
@@ -47,8 +47,8 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import (QgsVectorLayerDirector)
 
-from QNEAT3.Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from QNEAT3.Qneat3Utilities import getFeaturesFromQgsIterable, getFieldDatatype
+from ..Qneat3Framework import QneatCore, QneatAnalysisPoint
+from ..Qneat3Utilities import getFeaturesFromQgsIterable, getFieldDatatype
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 

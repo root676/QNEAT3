@@ -31,7 +31,7 @@ from numpy import (
     )
 
 from qgis.analysis import (
-    QgsGraphAnalyzer, 
+    QgsGraphAnalyzer,
     QgsGraphBuilder, 
     QgsGridFileWriter,
     QgsInterpolator, 
@@ -84,7 +84,7 @@ if TYPE_CHECKING:
         )
         
 
-class Qneat3Network():
+class QneatCore():
     """
     Qneat3Network:
     Provides basic logic for more advanced network analysis algorithms
