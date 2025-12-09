@@ -61,11 +61,6 @@ from qgis.core import (
 
 from qgis.PyQt.QtCore import QVariant
 
-from Qneat3Exceptions import (
-    QneatAnalysisGeometryException,
-    QneatCrsException
-    )
-
 from Qneat3Utilities import ( 
     getFieldDatatypeFromPythontype
     )
@@ -115,7 +110,7 @@ class QneatCore():
         graph_crs = graph_source.sourceCrs()
         points_crs = point_source.sourceCrs()
         if graph_crs != points_crs:
-            raise QneatCrsException(graph_crs, points_crs)
+            raise QgsProcessingException(f"Coordinate Reference Systems of graph and points don't match up (graph CRS: {graph_crs.authid()}; point CRS: {points_crs.authid()}) Reproject all datasets so that their CRSs match up.")
         else:
             self.analysis_crs = graph_crs
 
