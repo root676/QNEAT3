@@ -33,20 +33,10 @@ if TYPE_CHECKING:
         QneatAnalysisPoint
     )
 
-def AssignAnalysisCrs(vlayer):
-    logPanel("Setting analysis CRS")
-    AnalysisCrs = vlayer.crs()
-    return AnalysisCrs
 
 def logPanel(message):
     QgsMessageLog.logMessage(message, "QNEAT3")
-    
-def isGeometryType(vlayer, type_obj):
-    geom_type = vlayer.geometryType()
-    if geom_type == type_obj:
-        return True
-    else:
-        return False
+
 
 def buildQgsVectorLayer(string_geomtype: str, string_layername: str, crs: QgsCoordinateReferenceSystem, feature_list: list[QgsFeature], list_qgsfield: list[QgsField] = None) -> QgsVectorLayer:
     
@@ -61,6 +51,7 @@ def buildQgsVectorLayer(string_geomtype: str, string_layername: str, crs: QgsCoo
 
     return vector_layer
 
+
 def getFeatureFromPoint(point_id: int, qgs_point_xy: QgsPointXY) -> QgsFeature:     
     feature = QgsFeature()
     fields = QgsFields()
@@ -69,13 +60,6 @@ def getFeatureFromPoint(point_id: int, qgs_point_xy: QgsPointXY) -> QgsFeature:
     feature.setGeometry(QgsGeometry.fromPointXY(qgs_point_xy))
     feature['point_id']=point_id
     return feature
-
-def mergeFeaturesFromQgsIterable(qgs_feature_storage_list):
-    result_feature_list = []
-    for qgs_feature_storage in qgs_feature_storage_list:
-        fRequest = QgsFeatureRequest().setFilterFids(qgs_feature_storage.allFeatureIds())
-        result_feature_list.extend(qgs_feature_storage.getFeatures(fRequest))
-    return result_feature_list
 
         
 def getFieldDatatype(qgs_feature_storage, fieldname):
