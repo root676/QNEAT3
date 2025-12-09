@@ -86,7 +86,7 @@ if TYPE_CHECKING:
 
 class QneatCore():
     """
-    Qneat3Network:
+    QneatCore:
     Provides basic logic for more advanced network analysis algorithms
     """
 
@@ -171,7 +171,6 @@ class QneatCore():
             
           
     def setNetworkStrategy(self, optimization_strategy, graph, speedField, default_speed):
-
         speedFieldId = graph.fields().lookupField(speedField)
         if optimization_strategy == 0:
             self.strategy = QgsNetworkDistanceStrategy()
