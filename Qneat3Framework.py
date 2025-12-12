@@ -124,13 +124,16 @@ class QneatCore():
             else:
                 raise QgsProcessingException(f"Dataset has wrong geometry type. Got {QgsWkbTypes.displayString(feature.geometry.wkbType())} dataset but expected Point dataset instead. ")
 
+        defaultDirectionEnum = QgsVectorLayerDirector.Direction(defaultDirection)
+
         #init direction fields
         director = QgsVectorLayerDirector(graph_source,
                                     graph_source.fields().lookupField(directionFieldName),
                                     forwardValue,
                                     backwardValue,
                                     bothValue,
-                                    defaultDirection)
+                                    defaultDirectionEnum
+                                    )
     
         #Setup cost-strategy pattern.
         self.default_speed = default_speed
