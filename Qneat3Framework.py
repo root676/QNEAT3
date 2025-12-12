@@ -90,13 +90,14 @@ class Qneat3Network():
 
         #init direction fields
         self.feedback.pushInfo("[QNEAT3Network][__init__] Setting up network direction parameters")
-        self.directedAnalysis = self.setNetworkDirection((input_directionFieldName, input_forwardValue, input_backwardValue, input_bothValue, input_defaultDirection))
+        defaut_direction = QgsVectorLayerDirector.Direction( input_defaultDirection)
+        #self.directedAnalysis = self.setNetworkDirection((input_directionFieldName, input_forwardValue, input_backwardValue, input_bothValue, input_defaultDirection))
         self.director = QgsVectorLayerDirector(input_network,
                                     getFieldIndexFromQgsProcessingFeatureSource(input_network, input_directionFieldName),
                                     input_forwardValue,
                                     input_backwardValue,
                                     input_bothValue,
-                                    input_defaultDirection)
+                                    defaut_direction)
 
         #init analysis points
         self.feedback.pushInfo("[QNEAT3Network][__init__] Setting up analysis points")
@@ -133,6 +134,7 @@ class Qneat3Network():
         
             
     def setNetworkDirection(self, directionArgs):    
+        self.feedback.pushInfo("[QNEAT3Network][_Set Direction_] {} nombres de vide {}".format( directionArgs, directionArgs.count("")))
         if directionArgs.count("") == 0:
             self.directedAnalysis = True
             self.directionFieldId, self.input_forwardValue, self.input_backwardValue, self.input_bothValue, self.input_defaultDirection = directionArgs
