@@ -52,8 +52,8 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from ..Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from ..Qneat3Utilities import getListOfPoints, getFeaturesFromQgsIterable
+from ..QneatFramework import Qneat3Network, Qneat3AnalysisPoint
+from ..QneatUtilities import getListOfPoints, getFeaturesFromQgsIterable
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 

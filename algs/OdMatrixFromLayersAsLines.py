@@ -55,8 +55,8 @@ from qgis.core import (
 
 from qgis.analysis import (QgsVectorLayerDirector)
 
-from ..Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from ..Qneat3Utilities import getFeaturesFromQgsIterable, getFieldDatatype, getListOfPoints
+from ..QneatFramework import Qneat3Network, Qneat3AnalysisPoint
+from ..QneatUtilities import getFeaturesFromQgsIterable, getFieldDatatype, getListOfPoints
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 

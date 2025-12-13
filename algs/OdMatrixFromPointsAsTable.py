@@ -48,8 +48,8 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import (QgsVectorLayerDirector)
 
-from ..Qneat3Framework import QneatCore
-from ..Qneat3Utilities import getFieldDatatype
+from ..QneatFramework import QneatCore
+from ..QneatUtilities import getFieldDatatype
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 

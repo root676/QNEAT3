@@ -57,8 +57,8 @@ from qgis.core import (QgsFeatureSink,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from ..Qneat3Framework import Qneat3Network, Qneat3AnalysisPoint
-from ..Qneat3Utilities import getFeatureFromPointParameter, getFeaturesFromQgsIterable
+from ..QneatFramework import Qneat3Network, Qneat3AnalysisPoint
+from ..QneatUtilities import getFeatureFromPointParameter, getFeaturesFromQgsIterable
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 

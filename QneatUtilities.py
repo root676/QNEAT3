@@ -29,7 +29,7 @@ if TYPE_CHECKING:
         QgsPointXY
     )
 
-    from Qneat3Framework import(
+    from QneatFramework import(
         QneatAnalysisPoint
     )
 

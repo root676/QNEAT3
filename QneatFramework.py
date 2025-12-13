@@ -61,7 +61,7 @@ from qgis.core import (
 
 from qgis.PyQt.QtCore import QVariant
 
-from Qneat3Utilities import ( 
+from QneatUtilities import ( 
     getFieldDatatypeFromPythontype
     )
 

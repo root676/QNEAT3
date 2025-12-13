@@ -47,8 +47,8 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from ..Qneat3Framework import QneatCore, Qneat3AnalysisPoint
-from ..Qneat3Utilities import buildQgsVectorLayer, getFeatureFromPoint
+from ..QneatFramework import QneatCore, Qneat3AnalysisPoint
+from ..QneatUtilities import buildQgsVectorLayer, getFeatureFromPoint
 
 from typing import (
     TYPE_CHECKING
