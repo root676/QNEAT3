@@ -19,13 +19,14 @@
 
 from qgis.core import QgsWkbTypes, QgsMessageLog, QgsVectorLayer, QgsFeature, QgsGeometry, QgsFields, QgsField, QgsFeatureRequest
 
-from qgis.PyQt.QtCore import QVariant
+from qgis.PyQt.QtCore import QVariant, QMetaType
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from qgis.core import (
         QgsCoordinateReferenceSystem,
+        QgsFeatureSource,
         QgsPointXY
     )
 
@@ -62,10 +63,10 @@ def getFeatureFromPoint(point_id: int, qgs_point_xy: QgsPointXY) -> QgsFeature:
     return feature
 
         
-def getFieldDatatype(qgs_feature_storage, fieldname):
-    fields_list = qgs_feature_storage.fields()
-    qvariant_type = fields_list.field(fieldname).type()
-    return qvariant_type
+def getFieldDatatype(qgs_feature_storage: QgsFeatureSource, fieldname) -> QMetaType.Type:
+    fields_list: QgsFields = qgs_feature_storage.fields()
+    type: QMetaType.Type = fields_list.field(fieldname).type()
+    return type
 
 def getFieldDatatypeFromPythontype(pythonvar):
     if isinstance(pythonvar, str):
@@ -76,5 +77,4 @@ def getFieldDatatypeFromPythontype(pythonvar):
         return QVariant.Double
     else: 
         return QVariant.String
-
     

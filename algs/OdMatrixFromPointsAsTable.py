@@ -48,7 +48,7 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import (QgsVectorLayerDirector)
 
-from ..QneatFramework import QneatCore
+from ..QneatFramework import QneatCore, MatrixType
 from ..QneatUtilities import getFieldDatatype
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
@@ -203,57 +203,29 @@ class OdMatrixFromPointsAsTable(QgsProcessingAlgorithm):
         speedFieldName: str = self.parameterAsString(parameters, self.SPEED_FIELD, context)
         defaultSpeed: float = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context)
         tolerance: float = self.parameterAsDouble(parameters, self.TOLERANCE, context)
-      
+        
         core = QneatCore(network, points, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, feedback, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
         total_workload = float(pow(len(core.analysis_points),2))
 
         #create output sink
+        fields: QgsFields  = QgsFields()
+        id_field_datatype = getFieldDatatype(points, id_field)
+        fields.append(QgsField('origin_id', id_field_datatype, '', 254, 0))
+        fields.append(QgsField('destination_id', id_field_datatype, '', 254, 0))
+        fields.append(QgsField('entry_cost', QVariant.Double, '', 20,7))
+        fields.append(QgsField('network_cost', QVariant.Double, '', 20, 7))
+        fields.append(QgsField('exit_cost', QVariant.Double, '', 20,7))
+        fields.append(QgsField('total_cost', QVariant.Double, '', 20,7))
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.NoGeometry, network.sourceCrs())
         
         feedback.pushInfo(f"{int(total_workload)} od pairs will be routed")
         
-        i = 0
+        i: int = 0
         for origin_point in core.analysis_points:
-            dijkstra_query = core.calcDijkstra(origin_point.graph_vertex_id)
             for destination_point in core.analysis_points:
-                
-                #create a new feature
-                feat = QgsFeature()
-                fields = QgsFields()
-                output_id_field_data_type = getFieldDatatype(points, id_field)
-                fields.append(QgsField('origin_id', output_id_field_data_type, '', 254, 0))
-                fields.append(QgsField('destination_id', output_id_field_data_type, '', 254, 0))
-                fields.append(QgsField('entry_cost', QVariant.Double, '', 20,7))
-                fields.append(QgsField('network_cost', QVariant.Double, '', 20, 7))
-                fields.append(QgsField('exit_cost', QVariant.Double, '', 20,7))
-                fields.append(QgsField('total_cost', QVariant.Double, '', 20,7))
-                feat.setFields(fields)
 
-                if destination_point.feature[id_field] == origin_point.feature[id_field]:
-                    feat['origin_id'] = origin_point.feature[id_field]
-                    feat['destination_id'] = destination_point.feature[id_field]
-                    feat['entry_cost'] = 0.0
-                    feat['network_cost'] = 0.0
-                    feat['exit_cost'] = 0.0
-                    feat['total_cost'] = 0.0
-                    sink.addFeature(feat, QgsFeatureSink.FastInsert)
-                elif dijkstra_query[0][destination_point.graph_vertex_id] == -1:
-                    feat['origin_id'] = origin_point.feature[id_field]
-                    feat['destination_id'] = destination_point.feature[id_field]
-                    feat['entry_cost'] = None
-                    feat['network_cost'] = None
-                    feat['exit_cost'] = None
-                    feat['total_cost'] = None
-                    sink.addFeature(feat, QgsFeatureSink.FastInsert)
-                else:
-                    network_cost = dijkstra_query[1][destination_point.graph_vertex_id]
-                    feat['origin_id'] = origin_point.feature[id_field]
-                    feat['destination_id'] = destination_point.feature[id_field]
-                    feat['entry_cost'] = origin_point.entry_cost
-                    feat['network_cost'] = network_cost
-                    feat['exit_cost'] = destination_point.entry_cost
-                    feat['total_cost'] = origin_point.entry_cost + network_cost + destination_point.entry_cost
-                    sink.addFeature(feat, QgsFeatureSink.FastInsert)  
+                feat = core.routeOD(origin_point, id_field_datatype, destination_point, id_field_datatype, MatrixType.TABLE)                
+                sink.addFeature(feat, QgsFeatureSink.FastInsert)  
                 i+=i
                 feedback.setProgress(i/total_workload)
 

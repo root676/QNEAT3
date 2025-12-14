@@ -21,6 +21,7 @@ import time
 import osgeo.gdal as gdal
 
 from math import ceil
+from enum import Enum
 
 from numpy import (
     arange, 
@@ -114,6 +115,8 @@ class QneatCore():
         else:
             self.analysis_crs = graph_crs
 
+        #save id_field of points
+
         #read points as QgsPointXY
         xy_points = list()
         point_featurelist = list(point_source.getFeatures())
@@ -180,12 +183,78 @@ class QneatCore():
         else:
             self.strategy = QgsNetworkSpeedStrategy(speedFieldId, float(default_speed), 1000.0 / 3600.0)
 
-    def calcDijkstra(self, source_vertex_id: int):
+    def calcDijkstra(self, source_vertex_id: int) -> tuple[list[int], list[float]]:
         tree, cost = QgsGraphAnalyzer.dijkstra(self.network, source_vertex_id, 0)
-        dijkstra_query = list()
-        dijkstra_query.insert(0, tree)
-        dijkstra_query.insert(1, cost)
-        return dijkstra_query
+        return tree, cost
+    
+    def routeOD(self, origin_point: QneatAnalysisPoint, origin_point_id_field: str, destination_point: QneatAnalysisPoint, destination_point_id_field: str, matrix_type: MatrixType) -> QgsFeature:
+        tree, cost = self.calcDijkstra(origin_point.graph_vertex_id)
+
+        origin_id = origin_point.feature[origin_point_id_field]
+        origin_id_field_type = origin_point.feature.fields().field(origin_point_id_field).type()
+
+        destination_id = destination_point.feature[destination_point_id_field]
+        destination_id_field_type = destination_point.feature.fields().field(destination_point_id_field).type()
+
+        feat: QgsFeature = QgsFeature()
+        fields: QgsFields  = QgsFields()
+        fields.append(QgsField('origin_id', origin_id_field_type, '', 254, 0))
+        fields.append(QgsField('destination_id', destination_id_field_type, '', 254, 0))
+        fields.append(QgsField('entry_cost', QVariant.Double, '', 20,7))
+        fields.append(QgsField('network_cost', QVariant.Double, '', 20, 7))
+        fields.append(QgsField('exit_cost', QVariant.Double, '', 20,7))
+        fields.append(QgsField('total_cost', QVariant.Double, '', 20,7))
+        feat.setFields(fields)
+
+        if origin_id == destination_id:
+            feat['origin_id'] = origin_id
+            feat['destination_id'] = destination_id
+            feat['entry_cost '] = 0.0
+            feat['entry_cost'] = 0.0
+            feat['network_cost'] = 0.0
+            feat['exit_cost'] = 0.0
+            feat['total_cost'] = 0.0
+        elif tree[destination_point.graph_vertex_id] == -1:
+            feat['origin_id'] = origin_id
+            feat['destination_id'] = destination_id
+            feat['entry_cost'] = None
+            feat['network_cost'] = None
+            feat['exit_cost'] = None
+            feat['total_cost'] = None
+        else:
+            network_cost = cost[destination_point.graph_vertex_id]
+            feat['origin_id'] = origin_id
+            feat['destination_id'] = destination_id
+            feat['entry_cost'] = origin_point.graph_entry_cost
+            feat['network_cost'] = network_cost
+            feat['exit_cost'] = destination_point.graph_entry_cost
+            feat['total_cost'] = origin_point.graph_entry_cost + network_cost + destination_point.graph_entry_cost
+
+        #set geometry
+        if matrix_type == MatrixType.TABLE:
+            feat.setGeometry(QgsGeometry())
+        elif matrix_type == MatrixType.LINE:
+            feat.setGeometry(QgsGeometry().fromPolylineXY([origin_point.feature.geometry().asPoint(), destination_point.feature.geometry().asPoint()]))
+        elif matrix_type == MatrixType.ROUTE:
+            route_points: list[QgsPointXY] = list()
+            route_points.append(origin_point.feature.geometry().asPoint())
+            route_points.append(origin_point.graph_vertex_geom)
+
+            current_vertex_id = destination_point.graph_vertex_id
+            while current_vertex_id != origin_point.graph_vertex_id:
+                current_vertex_idx = self.qgsgraph.edge(tree[current_vertex_idx]).fromVertex()
+                route_points.append(self.qgsgraph.vertex(current_vertex_idx).point())
+            
+            route_points.append(destination_point.graph_vertex_geom)
+            route_points.append(destination_point.feature.geometry().asPoint())
+            
+            route_geom: QgsGeometry = QgsGeometry().fromPolylineXY(route_points)
+            feat.setGeometry(route_geom)
+
+        return feat
+
+
+
         
     def calcIsoPoints(self, analysis_point_list, max_dist):
         iso_pointcloud = dict()
@@ -553,3 +622,7 @@ class QneatAnalysisPoint():
     def __str__(self):
         return "QneatAnalysisPoint: feature_id: {:30} referencing graph_vertex_id: {:d}".format(self.feature.id(), self.graph_vertex_id)    
                                                                                                                                                                                                                         
+class MatrixType(Enum):
+    TABLE = 0
+    LINE = 1
+    ROUTE = 2
