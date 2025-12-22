@@ -201,7 +201,7 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
         network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.INPUT, context)
         points: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.POINTS, context)
         id_field: str = self.parameterAsString(parameters, self.ID_FIELD, context)
-        strategy: str = self.parameterAsEnum(parameters, self.STRATEGY, context) 
+        strategy: int = self.parameterAsEnum(parameters, self.STRATEGY, context) 
         matrix_type: MatrixType =  self.parameterAsEnum(parameters, self.MATRIX_GEOMETRY_TYPE, context)
 
         entry_cost_calc_method: int = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context)
