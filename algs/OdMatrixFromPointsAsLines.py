@@ -119,8 +119,8 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),
             (self.tr('Both directions'), QgsVectorLayerDirector.DirectionBoth)])
 
-        self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
-                           self.tr('Fastest Path (time optimization)')
+        self.STRATEGIES = [self.tr('Shortest path (distance optimization)'),
+                           self.tr('Fastest path (time optimization)')
                            ]
 
         self.MATRIX_GEOMETRY_TYPES = [MatrixType.LINE,

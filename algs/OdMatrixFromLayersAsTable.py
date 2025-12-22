@@ -56,10 +56,10 @@ pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
 
     INPUT = 'INPUT'
-    FROM_POINT_LAYER = 'FROM_POINT_LAYER'
-    FROM_ID_FIELD = 'FROM_ID_FIELD'
-    TO_POINT_LAYER = 'TO_POINT_LAYER'
-    TO_ID_FIELD = 'TO_ID_FIELD'    
+    ORIGIN_POINT_LAYER = 'ORIGIN_POINT_LAYER'
+    ORIGIN_ID_FIELD = 'ORIGIN_ID_FIELD'
+    DESTINATION_POINT_LAYER = 'DESTINATION_POINT_LAYER'
+    DESTINATION_ID_FIELD = 'DESTINATION_ID_FIELD'    
     STRATEGY = 'STRATEGY'
     ENTRY_COST_CALCULATION_METHOD = 'ENTRY_COST_CALCULATION_METHOD'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
@@ -120,34 +120,34 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
                                                               self.tr('Network layer'),
                                                               [QgsProcessing.TypeVectorLine]))
         
-        self.addParameter(QgsProcessingParameterFeatureSource(self.FROM_POINT_LAYER,
-                                                              self.tr('From-Point Layer'),
+        self.addParameter(QgsProcessingParameterFeatureSource(self.ORIGIN_POINT_LAYER,
+                                                              self.tr('Origin point layer'),
                                                               [QgsProcessing.TypeVectorPoint]))
         
         self.addParameter(QgsProcessingParameterField(self.FROM_ID_FIELD,
-                                                       self.tr('Unique Point ID Field'),
+                                                       self.tr('Unique origin point ID field'),
                                                        None,
-                                                       self.FROM_POINT_LAYER,
+                                                       self.ORIGIN_POINT_LAYER,
                                                        optional=False))
         
-        self.addParameter(QgsProcessingParameterFeatureSource(self.TO_POINT_LAYER,
-                                                      self.tr('To-Point Layer'),
+        self.addParameter(QgsProcessingParameterFeatureSource(self.DESTINATION_POINT_LAYER,
+                                                      self.tr('Destination point layer'),
                                                       [QgsProcessing.TypeVectorPoint]))
         
-        self.addParameter(QgsProcessingParameterField(self.TO_ID_FIELD,
-                                                     self.tr('Unique Point ID Field'),
+        self.addParameter(QgsProcessingParameterField(self.DESTINATION_ID_FIELD,
+                                                     self.tr('Unique destination point ID field'),
                                                      None,
-                                                     self.TO_POINT_LAYER,
+                                                     self.DESTINATION_POINT_LAYER,
                                                      optional=False))
         
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
-                                                     self.tr('Optimization Criterion'),
+                                                     self.tr('Optimization criterion'),
                                                      self.STRATEGIES,
                                                      defaultValue=0))
 
         params = []
         params.append(QgsProcessingParameterEnum(self.ENTRY_COST_CALCULATION_METHOD,
-                                                 self.tr('Entry Cost calculation method'),
+                                                 self.tr('Entry cost calculation method'),
                                                  self.ENTRY_COST_CALCULATION_METHODS,
                                                  defaultValue=0))
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
@@ -186,7 +186,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
 
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Output OD Matrix'), QgsProcessing.TypeVectorLine), True)
+        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Output OD matrix'), QgsProcessing.TypeVectorLine), True)
 
     def processAlgorithm(self, parameters, context, feedback):
         feedback.pushInfo(self.tr("[QNEAT3Algorithm] This is a QNEAT3 Algorithm: '{}'".format(self.displayName())))

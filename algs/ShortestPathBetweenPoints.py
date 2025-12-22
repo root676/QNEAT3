@@ -128,14 +128,14 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
             
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
-                                                              self.tr('Network Layer'),
+                                                              self.tr('Network layer'),
                                                               [QgsProcessing.TypeVectorLine]))
         self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
                                                       self.tr('Start point')))
         self.addParameter(QgsProcessingParameterPoint(self.END_POINT,
                                                       self.tr('End point')))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
-                                                     self.tr('Optimization Criterion'),
+                                                     self.tr('Optimization criterion'),
                                                      self.STRATEGIES,
                                                      defaultValue=0))
 
@@ -181,7 +181,7 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
             self.addParameter(p)
 
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT,
-                                                            self.tr('Shortest Path Layer'),
+                                                            self.tr('Shortest path layer'),
                                                             QgsProcessing.TypeVectorLine))
 
     def processAlgorithm(self, parameters, context, feedback):
