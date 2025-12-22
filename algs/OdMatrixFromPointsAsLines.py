@@ -202,18 +202,6 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
 
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Output OD matrix'), QgsProcessing.TypeVectorLine), True)
 
-    def getRoute(dijkstra_result) -> QgsFeature:
-        this_tree=dijkstra_query[0]
-        idx_start = start_point.network_vertex_id
-        idx_end = query_point.network_vertex_id
-        # create a geometry following the complete path
-        route = [net.network.vertex(idx_end).point(),query_point.point_geom]
-        # Iterate the graph and add hops to route
-        while idx_end != idx_start:
-            idx_end = net.network.edge(this_tree[idx_end]).fromVertex()
-            route.insert(0, net.network.vertex(idx_end).point())
-        route.insert(0,start_point.point_geom)
-
     def processAlgorithm(self, parameters, context, feedback):
         feedback.setProgress(0)
         feedback.pushInfo(self.tr("Running '{}'".format(self.displayName())))
@@ -233,7 +221,6 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
         defaultSpeed: float = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) 
         tolerance: float = self.parameterAsDouble(parameters, self.TOLERANCE, context) 
         
-        feedback.pushInfo("[QNEAT3Algorithm] Building Graph...")
         core = QneatCore(network, points, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, feedback, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
         total_workload = float(pow(len(core.analysis_points),2))
 
