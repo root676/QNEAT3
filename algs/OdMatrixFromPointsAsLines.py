@@ -110,10 +110,6 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
                 "The output of the algorithm is one layer:"\
                 "<ul><li>OD-matrix as lines with network based distances as attributes</li></ul>"  
     
-    def print_typestring(self, var):
-        return "Type:"+str(type(var))+" repr: "+var.__str__()
-
-
     def __init__(self):
         super().__init__()
 

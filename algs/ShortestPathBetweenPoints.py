@@ -110,9 +110,6 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
                 "The output of the algorithm is a layer containing a <b>single linestring</b>, the attributes showcase the"\
                 "<ul><li>name and coordinates of startpoint</li><li>name and coordinates of endpoint</li><li>entry-cost to enter network</li><li>exit-cost to exit network</li><li>cost of shortest path on graph</li><li>total cost as sum of all cost elements</li></ul>"
     
-    def msg(self, var):
-        return "Type:"+str(type(var))+" repr: "+var.__str__()
-
     def __init__(self):
         super().__init__()
 

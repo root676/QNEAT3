@@ -3,12 +3,9 @@
 ***************************************************************************
     OdMatrixFromLayersAsTable.py
     ---------------------
-        
-    Partially based on QGIS3 network analysis algorithms. 
-    Copyright 2016 Alexander Bruy    
     
-    Date                 : February 2018
-    Copyright            : (C) 2018 by Clemens Raffler
+    Date                 : December 2025
+    Copyright            : (C) 2025 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
 *                                                                         *
@@ -21,8 +18,8 @@
 """
 
 __author__ = 'Clemens Raffler'
-__date__ = 'February 2018'
-__copyright__ = '(C) 2018, Clemens Raffler'
+__date__ = 'December 2025'
+__copyright__ = '(C) 2025, Clemens Raffler'
 
 # This will get replaced with a git SHA1 when you do a git archive
 
@@ -51,8 +48,7 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import (QgsVectorLayerDirector)
 
-from ..QneatFramework import Qneat3Network, Qneat3AnalysisPoint
-from ..QneatUtilities import getFeaturesFromQgsIterable, getFieldDatatype, getListOfPoints
+from ..QneatFramework import QneatCore
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
@@ -93,20 +89,17 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
 
     def shortHelpString(self):
         return  "<b>General:</b><br>"\
-                "This algorithm implements OD-Matrix analysis to return the <b>matrix of origin-destination pairs as table yielding network based costs</b> on a given <b>network dataset between two layer of points (m:n)</b>.<br>"\
+                "This algorithm implements OD-matrix analysis to return the <b>matrix of origin-destination pairs as table yielding network based costs</b> on a given <b>network dataset between two layer of points (m:n)</b>.<br>"\
                 "It accounts for <b>points outside of the network</b> (eg. <i>non-network-elements</i>). Distances are measured accounting for <b>ellipsoids</b>, entry-, exit-, network- and total costs are listed in the result attribute-table.<br><br>"\
                 "<b>Parameters (required):</b><br>"\
-                "Following Parameters must be set to run the algorithm:"\
-                "<ul><li>Network Layer</li><li>From-Point Layer</li><li>Unique From-Point ID Field (numerical)</li><li>To-Point Layer</li><li>Unique To-Point ID Field (numerical)</li><li>Cost Strategy</li></ul><br>"\
+                "Following parameters must be set to run the algorithm:"\
+                "<ul><li>Network layer</li><li>From-point layer</li><li>Unique from-point ID field (numerical)</li><li>To-point layer</li><li>Unique to-point ID field (numerical)</li><li>Cost strategy</li></ul><br>"\
                 "<b>Parameters (optional):</b><br>"\
                 "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the networks edges."\
-                "<ul><li>Direction Field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed Field</li><li>Default Speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
+                "<ul><li>Direction field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is one table:"\
-                "<ul><li>OD-Matrix as table with network based distances as attributes</li></ul>"  
-    
-    def print_typestring(self, var):
-        return "Type:"+str(type(var))+" repr: "+var.__str__()
+                "<ul><li>OD-matrix as table with network based distances as attributes</li></ul>"  
 
     def __init__(self):
         super().__init__()

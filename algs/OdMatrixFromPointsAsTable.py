@@ -108,9 +108,6 @@ class OdMatrixFromPointsAsTable(QgsProcessingAlgorithm):
                 "The output of the algorithm is one table:"\
                 "<ul><li>OD-matrix as table with network based distances as attributes</li></ul>"  
     
-    def print_typestring(self, var):
-        return "Type:"+str(type(var))+" repr: "+var.__str__()
-
     def __init__(self):
         super().__init__()
 
