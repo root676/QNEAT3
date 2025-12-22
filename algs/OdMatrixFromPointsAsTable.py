@@ -4,8 +4,8 @@
     OdMatrixFromPointsAsTable.py
     ---------------------
 
-    Date                 : February 2018
-    Copyright            : (C) 2018 by Clemens Raffler
+    Date                 : December 2025
+    Copyright            : (C) 2025 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
 *                                                                         *
@@ -18,8 +18,8 @@
 """
 
 __author__ = 'Clemens Raffler'
-__date__ = 'February 2018'
-__copyright__ = '(C) 2018, Clemens Raffler'
+__date__ = 'December 2025'
+__copyright__ = '(C) 2025, Clemens Raffler'
 
 # This will get replaced with a git SHA1 when you do a git archive
 
