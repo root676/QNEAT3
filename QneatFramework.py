@@ -93,7 +93,7 @@ class QneatCore():
 
     def __init__(self, 
                  graph_source: QgsProcessingFeatureSource,
-                 point_source: QgsProcessingFeatureSource,
+                 point_featurelist: list[QgsFeature],
                  optimization_strategy: int,
                  speed_field: str,
                  default_speed: float,
@@ -107,25 +107,17 @@ class QneatCore():
                  defaultDirection: Optional[int] = None
                  ): 
 
-        #check if network and points have the same crs
-        graph_crs = graph_source.sourceCrs()
-        points_crs = point_source.sourceCrs()
-        if graph_crs != points_crs:
-            raise QgsProcessingException(f"Coordinate Reference Systems of graph and points don't match up (graph CRS: {graph_crs.authid()}; point CRS: {points_crs.authid()}) Reproject all datasets so that their CRSs match up.")
-        else:
-            self.analysis_crs = graph_crs
-
-        #save id_field of points
+        
+        self.analysis_crs = graph_source.sourceCrs()
 
         #read points as QgsPointXY
         xy_points = list()
-        point_featurelist = list(point_source.getFeatures())
 
-        for feature in point_featurelist:
-            if feature.geometry() and feature.geometry().isEmpty() is False:
-                xy_points.append(feature.geometry().asPoint())
+        for f in point_featurelist:
+            if f.geometry() and f.geometry().isEmpty() is False:
+                xy_points.append(f.geometry().asPoint())
             else:
-                raise QgsProcessingException(f"Dataset has wrong geometry type. Got {QgsWkbTypes.displayString(feature.geometry.wkbType())} dataset but expected Point dataset instead. ")
+                raise QgsProcessingException(f"Dataset has wrong geometry type. Got {QgsWkbTypes.displayString(f.geometry.wkbType())} dataset but expected Point dataset instead.")
 
         defaultDirectionEnum = QgsVectorLayerDirector.Direction(defaultDirection)
 
