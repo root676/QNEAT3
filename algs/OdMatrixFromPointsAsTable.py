@@ -222,9 +222,10 @@ class OdMatrixFromPointsAsTable(QgsProcessingAlgorithm):
         
         i: int = 0
         for origin_point in core.analysis_points:
+            tree, cost = core.calcDijkstra(origin_point.graph_vertex_id)
             for destination_point in core.analysis_points:
 
-                feat = core.routeOD(origin_point, id_field, destination_point, id_field, MatrixType.TABLE)                
+                feat = core.queryOdPair(tree, cost, origin_point, id_field, destination_point, id_field, MatrixType.TABLE)                
                 sink.addFeature(feat, QgsFeatureSink.FastInsert)  
                 i+=i
                 feedback.setProgress(i/total_workload)

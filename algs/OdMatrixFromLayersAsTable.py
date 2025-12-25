@@ -28,7 +28,7 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
-from qgis.PyQt.QtCore import QVariant, QMetaType
+from qgis.PyQt.QtCore import QMetaType
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (QgsWkbTypes,
@@ -223,7 +223,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
 
         #check if network and points have the same crs
         if checkIfAnalysisCrsEqual(list(network.sourceCrs(), origin_points.sourceCrs(), destination_points.sourceCrs())):
-            self.analysis_crs = network.sourceCrs()
+            analysis_crs = network.sourceCrs()
         else:
             raise QgsProcessingException(f"Coordinate reference systems of graph is {network.sourceCrs().authid()} doesn't match up with the coordinate reference system of the point layers (origin points: {origin_points.sourceCrs().authid()}, destination points: {destination_points.sourceCrs().authid()}) Reproject all datasets so that their CRSs match up.")
 
@@ -252,6 +252,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
         for f in destination_points.getFeatures():
             df = QgsFeature(d_fields)
             df["fid"] = f.id()
+            df["user_id"] = f[destination_id_field]
             df["type"] = "d"
             df.setGeometry(f.geometry())
     
@@ -261,7 +262,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
         total_workload = float(pow(len(core.analysis_points),2))
 
         output_fields: QgsFields = getOdMatrixFields(origin_points, origin_id_field, destination_points, destination_id_field)
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, output_fields, QgsWkbTypes.NoGeometry, network.sourceCrs())
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, output_fields, QgsWkbTypes.NoGeometry, analysis_crs)
 
         feedback.pushInfo(f"{int(total_workload)} od pairs will be routed")
 
@@ -270,9 +271,10 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
 
         i: int = 0
         for origin_point in o_analysis_points:
+            tree, cost = core.calcDijkstra(origin_point.graph_vertex_id)
             for destination_point in d_analysis_points:
 
-                outfeat = core.routeOD(origin_point, origin_id_field, destination_point, destination_id_field, MatrixType.TABLE)                
+                outfeat = core.queryOdPair(tree, cost, origin_point, origin_id_field, destination_point, destination_id_field, MatrixType.TABLE)                
                 sink.addFeature(outfeat, QgsFeatureSink.FastInsert)  
                 i+=i
                 feedback.setProgress(i/total_workload)

@@ -178,9 +178,7 @@ class QneatCore():
         tree, cost = QgsGraphAnalyzer.dijkstra(self.network, source_vertex_id, 0)
         return tree, cost
     
-    def routeOD(self, origin_point: QneatAnalysisPoint, origin_point_id_field: str, destination_point: QneatAnalysisPoint, destination_point_id_field: str, matrix_type: MatrixType) -> QgsFeature:
-        tree, cost = self.calcDijkstra(origin_point.graph_vertex_id)
-
+    def queryOdPair(self, tree: list[int], cost: list[float], origin_point: QneatAnalysisPoint, origin_point_id_field: str, destination_point: QneatAnalysisPoint, destination_point_id_field: str, matrix_type: MatrixType) -> QgsFeature:
         origin_id = origin_point.feature[origin_point_id_field]
         origin_id_field_type = origin_point.feature.fields().field(origin_point_id_field).type()
 

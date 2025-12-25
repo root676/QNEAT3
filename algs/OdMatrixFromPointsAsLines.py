@@ -226,8 +226,9 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
 
         i: int = 0
         for origin_point in core.analysis_points:
+            tree, cost = core.calcDijkstra(origin_point.graph_vertex_id)
             for destination_point in core.analysis_points:
-                feat = core.routeOD(origin_point, id_field, destination_point, id_field, matrix_type)
+                feat = core.queryOdPair(tree, cost, origin_point, id_field, destination_point, id_field, matrix_type)
                 sink.addFeature(feat, QgsFeatureSink.FastInsert)  
 
                 i+=i
