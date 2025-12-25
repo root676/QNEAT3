@@ -17,6 +17,8 @@
 ***************************************************************************
 """
 
+from itertools import groupby
+
 from qgis.core import QgsWkbTypes, QgsMessageLog, QgsVectorLayer, QgsFeature, QgsGeometry, QgsFields, QgsField, QgsFeatureRequest
 
 from qgis.PyQt.QtCore import QVariant, QMetaType
@@ -38,20 +40,25 @@ if TYPE_CHECKING:
 def logPanel(message):
     QgsMessageLog.logMessage(message, "QNEAT3")
 
+def checkAnalysisCrsEquality(sources : list[QgsFeatureSource]) -> bool:
+    
+    first_crs = sources[0].sourceCrs()
 
-def buildQgsVectorLayer(string_geomtype: str, string_layername: str, crs: QgsCoordinateReferenceSystem, feature_list: list[QgsFeature], list_qgsfield: list[QgsField] = None) -> QgsVectorLayer:
-    
+    return all(
+        src.sourceCrs() == first_crs 
+        for src in sources
+        )
+
+
+
+
+def buildQgsVectorLayer(string_geomtype: str, string_layername: str, crs: QgsCoordinateReferenceSystem, feature_list: list[QgsFeature]) -> QgsVectorLayer:
     vector_layer = QgsVectorLayer(string_geomtype, string_layername, "memory")
-    
     vector_layer.setCrs(crs)
-    
     provider = vector_layer.dataProvider()
-    
     provider.addFeatures(feature_list)
     vector_layer.updateExtents()
-
     return vector_layer
-
 
 def getFeatureFromPoint(point_id: int, qgs_point_xy: QgsPointXY) -> QgsFeature:     
     feature = QgsFeature()
@@ -61,7 +68,6 @@ def getFeatureFromPoint(point_id: int, qgs_point_xy: QgsPointXY) -> QgsFeature:
     feature.setGeometry(QgsGeometry.fromPointXY(qgs_point_xy))
     feature['point_id']=point_id
     return feature
-
         
 def getFieldDatatype(qgs_feature_storage: QgsFeatureSource, fieldname) -> QMetaType.Type:
     fields_list: QgsFields = qgs_feature_storage.fields()
