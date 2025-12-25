@@ -32,13 +32,11 @@ from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (QgsWkbTypes,
-                       QgsFields,
-                       QgsField,
-                       QgsGeometry,
                        QgsFeature,
                        QgsFeatureSink,
                        QgsProcessing,
                        QgsProcessingAlgorithm,
+                       QgsProcessingException,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterFeatureSink,
                        QgsProcessingParameterFeatureSource,
@@ -50,7 +48,7 @@ from qgis.core import (QgsWkbTypes,
 from qgis.analysis import (QgsVectorLayerDirector)
 
 from ..QneatFramework import QneatCore, MatrixType
-from ..QneatUtilities import getFieldDatatype
+from ..QneatUtilities import getOdMatrixFields
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
@@ -60,6 +58,7 @@ from typing import (
 
 if TYPE_CHECKING:
     from qgis.core import (
+        QgsFields,
         QgsProcessingFeatureSource
         )
 
@@ -213,27 +212,22 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
         speedFieldName: str = self.parameterAsString(parameters, self.SPEED_FIELD, context) 
         defaultSpeed: float = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) 
         tolerance: float = self.parameterAsDouble(parameters, self.TOLERANCE, context) 
+
+        input_pointlist: list[QgsFeature] = [f for f in points.getFeatures()]
         
-        core = QneatCore(network, points, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, feedback, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
+        core = QneatCore(network, input_pointlist, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, feedback, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
         total_workload = float(pow(len(core.analysis_points),2))
 
         #create output sink
-        fields = QgsFields()
-        id_field_datatype = getFieldDatatype(points, id_field)
-        fields.append(QgsField('origin_id', id_field_datatype, '', 254, 0))
-        fields.append(QgsField('destination_id', id_field_datatype, '', 254, 0))
-        fields.append(QgsField('entry_cost', QVariant.Double, '', 20,7))
-        fields.append(QgsField('network_cost', QVariant.Double, '', 20, 7))
-        fields.append(QgsField('exit_cost', QVariant.Double, '', 20,7))
-        fields.append(QgsField('total_cost', QVariant.Double, '', 20,7))
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.LineString, network.sourceCrs())
+        output_fields: QgsFields = getOdMatrixFields(points, id_field, points, id_field)
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, output_fields, QgsWkbTypes.LineString, network.sourceCrs())
 
         feedback.pushInfo(f"{int(total_workload)} od pairs will be routed")
 
         i: int = 0
         for origin_point in core.analysis_points:
             for destination_point in core.analysis_points:
-                feat = core.routeOD(origin_point, id_field_datatype, destination_point, id_field_datatype, matrix_type)
+                feat = core.routeOD(origin_point, id_field, destination_point, id_field, matrix_type)
                 sink.addFeature(feat, QgsFeatureSink.FastInsert)  
 
                 i+=i

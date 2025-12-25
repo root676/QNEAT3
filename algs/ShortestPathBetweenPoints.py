@@ -48,7 +48,7 @@ from qgis.core import (QgsWkbTypes,
 from qgis.analysis import QgsVectorLayerDirector
 
 from ..QneatFramework import QneatCore
-from ..QneatUtilities import buildQgsVectorLayer, getFeatureFromPoint
+from ..QneatUtilities import getFeatureFromPoint, checkIfAnalysisCrsEqual
 
 from typing import (
     TYPE_CHECKING
@@ -202,14 +202,14 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
         defaultSpeed: float = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) 
         tolerance: float = self.parameterAsDouble(parameters, self.TOLERANCE, context) 
 
-        analysisCrs = network.sourceCrs()
-        
-        point_crs = context.project().crs()
+        if checkIfAnalysisCrsEqual(network.sourceCrs, context.project().crs()):
+            analysisCrs = network.sourceCrs()
+        else:
+            raise QgsProcessingException(f"Coordinate reference systems of graph is {network.sourceCrs().authid()} doesn't match up with the coordinate reference system of the project ({context.project().crs().authid()}). Reproject so that the CRSs of analysis layers match up.")
+  
         input_point_features = [getFeatureFromPoint(0, startPoint),getFeatureFromPoint(1, endPoint)]
-
-        input_points = buildQgsVectorLayer(f"point?crs={point_crs.authid()}", 'input_points', input_point_features)
         
-        core = QneatCore(network, input_points, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, feedback, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
+        core = QneatCore(network, input_point_features, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, feedback, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
         
         origin_analysis_point = core.analysis_points[0]
         destination_analysis_point = core.analysis_points[1]
@@ -245,21 +245,21 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
             route_geom: QgsGeometry = QgsGeometry().fromPolylineXY(route_points)
 
             start_entry_cost = origin_analysis_point.graph_entry_cost
-            end_exit_cost = destination_vertex_id.graph_entry_cost
+            end_exit_cost = destination_analysis_point.graph_entry_cost
             cost_on_graph = dijkstra_query[1][destination_vertex_id]
             total_cost = start_entry_cost + cost_on_graph + end_exit_cost
             
         feat = QgsFeature()
         
         fields = QgsFields()
-        fields.append(QgsField('start_id', QVariant.String, '', 254, 0))
-        fields.append(QgsField('start_coordinates', QVariant.String, '', 254, 0))
-        fields.append(QgsField('start_entry_cost', QVariant.Double, '', 20, 7))
-        fields.append(QgsField('end_id', QVariant.String, '', 254, 0))
-        fields.append(QgsField('end_coordinates', QVariant.String, '', 254, 0))
-        fields.append(QgsField('end_exit_cost', QVariant.Double, '', 20, 7))
-        fields.append(QgsField('cost_on_graph', QVariant.Double, '', 20, 7))
-        fields.append(QgsField('total_cost', QVariant.Double, '', 20, 7))
+        fields.append(QgsField('start_id', QVariant.String))
+        fields.append(QgsField('start_coordinates', QVariant.String))
+        fields.append(QgsField('start_entry_cost', QVariant.Double))
+        fields.append(QgsField('end_id', QVariant.String))
+        fields.append(QgsField('end_coordinates', QVariant.String))
+        fields.append(QgsField('end_exit_cost', QVariant.Double))
+        fields.append(QgsField('cost_on_graph', QVariant.Double))
+        fields.append(QgsField('total_cost', QVariant.Double))
         feat.setFields(fields)
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.LineString, analysisCrs)

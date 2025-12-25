@@ -17,8 +17,6 @@
 ***************************************************************************
 """
 
-from itertools import groupby
-
 from qgis.core import QgsWkbTypes, QgsMessageLog, QgsVectorLayer, QgsFeature, QgsGeometry, QgsFields, QgsField, QgsFeatureRequest
 
 from qgis.PyQt.QtCore import QVariant, QMetaType
@@ -40,16 +38,13 @@ if TYPE_CHECKING:
 def logPanel(message):
     QgsMessageLog.logMessage(message, "QNEAT3")
 
-def checkAnalysisCrsEqual(sources : list[QgsFeatureSource]) -> bool:
-    
-    first_crs = sources[0].sourceCrs()
+def checkIfAnalysisCrsEqual(sourceCrss : list[QgsCoordinateReferenceSystem]) -> bool:
+    first_crs = sourceCrss[0]
 
     return all(
-        src.sourceCrs() == first_crs 
-        for src in sources
+        crs == first_crs 
+        for crs in sourceCrss
         )
-
-
 
 
 def buildQgsVectorLayer(string_geomtype: str, string_layername: str, crs: QgsCoordinateReferenceSystem, feature_list: list[QgsFeature]) -> QgsVectorLayer:
@@ -83,4 +78,14 @@ def getFieldDatatypeFromPythontype(pythonvar):
         return QVariant.Double
     else: 
         return QVariant.String
+    
+def getOdMatrixFields(origin_points: QgsFeatureSource, origin_id_field: str, destination_points: QgsFeatureSource, destination_id_field: str) -> QgsFields:
+    output_fields = QgsFields()
+    output_fields.append(QgsField('origin_id', getFieldDatatype(origin_points, origin_id_field)))
+    output_fields.append(QgsField('destination_id', getFieldDatatype(destination_points, destination_id_field)))
+    output_fields.append(QgsField('entry_cost', QVariant.Double))
+    output_fields.append(QgsField('network_cost', QVariant.Double))
+    output_fields.append(QgsField('exit_cost', QVariant.Double))
+    output_fields.append(QgsField('total_cost', QVariant.Double))
+    return output_fields
     

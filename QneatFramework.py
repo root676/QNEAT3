@@ -112,7 +112,6 @@ class QneatCore():
 
         #read points as QgsPointXY
         xy_points = list()
-
         for f in point_featurelist:
             if f.geometry() and f.geometry().isEmpty() is False:
                 xy_points.append(f.geometry().asPoint())
