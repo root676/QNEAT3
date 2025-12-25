@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 def logPanel(message):
     QgsMessageLog.logMessage(message, "QNEAT3")
 
-def checkAnalysisCrsEquality(sources : list[QgsFeatureSource]) -> bool:
+def checkAnalysisCrsEqual(sources : list[QgsFeatureSource]) -> bool:
     
     first_crs = sources[0].sourceCrs()
 
