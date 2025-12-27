@@ -63,7 +63,7 @@ from qgis.core import (
 from qgis.PyQt.QtCore import QVariant
 
 from QneatUtilities import ( 
-    getFieldDatatypeFromPythontype
+    getFieldDatatype
     )
 
 
@@ -107,7 +107,7 @@ class QneatCore():
                  defaultDirection: Optional[int] = None
                  ): 
 
-        
+        self.feedback = feedback
         self.analysis_crs = graph_source.sourceCrs()
 
         #read points as QgsPointXY
@@ -139,7 +139,7 @@ class QneatCore():
         builder = QgsGraphBuilder(self.analysis_crs, True, tolerance)
         
         #tell the graph-director to make the graph using the builder object and tie the start point geometries to the graph
-        feedback.pushInfo("building graph...")
+        self.feedback.pushInfo("building graph...")
         tiedPoints: list[QgsPointXY] = self.director.makeGraph(builder, xy_points)
         self.qgsgraph: QgsGraph = builder.graph()
 
@@ -241,83 +241,58 @@ class QneatCore():
             feat.setGeometry(route_geom)
 
         return feat
-
-
-
         
-    def calcIsoPoints(self, analysis_point_list, max_dist):
-        iso_pointcloud = dict()
+    def calcIsoPoints(self, id_field_name: str, max_cost: float) -> list[QgsFeature]:
+        iso_points = dict()
 
-        for counter, point in enumerate(analysis_point_list):
-            self.feedback.pushInfo("[QNEAT3Network][calcIsoPoints] Processing Point {}".format(counter))
-            dijkstra_query = self.calcDijkstra(point.network_vertex_id, 0)
-            tree = dijkstra_query[0]
-            cost = dijkstra_query[1]
-            
-            current_start_point_id = point.point_id #id of the input point
-            current_vertex_id = point.network_vertex_id
-            entry_cost = point.entry_cost
-            
-            field_type = getFieldDatatypeFromPythontype(current_start_point_id)
-            
-            #startpoints are not part of the Query so they have to be added manually before
-            #dikstra is called.
-            start_vertex_feat = QgsFeature()
-            start_vertex_fields = QgsFields()
-            start_vertex_fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
-            start_vertex_fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
-            start_vertex_fields.append(QgsField('origin_point_id',field_type, '', 254, 7))
-            start_vertex_feat.setFields(start_vertex_fields)
-            start_vertex_feat['vertex_id'] = current_vertex_id
-            start_vertex_feat['cost'] = entry_cost
-            start_vertex_feat['origin_point_id'] = current_start_point_id
-            pt_m = QgsPoint(self.network.vertex(current_vertex_id).point().x(),self.network.vertex(current_vertex_id).point().y())
-            pt_m.addMValue(entry_cost)
-            geom = QgsGeometry(pt_m)
-            start_vertex_feat.setGeometry(geom)
-            
-            iso_pointcloud.update({current_vertex_id: start_vertex_feat})
-            
-            i = 0
-            while i < len(cost):
-                #as long as costs at vertex i is greater than iso_distance and there exists an incoming edge (tree[i]!=-1) 
-                #consider it as a possible catchment polygon element
-                if tree[i] != -1:
-                    fromVertexId = self.network.edge(tree[i]).toVertex()
-                    real_cost = cost[fromVertexId]+entry_cost
-                    #if the costs of the current vertex are lower than the radius, append the vertex id to results.
-                    if real_cost <= max_dist:
-                        #build feature
-                                    
-                        feat = QgsFeature()
-                        fields = QgsFields()
-                        fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
-                        fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
-                        fields.append(QgsField('origin_point_id',field_type, '', 254, 7))
-                        feat.setFields(fields)
-                        feat['vertex_id'] = fromVertexId
-                        feat['cost'] = real_cost
-                        feat['origin_point_id'] = current_start_point_id
-                        pt_xy = self.network.vertex(fromVertexId).point() #QGIS API BUG: remove line)
-                        pt_m = QgsPoint(pt_xy.x(),pt_xy.y()) #QGIS API BUG: Change back to QgsPoint(self.network.vertex(fromVertexId).point())
-                        pt_m.addMValue((500-cost[fromVertexId])*2)
-                        geom = QgsGeometry(pt_m)
-                        feat.setGeometry(geom)
-                        
-                        if fromVertexId not in iso_pointcloud:
-                            #ERROR: FIRST POINT IN POINTCLOUD WILL NEVER BE ADDED
-                            iso_pointcloud.update({fromVertexId: feat})
-                        if fromVertexId in iso_pointcloud.keys() and iso_pointcloud.get(fromVertexId)['cost'] > real_cost:
-                            #if the vertex already exists in the iso_pointcloud and the cost is greater than the existing cost
-                            del iso_pointcloud[fromVertexId]
-                            #iso_pointcloud.pop(toVertexId)
-                            iso_pointcloud.update({fromVertexId: feat})
-                        #count up to next vertex
-                i = i + 1 
-                if (i%10000)==0:
-                    self.feedback.pushInfo("[QNEAT3Network][calcIsoPoints] Added {} Nodes to iso pointcloud...".format(i))
-                    
-        return iso_pointcloud.values() #list of QgsFeature (=QgsFeatureList)
+        output_fields = QgsFields()
+        output_fields.append(QgsField('vertex_id', QVariant.Int))
+        output_fields.append(QgsField('cost', QVariant.Double))
+        output_fields.append(QgsField('origin_point_id',getFieldDatatype(id_field_name)))
+
+        for i, origin_point in enumerate(self.analysis_points):
+            entry_cost = origin_point.graph_entry_cost
+
+            if entry_cost <= max_cost:
+                self.feedback.pushInfo(f"Processing origin point {i}")
+                tree, cost = self.calcDijkstra(origin_point.graph_vertex_id)
+
+                feat = QgsFeature(output_fields)
+                feat['vertex_id'] = origin_point.graph_vertex_id
+                feat['cost'] = entry_cost
+                feat['origin_point_id'] = origin_point.feature[id_field_name]
+                pt_m = QgsPoint(self.network.vertex(origin_point.graph_vertex_id).point())
+                pt_m.addMValue(entry_cost)
+                geom = QgsGeometry(pt_m)
+                feat.setGeometry(geom)
+                
+                iso_points[origin_point.graph_vertex_id] = feat
+
+                for v in range(len(cost)):
+                    if tree[v] == -1:
+                        continue
+
+                    real_cost = cost[v] + entry_cost
+                    if real_cost > max_cost:
+                        continue
+
+                    existing = iso_points.get(v)
+                    if existing is not None and existing['cost'] <= real_cost:
+                        continue
+
+                    feat = QgsFeature(output_fields)
+                    feat['vertex_id'] = v
+                    feat['cost'] = real_cost
+                    feat['origin_point_id'] = origin_point.feature[id_field_name]
+                    pt_m = QgsPoint(self.qgsgraph.vertex(v).point()) 
+                    pt_m.addMValue(real_cost)
+                    feat.setGeometry(QgsGeometry(pt_m))
+
+                    iso_points[v] = feat
+            else:
+                self.feedback.pushInfo(f"WARNING: Skipping origin point with ID {origin_point.feature[id_field_name]} as it is outside of maximum iso-area bounds of {max_cost}.")
+
+        return list(iso_points.values())
     
     def calcQneatInterpolation(self,iso_pointcloud_featurelist, resolution, interpolation_raster_path):  
         #prepare spatial index

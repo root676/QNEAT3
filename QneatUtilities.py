@@ -21,7 +21,7 @@ from qgis.core import QgsWkbTypes, QgsMessageLog, QgsVectorLayer, QgsFeature, Qg
 
 from qgis.PyQt.QtCore import QVariant, QMetaType
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from qgis.core import (
@@ -64,7 +64,7 @@ def getFeatureFromPoint(point_id: int, qgs_point_xy: QgsPointXY) -> QgsFeature:
     feature['point_id']=point_id
     return feature
         
-def getFieldDatatype(qgs_feature_storage: QgsFeatureSource, fieldname) -> QMetaType.Type:
+def getFieldDatatype(qgs_feature_storage: Union[QgsFeatureSource, QgsFeature], fieldname) -> QMetaType.Type:
     fields_list: QgsFields = qgs_feature_storage.fields()
     type: QMetaType.Type = fields_list.field(fieldname).type()
     return type

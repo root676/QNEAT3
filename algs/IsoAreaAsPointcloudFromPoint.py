@@ -4,11 +4,8 @@
     IsoAreaAsPointcloudFromPoint.py
     ---------------------
     
-    Partially based on QGIS3 network analysis algorithms. 
-    Copyright 2016 Alexander Bruy    
-    
-    Date                 : February 2018
-    Copyright            : (C) 2018 by Clemens Raffler
+    Date                 : December 2025
+    Copyright            : (C) 2025 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
 *                                                                         *
@@ -21,8 +18,8 @@
 """
 
 __author__ = 'Clemens Raffler'
-__date__ = 'February 2018'
-__copyright__ = '(C) 2018, Clemens Raffler'
+__date__ = 'December 2025'
+__copyright__ = '(C) 2025, Clemens Raffler'
 
 # This will get replaced with a git SHA1 when you do a git archive
 
@@ -40,6 +37,7 @@ from qgis.core import (QgsWkbTypes,
                        QgsField,
                        QgsProcessing,
                        QgsProcessingAlgorithm,
+                       QgsProcessingException,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterPoint,
                        QgsProcessingParameterField,
@@ -51,17 +49,27 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from ..QneatFramework import Qneat3Network, Qneat3AnalysisPoint
-from ..QneatUtilities import getFeatureFromPointParameter
+from ..QneatFramework import QneatCore
+from ..QneatUtilities import checkIfAnalysisCrsEqual, getFeatureFromPoint
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
+from typing import (
+    TYPE_CHECKING
+    )  
+
+if TYPE_CHECKING:
+    from qgis.core import (
+        QgsFields,
+        QgsPointXY,
+        QgsProcessingFeatureSource
+        )
 
 class IsoAreaAsPointcloudFromPoint(QgsProcessingAlgorithm):
 
     INPUT = 'INPUT'
-    START_POINT = 'START_POINT'
-    MAX_DIST = "MAX_DIST"
+    ORIGIN_POINT = 'ORIGIN_POINT'
+    MAX_COST = "MAX_COST"
     STRATEGY = 'STRATEGY'
     ENTRY_COST_CALCULATION_METHOD = 'ENTRY_COST_CALCULATION_METHOD'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
@@ -94,11 +102,11 @@ class IsoAreaAsPointcloudFromPoint(QgsProcessingAlgorithm):
                 "This algorithm implements iso-pointcloud analysis to return all <b>network nodes reachable within a maximum cost level as pointcloud</b> on a given <b>network dataset for a manually chosen point</b>.<br>"\
                 "It accounts for <b>points outside of the network</b> (eg. <i>non-network-elements</i>) and increments the iso-areas cost regarding to distance/default speed value. Distances are measured accounting for <b>ellipsoids</b>.<br>Please, <b>only use a projected coordinate system (eg. no WGS84)</b> for this kind of analysis.<br><br>"\
                 "<b>Parameters (required):</b><br>"\
-                "Following Parameters must be set to run the algorithm:"\
-                "<ul><li>Network Layer</li><li>Startpoint</li><li>Unique Point ID Field (numerical)</li><li>Maximum cost level for Iso-Area</li><li>Cost Strategy</li></ul><br>"\
+                "Following parameters must be set to run the algorithm:"\
+                "<ul><li>Network layer</li><li>Origin Point</li><li>Unique point ID field (numerical)</li><li>Maximum cost level for Iso-Area</li><li>Cost strategy</li></ul><br>"\
                 "<b>Parameters (optional):</b><br>"\
                 "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the networks edges."\
-                "<ul><li>Direction Field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed Field</li><li>Default Speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
+                "<ul><li>Direction field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is one layer:"\
                 "<ul><li>Point layer of reachable network nodes</li></ul><br>"\
@@ -126,9 +134,9 @@ class IsoAreaAsPointcloudFromPoint(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Network Layer'),
                                                               [QgsProcessing.TypeVectorLine]))
-        self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
-                                                      self.tr('Start Point')))
-        self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
+        self.addParameter(QgsProcessingParameterPoint(self.ORIGIN_POINT,
+                                                      self.tr('Origin point')))
+        self.addParameter(QgsProcessingParameterNumber(self.MAX_COST,
                                                    self.tr('Size of Iso-Area (distance or seconds depending on strategy)'),
                                                    QgsProcessingParameterNumber.Double,
                                                    2500.0, False, 0, 99999999.99))
@@ -183,32 +191,32 @@ class IsoAreaAsPointcloudFromPoint(QgsProcessingAlgorithm):
                                                             QgsProcessing.TypeVectorPoint))
 
     def processAlgorithm(self, parameters, context, feedback):
-        feedback.pushInfo(self.tr("[QNEAT3Algorithm] This is a QNEAT3 Algorithm: '{}'".format(self.displayName())))
-        network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
-        startPoint = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs()) #QgsPointXY
-        max_dist = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
-        strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
+        feedback.setProgress(0)
+        feedback.pushInfo(self.tr("Running '{}'".format(self.displayName())))
 
-        entry_cost_calc_method = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context) #int
-        directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
-        forwardValue = self.parameterAsString(parameters, self.VALUE_FORWARD, context) #str
-        backwardValue = self.parameterAsString(parameters, self.VALUE_BACKWARD, context) #str
-        bothValue = self.parameterAsString(parameters, self.VALUE_BOTH, context) #str
-        defaultDirection = self.parameterAsEnum(parameters, self.DEFAULT_DIRECTION, context) #int
-        speedFieldName = self.parameterAsString(parameters, self.SPEED_FIELD, context) #str
-        defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) #float
-        tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
+        network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.INPUT, context) 
+        origin_point: QgsPointXY = self.parameterAsPoint(parameters, self.ORIGIN_POINT, context, network.sourceCrs()) 
+        max_cost: float = self.parameterAsDouble(parameters, self.MAX_COST, context)
+        strategy: int = self.parameterAsEnum(parameters, self.STRATEGY, context)
 
-        analysisCrs = network.sourceCrs()
-        input_coordinates = [startPoint]
-        input_point = getFeatureFromPointParameter(startPoint)
-        
-        feedback.pushInfo("[QNEAT3Algorithm] Building Graph...")
-        feedback.setProgress(10)  
-        net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
-        feedback.setProgress(40)
+        entry_cost_calc_method: int = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context)
+        directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) 
+        forwardValue: str = self.parameterAsString(parameters, self.VALUE_FORWARD, context) 
+        backwardValue: str = self.parameterAsString(parameters, self.VALUE_BACKWARD, context) 
+        bothValue: str = self.parameterAsString(parameters, self.VALUE_BOTH, context)
+        defaultDirection: int = self.parameterAsEnum(parameters, self.DEFAULT_DIRECTION, context) 
+        speedFieldName: str = self.parameterAsString(parameters, self.SPEED_FIELD, context)
+        defaultSpeed: float = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) 
+        tolerance: float = self.parameterAsDouble(parameters, self.TOLERANCE, context) 
 
-        analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0], entry_cost_calc_method, feedback)
+        if checkIfAnalysisCrsEqual(network.sourceCrs, context.project().crs()):
+            analysisCrs = network.sourceCrs()
+        else:
+            raise QgsProcessingException(f"Coordinate reference systems of graph is {network.sourceCrs().authid()} and doesn't match up with the coordinate reference system of the project ({context.project().crs().authid()}). Reproject so that the CRSs of analysis layers match up.")
+  
+        input_point_features = [getFeatureFromPoint(0, origin_point)]
+
+        core = QneatCore(network, input_point_features, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, feedback, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
         
         fields = QgsFields()
         fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
@@ -216,15 +224,11 @@ class IsoAreaAsPointcloudFromPoint(QgsProcessingAlgorithm):
         fields.append(QgsField('origin_point_id',QVariant.String, '', 254, 7))
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, network.sourceCrs())
-        
-        feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Pointcloud...")
-        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist)
-        feedback.setProgress(90)
+
+        iso_pointcloud = core.calcIsoPoints('point_id', max_cost)
         
         sink.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
         
-        feedback.pushInfo("[QNEAT3Algorithm] Ending Algorithm")
-        feedback.setProgress(100)        
         
         results = {}
         results[self.OUTPUT] = dest_id
