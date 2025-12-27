@@ -50,7 +50,7 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import (QgsVectorLayerDirector)
 
-from ..QneatFramework import QneatCore, QneatAnalysisPoint, MatrixType
+from ..QneatFramework import QneatCore, MatrixType
 from ..QneatUtilities import checkIfAnalysisCrsEqual, getFieldDatatype, getOdMatrixFields
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
