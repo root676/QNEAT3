@@ -18,18 +18,12 @@
 """
 
 import time
-import osgeo.gdal as gdal
+from osgeo import gdal, ogr, osr
 
 from math import ceil
 from enum import Enum
 
-from numpy import (
-    arange, 
-    linspace,
-    meshgrid,  
-    nditer, 
-    zeros
-    )
+import numpy
 
 from qgis.analysis import (
     QgsGraphAnalyzer,
@@ -43,6 +37,7 @@ from qgis.analysis import (
     )
 
 from qgis.core import (
+    Qgis,
     QgsDistanceArea, 
     QgsFeature, 
     QgsFeatureRequest,
@@ -61,11 +56,9 @@ from qgis.core import (
     QgsWkbTypes
     )
 
-from qgis.PyQt.QtCore import QVariant
+from qgis.PyQt.QtCore import QVariant, QMetaType
 
 import QneatUtilities
-
-from osgeo import osr
 
 from typing import (
     Optional,
@@ -323,12 +316,12 @@ class QneatCore():
         band.SetNoDataValue(NoData_value)
         
         #initialize zero array with 2 dimensions (according to rows and cols)
-        raster_data = zeros(shape=(rows, cols))
+        raster_data = numpy.zeros(shape=(rows, cols))
         
         #compute raster cell MIDpoints
-        x_pos = linspace(xmin+(resolution/2), xmax -(resolution/2), raster_data.shape[1])
-        y_pos = linspace(ymax-(resolution/2), ymin + (resolution/2), raster_data.shape[0])
-        x_grid, y_grid = meshgrid(x_pos, y_pos) 
+        x_pos = numpy.linspace(xmin+(resolution/2), xmax -(resolution/2), raster_data.shape[1])
+        y_pos = numpy.linspace(ymax-(resolution/2), ymin + (resolution/2), raster_data.shape[0])
+        x_grid, y_grid = numpy.meshgrid(x_pos, y_pos) 
         
         self.feedback.pushInfo('[QNEAT3Network][calcQneatInterpolation] Beginning with interpolation')
         total_work = rows * cols
@@ -427,12 +420,12 @@ class QneatCore():
 
         
         
-    def calcIsoTinInterpolation(self, iso_points: list[QgsFeature], cost_field_name : str, cellsize: float, output_interpolation_path : str):
+    def calcIsoTinInterpolation(self, iso_points: list[QgsFeature], cost_field_name : str, cellsize: float, output_interpolation_path : str) -> QgsRasterLayer:
 
         if cellsize <= 0:
             raise QgsProcessingException("Cell size for iso area interpolation must be > 0")
         
-        #pack iso_point_features in a QgsFeatureSource
+        #pack iso_point_features in a QgsFeatureSource in order to be usable for QgsInterpolator
         iso_point_layer: QgsVectorLayer = QneatUtilities.buildQgsVectorLayer(iso_points, "iso_points", self.analysis_crs, iso_points)
         iso_point_layer.updateExtents()
 
@@ -466,62 +459,103 @@ class QneatCore():
 
         return output_raster
 
-    def calcIsoContours(self, max_dist, interval, interpolation_raster_path):
-        featurelist = []
+    def calcIsoAreas(self, input_interpolation_raster: str, max_cost: float, interval: float, iso_area_type : IsoAreaType) -> QgsVectorLayer:
         
-        try:
-            import matplotlib.pyplot as plt
-        except:
-            return featurelist
-    
-        ds_in = gdal.Open(interpolation_raster_path)
-        band_in = ds_in.GetRasterBand(1)
-        xsize_in = band_in.XSize
-        ysize_in = band_in.YSize
-    
-        geotransform_in = ds_in.GetGeoTransform()
-    
-        srs = osr.SpatialReference()
-        srs.ImportFromWkt( ds_in.GetProjectionRef() )
+        interpolation_raster = gdal.Open(input_interpolation_raster)
+        if interpolation_raster is None:
+            raise QgsProcessingException("Could not open Interpolation result, please use another cellsize, iso area extent or obtain a valid interpolation raster with the QNEAT Iso-Area as Interpolation algorithm.")
+        
+        band = interpolation_raster.GetRasterBand(1)
+        xsize_in = band.XSize
+        ysize_in = band.YSize
 
-        raster_values = band_in.ReadAsArray(0, 0, xsize_in, ysize_in)
-        raster_values[raster_values < 0] = max_dist + 1000 #necessary to produce rectangular array from raster
-        #nodata values get replaced by the maximum value + 1
+        ogr_driver = ogr.GetDriverByName("MEMORY")
+        contours = ogr_driver.CreateDataSource("iso_areas")
         
-        x_pos = linspace(geotransform_in[0], geotransform_in[0] + geotransform_in[1] * raster_values.shape[1], raster_values.shape[1])
-        y_pos = linspace(geotransform_in[3], geotransform_in[3] + geotransform_in[5] * raster_values.shape[0], raster_values.shape[0])
-        x_grid, y_grid = meshgrid(x_pos, y_pos)        
-        
-        start = interval
-        end = interval * ceil(max_dist/interval) +interval
-    
-        levels = arange(start, end, interval)
-        
-        fid = 0
-        for current_level in nditer(levels):
-            self.feedback.pushInfo("[QNEAT3Network][calcIsoContours] Calculating {}-level contours".format(current_level))
-            contours = plt.contourf(x_grid, y_grid, raster_values, [0, current_level], antialiased=True)
-            
-            for contour_paths in contours.get_paths():                    
-                for polygon in contour_paths.to_polygons():
-                    x = polygon[:,0]
-                    y = polygon[:,1]
 
-                    polylinexy_list = [QgsPointXY(i[0], i[1]) for i in zip(x,y)]
-                
-                    feat = QgsFeature()
-                    fields = QgsFields()
-                    fields.append(QgsField('id', QVariant.Int, '', 254, 0))
-                    fields.append(QgsField('cost_level', QVariant.Double, '', 20, 7))
-                    feat.setFields(fields)
-                    geom = QgsGeometry().fromPolylineXY(polylinexy_list)
-                    feat.setGeometry(geom)
-                    feat['id'] = fid
-                    feat['cost_level'] = float(current_level)
-                    featurelist.insert(0, feat)
-                        
-            fid=fid+1    
-        return featurelist
+        srs: osr.SpatialReference = osr.SpatialReference()
+        srs.ImportFromWkt( interpolation_raster.GetProjectionRef() )
+
+        ogr_layer: ogr.Layer = contours.CreateLayer(
+            "contours",
+            srs = srs,
+            geom_type=ogr.wkbLineString
+        )
+
+        #Fields
+        field_list = list()
+        id_field: ogr.FieldDefn = ogr.FieldDefn('id', ogr.OFTInteger)
+        cost_level_field: ogr.FieldDefn = ogr.FieldDefn('cost_level', ogr.OFTReal)
+        field_list.append(id_field, cost_level_field)
+
+        ogr_layer.CreateFields(field_list)
+
+        max_level = interval * ceil(max_cost/interval) + interval
+        levels: list[float] = list(range(start=interval, end=max_level, step=interval))
+
+        gdal.ContourGenerate(
+            band,
+            interval,
+            0.0,
+            levels, #fixed levels
+            0,
+            -9999,
+            ogr_layer,
+            0,
+            1
+        )
+
+        iso_areas = QgsVectorLayer("LineString", "iso_areas", "memory")
+        iso_areas.setCrs(self.analysis_crs)
+
+        iso_area_fields = QgsFields()
+        iso_area_fields.append(QgsField('id', QMetaType.Type.LongLong))
+        iso_area_fields.append(QgsField('cost_level'), QMetaType.Type.Double)
+        provider = iso_areas.dataProvider()
+        provider.addAttributes(iso_area_fields)
+        iso_areas.updatedFields()
+
+        iso_area_features = list()
+        ogr_layer.ResetReading()
+        for ogr_feat in ogr_layer:
+            qgs_feat = QgsFeature(iso_area_fields)
+
+            ogr_geom = ogr_feat.GetGeometryRef()
+            if ogr_geom and IsoAreaType.CONTOURS:
+                qgs_feat.setGeometry(QgsGeometry.fromWkt(ogr_geom.ExportToWkt()))
+            elif ogr_geom and IsoAreaType.POLYGONS:
+                geom: QgsGeometry = QgsGeometry.fromWkt(ogr_feat.ExportToWkt())
+
+                if not geom or geom.isEmpty():
+                    continue #TODO!!!
+
+                #single polygons
+                if geom.wkbType() == Qgis.WkbType.LineString and not geom.isMultipart():
+                    line = geom.asPolyline()
+                    if len(line) >= 4 and line[0] == line[-1]:
+                        qgs_feat.setGeometry(QgsGeometry.fromPolygonXY([line]))
+                    else:
+                        continue #TODO!!!
+                elif geom.wkbType() == Qgis.WkbType.LineString and geom.isMultipart():
+                    polygons = list()
+                    for line in geom.asMultiPolyline():
+                        if len(line) >= 4 and line [0] == line[-1]:
+                            polygons.append(QgsGeometry.fromPolygonXY([line]))
+                        else:
+                            continue #TODO!!!
+                    
+                    multipolygon = QgsGeometry.unaryUnion(polygons)
+                    qgs_feat.setGeometry(QgsGeometry.fromMultiPolygonxy(multipolygon))
+
+            qgs_feat.setAttribute("id", ogr_feat.GetField("id"))
+            qgs_feat.setAttribute("cost_level", ogr_feat.GetField("cost_level"))
+
+            iso_area_features.append(qgs_feat)
+        
+        provider.addFeatures(iso_area_features)
+        iso_areas.updateExtents()
+
+        return iso_areas
     
     
     def calcIsoPolygons(self, max_dist, interval, interpolation_raster_path):
@@ -605,3 +639,7 @@ class MatrixType(Enum):
     TABLE = 0
     LINE = 1
     ROUTE = 2
+
+class IsoAreaType(Enum):
+    CONTOURS = 0
+    POLYGONS = 1
