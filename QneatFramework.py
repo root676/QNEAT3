@@ -54,7 +54,8 @@ from qgis.core import (
     QgsPointXY, 
     QgsProcessingException,
     QgsProject,
-    QgsRasterLayer,  
+    QgsRasterLayer,
+    QgsRectangle,
     QgsVectorLayer,   
     QgsSpatialIndex,
     QgsWkbTypes
@@ -62,10 +63,7 @@ from qgis.core import (
 
 from qgis.PyQt.QtCore import QVariant
 
-from QneatUtilities import ( 
-    getFieldDatatype
-    )
-
+import QneatUtilities
 
 from osgeo import osr
 
@@ -248,7 +246,7 @@ class QneatCore():
         output_fields = QgsFields()
         output_fields.append(QgsField('vertex_id', QVariant.Int))
         output_fields.append(QgsField('cost', QVariant.Double))
-        output_fields.append(QgsField('origin_point_id',getFieldDatatype(id_field_name)))
+        output_fields.append(QgsField('origin_point_id',QneatUtilities.getFieldDatatype(id_field_name)))
 
         for i, origin_point in enumerate(self.analysis_points):
             entry_cost = origin_point.graph_entry_cost
@@ -429,27 +427,44 @@ class QneatCore():
 
         
         
-    def calcIsoTinInterpolation(self, iso_point_layer, resolution, interpolation_raster_path):
-        if self.AnalysisCrs.isGeographic():
-            raise QgsProcessingException('The TIN-Interpolation algorithm in QGIS is designed to work with projected coordinate systems.Please use a projected coordinate system (eg. UTM zones) instead of geographic coordinate systems (eg. WGS84)!')
+    def calcIsoTinInterpolation(self, iso_points: list[QgsFeature], cost_field_name : str, cellsize: float, output_interpolation_path : str):
+
+        if cellsize <= 0:
+            raise QgsProcessingException("Cell size for iso area interpolation must be > 0")
         
+        #pack iso_point_features in a QgsFeatureSource
+        iso_point_layer: QgsVectorLayer = QneatUtilities.buildQgsVectorLayer(iso_points, "iso_points", self.analysis_crs, iso_points)
+        iso_point_layer.updateExtents()
+
+        if self.analysis_crs.isGeographic():
+            raise QgsProcessingException('The QGIS TIN-Interpolation algorithm is designed to work with projected coordinate systems.Please use a projected coordinate system (eg. UTM zones) instead of geographic coordinate systems (eg. WGS84)!')
+        
+        cost_field_index = iso_point_layer.fields().indexFromName(cost_field_name)
+        if cost_field_index < 0:
+            raise QgsProcessingException(f"Field {cost_field_name} not found for interpolation.")
+
         layer_data = QgsInterpolator.LayerData()
-        QgsInterpolator.LayerData
         
-        layer_data.source = iso_point_layer #in QGIS2: vectorLayer
-        layer_data.valueSource = QgsInterpolator.ValueAttribute
+        layer_data.source = iso_point_layer 
+        layer_data.valueSource = QgsInterpolator.ValueSource.Attribute
         layer_data.interpolationAttribute =  1 #take second field to get costs
-        layer_data.sourceType = QgsInterpolator.SourcePoints
+        layer_data.sourceType = QgsInterpolator.SourceType.Points
 
         tin_interpolator = QgsTinInterpolator([layer_data], QgsTinInterpolator.TinInterpolation.Linear)
         
-        rect = iso_point_layer.extent()
-        ncol = int((rect.xMaximum() - rect.xMinimum()) / resolution)
-        nrows = int((rect.yMaximum() - rect.yMinimum()) / resolution)
+        extent : QgsRectangle = iso_point_layer.extent()
+        ncol = max(1, ceil(extent.width() / cellsize))
+        nrows = max(1, ceil(extent.width() / cellsize))
         
-        writer = QgsGridFileWriter(tin_interpolator, interpolation_raster_path, rect, ncol, nrows)
-        writer.writeFile(self.feedback)  # Creating .asc raste
-        return QgsRasterLayer(interpolation_raster_path, "temp_qneat3_interpolation_raster")
+        writer = QgsGridFileWriter(tin_interpolator, output_interpolation_path, extent, ncol, nrows)
+        result = writer.writeFile() 
+        if result != 0:
+            raise QgsProcessingException(f"Failed to write interpolation result file.")
+
+        output_raster = QgsRasterLayer(output_interpolation_path, "temp_qneat3_interpolation_raster")
+        output_raster.setCrs(self.analysis_crs)
+
+        return output_raster
 
     def calcIsoContours(self, max_dist, interval, interpolation_raster_path):
         featurelist = []
