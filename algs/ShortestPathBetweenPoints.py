@@ -47,7 +47,7 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from ..QneatFramework import QneatCore
+from ..QneatFramework import QneatCore, ProgressRange
 from ..QneatUtilities import getFeatureFromPoint, checkIfAnalysisCrsEqual
 
 from typing import (
@@ -209,7 +209,8 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
   
         input_point_features = [getFeatureFromPoint(0, startPoint),getFeatureFromPoint(1, endPoint)]
         
-        core = QneatCore(network, input_point_features, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, feedback, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
+        build_progress_range = ProgressRange(feedback, 0.0, 0.95)
+        core = QneatCore(network, input_point_features, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, build_progress_range, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
         
         origin_analysis_point = core.analysis_points[0]
         destination_analysis_point = core.analysis_points[1]
@@ -264,10 +265,10 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.LineString, analysisCrs)
         
-        feat['start_id'] = "A"
+        feat['start_id'] = origin_analysis_point.feature["user_id"]
         feat['start_coordinates'] = startPoint.toString()
         feat['start_entry_cost'] = start_entry_cost
-        feat['end_id'] = "B"
+        feat['end_id'] = destination_analysis_point.feature["user_id"]
         feat['end_coordinates'] = endPoint.toString()
         feat['end_exit_cost'] = end_exit_cost
         feat['cost_on_graph'] = cost_on_graph

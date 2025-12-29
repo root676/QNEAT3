@@ -74,8 +74,52 @@ if TYPE_CHECKING:
     from qgis.analysis import (
         QgsGraph
     )
-        
 
+class MatrixType(Enum):
+    TABLE = 0
+    LINE = 1
+    ROUTE = 2
+
+class IsoAreaType(Enum):
+    CONTOURS = 0
+    POLYGONS = 1
+
+class ProgressProxyFeedback (QgsProcessingFeedback):
+
+    def __init__(self, parent_feedback: QgsProcessingFeedback, start: float, span: float):
+        super().__init__()
+        self._parent_feedback = parent_feedback
+        self._start = start
+        self._span = span
+    
+    def setProgress(self, progress: float):
+        # progress comes in as 0 to 1
+        global_progress = self._start + progress * self._span
+        self._parent_feedback.setProgress(global_progress)
+        
+    def isCanceled(self):
+        self._parent_feedback.isCanceled()
+
+
+class ProgressRange:
+    def __init__(self, feedback: ProgressProxyFeedback, start, span):
+        self.fb = ProgressProxyFeedback(feedback, start, span)
+
+    def feedback(self) -> ProgressProxyFeedback:
+        return self.fb
+    
+class QneatAnalysisPoint():
+    
+    def __init__(self, feature: QgsFeature, graph_vertex_id: int, graph_vertex_geom: QgsPointXY, graph_entry_cost: float):
+        self.feature: QgsFeature = feature
+        self.graph_vertex_id: int = graph_vertex_id
+        self.graph_vertex_geom: QgsPointXY = graph_vertex_geom
+        self.graph_entry_cost: float = graph_entry_cost
+        self.graph_entry_geom: QgsGeometry = QgsGeometry().fromPolylineXY([self.feature.geometry.asPoint(), self.graph_entry_geom])
+    
+    def __str__(self):
+        return "QneatAnalysisPoint: feature_id: {:30} referencing graph_vertex_id: {:d}".format(self.feature.id(), self.graph_vertex_id)    
+    
 class QneatCore():
     """
     QneatCore:
@@ -90,7 +134,7 @@ class QneatCore():
                  default_speed: float,
                  tolerance: float,
                  entry_cost_calculation_method: int,
-                 feedback: QgsProcessingFeedback,
+                 buildProgressRange: ProgressRange,
                  directionFieldName: Optional[str] = None, 
                  forwardValue: Optional[str] = None,
                  backwardValue: Optional[str] = None, 
@@ -98,7 +142,7 @@ class QneatCore():
                  defaultDirection: Optional[int] = None
                  ): 
 
-        self.feedback = feedback
+        self.feedback = buildProgressRange.feedback()
         self.analysis_crs = graph_source.sourceCrs()
 
         #read points as QgsPointXY
@@ -122,7 +166,6 @@ class QneatCore():
     
         #Setup cost-strategy pattern.
         self.default_speed = default_speed
-        
         self.setNetworkStrategy(optimization_strategy, graph_source, speed_field, self.default_speed)
 
         #add the strategy to the QgsGraphDirector
@@ -131,7 +174,7 @@ class QneatCore():
         
         #tell the graph-director to make the graph using the builder object and tie the start point geometries to the graph
         self.feedback.pushInfo("building graph...")
-        tiedPoints: list[QgsPointXY] = self.director.makeGraph(builder, xy_points)
+        tiedPoints: list[QgsPointXY] = self.director.makeGraph(builder, xy_points, buildProgressRange.feedback())
         self.qgsgraph: QgsGraph = builder.graph()
 
         self.analysis_points: list[QneatAnalysisPoint] = list()
@@ -233,13 +276,15 @@ class QneatCore():
 
         return feat
         
-    def calcIsoPoints(self, id_field_name: str, max_cost: float) -> list[QgsFeature]:
+    def calcIsoPoints(self, id_field_name: str, max_cost: float, progress_range: ProgressRange) -> list[QgsFeature]:
         iso_points = dict()
 
         output_fields = QgsFields()
         output_fields.append(QgsField('vertex_id', QVariant.Int))
         output_fields.append(QgsField('cost', QVariant.Double))
         output_fields.append(QgsField('origin_point_id',QneatUtilities.getFieldDatatype(id_field_name)))
+
+        total_workload: int = len(self.analysis_points)
 
         for i, origin_point in enumerate(self.analysis_points):
             entry_cost = origin_point.graph_entry_cost
@@ -282,6 +327,8 @@ class QneatCore():
                     iso_points[v] = feat
             else:
                 self.feedback.pushInfo(f"WARNING: Skipping origin point with ID {origin_point.feature[id_field_name]} as it is outside of maximum iso-area bounds of {max_cost}.")
+
+            progress_range.feedback().setProgress((i+1)/total_workload)
 
         return list(iso_points.values())
     
@@ -420,7 +467,7 @@ class QneatCore():
 
         
         
-    def calcIsoTinInterpolation(self, iso_points: list[QgsFeature], cost_field_name : str, cellsize: float, output_interpolation_path : str) -> QgsRasterLayer:
+    def calcIsoTinInterpolation(self, iso_points: list[QgsFeature], cost_field_name : str, cellsize: float, output_interpolation_path : str, progress_range: ProgressRange ) -> QgsRasterLayer:
 
         if cellsize <= 0:
             raise QgsProcessingException("Cell size for iso area interpolation must be > 0")
@@ -443,7 +490,7 @@ class QneatCore():
         layer_data.interpolationAttribute =  1 #take second field to get costs
         layer_data.sourceType = QgsInterpolator.SourceType.Points
 
-        tin_interpolator = QgsTinInterpolator([layer_data], QgsTinInterpolator.TinInterpolation.Linear)
+        tin_interpolator = QgsTinInterpolator([layer_data], QgsTinInterpolator.TinInterpolation.Linear, progress_range.feedback())
         
         extent : QgsRectangle = iso_point_layer.extent()
         ncol = max(1, ceil(extent.width() / cellsize))
@@ -459,7 +506,7 @@ class QneatCore():
 
         return output_raster
 
-    def calcIsoAreas(self, input_interpolation_raster: str, max_cost: float, interval: float, iso_area_type : IsoAreaType) -> QgsVectorLayer:
+    def calcIsoAreas(self, input_interpolation_raster: str, max_cost: float, interval: float, iso_area_type : IsoAreaType, progress_range: ProgressRange) -> QgsVectorLayer:
         
         interpolation_raster = gdal.Open(input_interpolation_raster)
         if interpolation_raster is None:
@@ -515,15 +562,17 @@ class QneatCore():
         provider.addAttributes(iso_area_fields)
         iso_areas.updatedFields()
 
+        total_workload = ogr_layer.getFeatureCount()
+
         iso_area_features = list()
         ogr_layer.ResetReading()
-        for ogr_feat in ogr_layer:
+        for i, ogr_feat in enumerate(ogr_layer):
             qgs_feat = QgsFeature(iso_area_fields)
 
             ogr_geom = ogr_feat.GetGeometryRef()
-            if ogr_geom and IsoAreaType.CONTOURS:
+            if ogr_geom and iso_area_type == IsoAreaType.CONTOURS:
                 qgs_feat.setGeometry(QgsGeometry.fromWkt(ogr_geom.ExportToWkt()))
-            elif ogr_geom and IsoAreaType.POLYGONS:
+            elif ogr_geom and iso_area_type == IsoAreaType.POLYGONS:
                 geom: QgsGeometry = QgsGeometry.fromWkt(ogr_feat.ExportToWkt())
 
                 if not geom or geom.isEmpty():
@@ -551,95 +600,15 @@ class QneatCore():
             qgs_feat.setAttribute("cost_level", ogr_feat.GetField("cost_level"))
 
             iso_area_features.append(qgs_feat)
-        
+
+            progress = (i + 1) / total_workload
+            progress_range.feedback().setProgress(progress)
+            
+
         provider.addFeatures(iso_area_features)
         iso_areas.updateExtents()
 
         return iso_areas
-    
-    
-    def calcIsoPolygons(self, max_dist, interval, interpolation_raster_path):
-        featurelist = []
         
-        try:
-            import matplotlib.pyplot as plt
-        except:
-            return featurelist
-    
-        ds_in = gdal.Open(interpolation_raster_path)
-        band_in = ds_in.GetRasterBand(1)
-        xsize_in = band_in.XSize
-        ysize_in = band_in.YSize
-    
-        geotransform_in = ds_in.GetGeoTransform()
-    
-        srs = osr.SpatialReference()
-        srs.ImportFromWkt( ds_in.GetProjectionRef() )
 
-        raster_values = band_in.ReadAsArray(0, 0, xsize_in, ysize_in)
-        raster_values[raster_values < 0] = max_dist + 1000 #necessary to produce rectangular array from raster
-        #nodata values get replaced by the maximum value + 1
-        
-        x_pos = linspace(geotransform_in[0], geotransform_in[0] + geotransform_in[1] * raster_values.shape[1], raster_values.shape[1])
-        y_pos = linspace(geotransform_in[3], geotransform_in[3] + geotransform_in[5] * raster_values.shape[0], raster_values.shape[0])
-        x_grid, y_grid = meshgrid(x_pos, y_pos)        
-        
-        start = interval
-        end = interval * ceil(max_dist/interval) +interval
-    
-        levels = arange(start, end, interval)
-
-        fid = 0
-        for current_level in nditer(levels):
-            self.feedback.pushInfo("[QNEAT3Network][calcIsoPolygons] calculating {}-level contours".format(current_level))
-            contours = plt.contourf(x_grid, y_grid, raster_values, [0, current_level], antialiased=True)
-        
-            for contour_path in contours.get_paths(): 
-    
-                polygon_list = []
-                
-                for vertex in contour_path.to_polygons():
-                    x = vertex[:,0]
-                    y = vertex[:,1]
-
-                    polylinexy_list = [QgsPointXY(i[0], i[1]) for i in zip(x,y)]
-                    polygon_list.append(polylinexy_list)
-                
-                feat = QgsFeature()
-                fields = QgsFields()
-                fields.append(QgsField('id', QVariant.Int, '', 254, 0))
-                fields.append(QgsField('cost_level', QVariant.Double, '', 20, 7))
-                feat.setFields(fields)
-                geom = QgsGeometry().fromPolygonXY(polygon_list)
-                feat.setGeometry(geom)
-                feat['id'] = fid
-                feat['cost_level'] = float(current_level)
-                
-
-                featurelist.insert(0, feat)
-            fid=fid+1    
-        """Maybe move to algorithm"""
-        #featurelist = featurelist[::-1] #reverse
-        self.feedback.pushInfo("[QNEAT3Network][calcIsoPolygons] number of elements in contour_featurelist: {}".format(len(featurelist)))
-        return featurelist
-        
-class QneatAnalysisPoint():
-    
-    def __init__(self, feature: QgsFeature, graph_vertex_id: int, graph_vertex_geom: QgsPointXY, graph_entry_cost: float):
-        self.feature: QgsFeature = feature
-        self.graph_vertex_id: int = graph_vertex_id
-        self.graph_vertex_geom: QgsPointXY = graph_vertex_geom
-        self.graph_entry_cost: float = graph_entry_cost
-        self.graph_entry_geom: QgsGeometry = QgsGeometry().fromPolylineXY([self.feature.geometry.asPoint(), self.graph_entry_geom])
-    
-    def __str__(self):
-        return "QneatAnalysisPoint: feature_id: {:30} referencing graph_vertex_id: {:d}".format(self.feature.id(), self.graph_vertex_id)    
                                                                                                                                                                                                                         
-class MatrixType(Enum):
-    TABLE = 0
-    LINE = 1
-    ROUTE = 2
-
-class IsoAreaType(Enum):
-    CONTOURS = 0
-    POLYGONS = 1

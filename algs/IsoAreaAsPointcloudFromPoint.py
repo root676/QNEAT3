@@ -28,7 +28,7 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
-from qgis.PyQt.QtCore import QVariant
+from qgis.PyQt.QtCore import QMetaType
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (QgsWkbTypes,
@@ -49,7 +49,7 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from ..QneatFramework import QneatCore
+from ..QneatFramework import QneatCore, ProgressRange
 from ..QneatUtilities import checkIfAnalysisCrsEqual, getFeatureFromPoint
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
@@ -216,19 +216,20 @@ class IsoAreaAsPointcloudFromPoint(QgsProcessingAlgorithm):
   
         input_point_features = [getFeatureFromPoint(0, origin_point)]
 
-        core = QneatCore(network, input_point_features, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, feedback, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
+        build_progress_range = ProgressRange(feedback, 0.0, 0.5)
+        core = QneatCore(network, input_point_features, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, build_progress_range, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
         
         fields = QgsFields()
-        fields.append(QgsField('vertex_id', QVariant.Int, '', 254, 0))
-        fields.append(QgsField('cost', QVariant.Double, '', 254, 7))
-        fields.append(QgsField('origin_point_id',QVariant.String, '', 254, 7))
+        fields.append(QgsField('vertex_id', QMetaType.Type.Int))
+        fields.append(QgsField('cost', QMetaType.Type.Double))
+        fields.append(QgsField('origin_point_id', QMetaType.Type.Int))
         
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, network.sourceCrs())
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, analysisCrs)
 
-        iso_pointcloud = core.calcIsoPoints('point_id', max_cost)
+        iso_progress_range = ProgressRange(feedback, 0.5, 1.0)
+        iso_points = core.calcIsoPoints('point_id', max_cost, iso_progress_range)
         
-        sink.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
-        
+        sink.addFeatures(iso_points, QgsFeatureSink.FastInsert)
         
         results = {}
         results[self.OUTPUT] = dest_id

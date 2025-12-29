@@ -4,8 +4,8 @@
     OdMatrixFromPointsAsLines.py
     ---------------------
     
-    Date                 : February 2018
-    Copyright            : (C) 2018 by Clemens Raffler
+    Date                 : December 2025
+    Copyright            : (C) 2025 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
 *                                                                         *
@@ -18,8 +18,8 @@
 """
 
 __author__ = 'Clemens Raffler'
-__date__ = 'February 2018'
-__copyright__ = '(C) 2018, Clemens Raffler'
+__date__ = 'December 2025'
+__copyright__ = '(C) 2025, Clemens Raffler'
 
 # This will get replaced with a git SHA1 when you do a git archive
 
@@ -47,7 +47,7 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import (QgsVectorLayerDirector)
 
-from ..QneatFramework import QneatCore, MatrixType
+from ..QneatFramework import QneatCore, MatrixType, ProgressRange
 from ..QneatUtilities import getOdMatrixFields
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
@@ -215,7 +215,8 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
 
         input_pointlist: list[QgsFeature] = [f for f in points.getFeatures()]
         
-        core = QneatCore(network, input_pointlist, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, feedback, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
+        build_progress_range = ProgressRange(feedback, 0.0, 0.5)
+        core = QneatCore(network, input_pointlist, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, build_progress_range, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
         total_workload = float(pow(len(core.analysis_points),2))
 
         #create output sink
@@ -223,6 +224,7 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, output_fields, QgsWkbTypes.LineString, network.sourceCrs())
 
         feedback.pushInfo(f"{int(total_workload)} od pairs will be routed")
+        od_progress_range = ProgressRange(feedback, 0.5, 1.0)
 
         i: int = 0
         for origin_point in core.analysis_points:
@@ -232,7 +234,7 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
                 sink.addFeature(feat, QgsFeatureSink.FastInsert)  
 
                 i+=i
-                feedback.setProgress(i/total_workload)
+                od_progress_range.feedback().setProgress(i/total_workload)
 
         results = {}
         results[self.OUTPUT] = dest_id

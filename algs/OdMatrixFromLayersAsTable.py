@@ -49,7 +49,7 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import (QgsVectorLayerDirector)
 
-from ..QneatFramework import QneatCore, MatrixType
+from ..QneatFramework import QneatCore, MatrixType, ProgressRange
 from ..QneatUtilities import getFieldDatatype, checkIfAnalysisCrsEqual, getOdMatrixFields
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
@@ -258,13 +258,15 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
     
             input_point_features.append(df)        
 
-        core = QneatCore(network, input_point_features, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, feedback, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
+        build_progress_range = ProgressRange(feedback, 0.0, 0.5)
+        core = QneatCore(network, input_point_features, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, build_progress_range, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
         total_workload = float(pow(len(core.analysis_points),2))
 
         output_fields: QgsFields = getOdMatrixFields(origin_points, origin_id_field, destination_points, destination_id_field)
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, output_fields, QgsWkbTypes.NoGeometry, analysis_crs)
 
         feedback.pushInfo(f"{int(total_workload)} od pairs will be routed")
+        od_progress_range = ProgressRange(feedback, 0.5, 1.0)
 
         o_analysis_points = [o for o in core.analysis_points if o.feature["type"] == 'o']
         d_analysis_points = [d for d in core.analysis_points if d.feature["type"] == 'd']
@@ -277,7 +279,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
                 outfeat = core.queryOdPair(tree, cost, origin_point, origin_id_field, destination_point, destination_id_field, MatrixType.TABLE)                
                 sink.addFeature(outfeat, QgsFeatureSink.FastInsert)  
                 i+=i
-                feedback.setProgress(i/total_workload)
+                od_progress_range.feedback().setProgress(i/total_workload)
 
         results = {}
         results[self.OUTPUT] = dest_id

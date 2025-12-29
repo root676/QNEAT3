@@ -49,7 +49,7 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import (QgsVectorLayerDirector)
 
-from ..QneatFramework import QneatCore, MatrixType
+from ..QneatFramework import QneatCore, MatrixType, ProgressRange
 from ..QneatUtilities import checkIfAnalysisCrsEqual, getOdMatrixFields
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
@@ -211,7 +211,8 @@ class OdMatrixFromPointsAsTable(QgsProcessingAlgorithm):
 
         input_pointlist: list[QgsFeature] = [f for f in points.getFeatures()]
         
-        core = QneatCore(network, input_pointlist, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, feedback, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
+        build_progress_range = ProgressRange(feedback, 0.0, 0.5)
+        core = QneatCore(network, input_pointlist, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, build_progress_range, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
         total_workload = float(pow(len(core.analysis_points),2))
 
         #create output sink
@@ -219,6 +220,7 @@ class OdMatrixFromPointsAsTable(QgsProcessingAlgorithm):
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, output_fields, QgsWkbTypes.NoGeometry, network.sourceCrs())
         
         feedback.pushInfo(f"{int(total_workload)} od pairs will be routed")
+        od_progress_range = ProgressRange(feedback, 0.5, 1.0)
         
         i: int = 0
         for origin_point in core.analysis_points:
@@ -228,7 +230,8 @@ class OdMatrixFromPointsAsTable(QgsProcessingAlgorithm):
                 feat = core.queryOdPair(tree, cost, origin_point, id_field, destination_point, id_field, MatrixType.TABLE)                
                 sink.addFeature(feat, QgsFeatureSink.FastInsert)  
                 i+=i
-                feedback.setProgress(i/total_workload)
+                
+                od_progress_range.feedback().setProgress(i/total_workload)
 
         results = {}
         results[self.OUTPUT] = dest_id
