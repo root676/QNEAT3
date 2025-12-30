@@ -24,10 +24,10 @@ from qgis.PyQt.QtGui import QIcon
 
 #import all algorithms that work with basic qgis modules
 from .algs import ( 
+    IsoAreaAsCostSurfaceFromPoint,
     ShortestPathBetweenPoints,
     IsoAreaAsPointcloudFromPoint,
     IsoAreaAsPointcloudFromLayer, 
-    IsoAreaAsInterpolationFromPoint,
     IsoAreaAsInterpolationFromLayer,
     IsoAreaAsContoursFromPoint,
     IsoAreaAsContoursFromLayer,
@@ -61,7 +61,7 @@ class QneatProvider(QgsProcessingProvider):
         self.addAlgorithm(ShortestPathBetweenPoints.ShortestPathBetweenPoints())
         self.addAlgorithm(IsoAreaAsPointcloudFromPoint.IsoAreaAsPointcloudFromPoint())
         self.addAlgorithm(IsoAreaAsPointcloudFromLayer.IsoAreaAsPointcloudFromLayer())
-        self.addAlgorithm(IsoAreaAsInterpolationFromPoint.IsoAreaAsInterpolationFromPoint())
+        self.addAlgorithm(IsoAreaAsCostSurfaceFromPoint.IsoAreaAsInterpolationFromPoint())
         self.addAlgorithm(IsoAreaAsInterpolationFromLayer.IsoAreaAsInterpolationFromLayer())
         self.addAlgorithm(IsoAreaAsContoursFromPoint.IsoAreaAsContoursFromPoint())
         self.addAlgorithm(IsoAreaAsPolygonsFromPoint.IsoAreaAsPolygonsFromPoint())
