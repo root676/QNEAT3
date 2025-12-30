@@ -106,14 +106,11 @@ class IsoAreaAsPolygonsFromLayer(QgsProcessingAlgorithm):
                 "<b>Output:</b><br>"\
                 "The output of the algorithm are two layers:"\
                 "<ul><li>TIN-Interpolation Distance Raster</li><li>Iso-Area Polygons with cost levels as attributes</li></ul>"    
-    
-    def msg(self, var):
-        return "Type:"+str(type(var))+" repr: "+var.__str__()
 
     def __init__(self):
         super().__init__()
 
-    def initAlgorithm(self, config=None):
+    def initAlgorithm(self):
         self.DIRECTIONS = OrderedDict([
             (self.tr('Forward direction'), QgsVectorLayerDirector.DirectionForward),
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),

@@ -50,7 +50,7 @@ from qgis.core import (QgsWkbTypes,
 from qgis.analysis import QgsVectorLayerDirector
 
 from ..QneatFramework import QneatCore, ProgressRange
-from ..QneatUtilities import getListOfPoints, getFeaturesFromQgsIterable, getFieldDatatype, checkIfAnalysisCrsEqual
+from ..QneatUtilities import getFieldDatatype, checkIfAnalysisCrsEqual
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
@@ -61,7 +61,6 @@ from typing import (
 if TYPE_CHECKING:
     from qgis.core import (
         QgsFields,
-        QgsPointXY,
         QgsProcessingFeatureSource
         )
 
@@ -113,13 +112,7 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
                 "<ul><li>Point layer of reachable network nodes</li></ul><br>"\
                 "You may use the output pointcloud as input for further analyses."
     
-    def msg(self, var):
-        return "Type:"+str(type(var))+" repr: "+var.__str__()
-
-    def __init__(self):
-        super().__init__()
-
-    def initAlgorithm(self, config=None):
+    def initAlgorithm(self):
         self.DIRECTIONS = OrderedDict([
             (self.tr('Forward direction'), QgsVectorLayerDirector.DirectionForward),
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),

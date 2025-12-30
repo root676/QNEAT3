@@ -56,8 +56,6 @@ from qgis.analysis import QgsVectorLayerDirector
 from ..QneatFramework import Qneat3Network, Qneat3AnalysisPoint
 from ..QneatUtilities import getFeatureFromPointParameter
 
-from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
-
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 class IsoAreaAsContoursFromPoint(QgsProcessingAlgorithm):
@@ -108,15 +106,11 @@ class IsoAreaAsContoursFromPoint(QgsProcessingAlgorithm):
                 "<b>Output:</b><br>"\
                 "The output of the algorithm are two layers:"\
                 "<ul><li>TIN-Interpolation Distance Raster</li><li>Iso-Area Contours with cost levels as attributes</li></ul>"
-    
-    
-    def msg(self, var):
-        return "Type:"+str(type(var))+" repr: "+var.__str__()
 
     def __init__(self):
         super().__init__()
 
-    def initAlgorithm(self, config=None):
+    def initAlgorithm(self):
         self.DIRECTIONS = OrderedDict([
             (self.tr('Forward direction'), QgsVectorLayerDirector.DirectionForward),
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),

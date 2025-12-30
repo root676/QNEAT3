@@ -107,13 +107,10 @@ class IsoAreaAsPolygonsFromPoint(QgsProcessingAlgorithm):
     def displayName(self):
         return self.tr('Iso-Area as Polygons (from Point)')
     
-    def msg(self, var):
-        return "Type:"+str(type(var))+" repr: "+var.__str__()
-
     def __init__(self):
         super().__init__()
 
-    def initAlgorithm(self, config=None):
+    def initAlgorithm(self):
         self.DIRECTIONS = OrderedDict([
             (self.tr('Forward direction'), QgsVectorLayerDirector.DirectionForward),
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),
