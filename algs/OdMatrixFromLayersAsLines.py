@@ -128,8 +128,7 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
                            ]
 
         self.MATRIX_GEOMETRY_TYPES = [MatrixType.LINE,
-                                      MatrixType.ROUTE,
-                                      MatrixType.TABLE
+                                      MatrixType.ROUTE
                                     ]
 
         self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Ellipsoidal'),
@@ -170,7 +169,7 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
                                                  self.ENTRY_COST_CALCULATION_METHODS,
                                                  defaultValue=0))
         params.append(QgsProcessingParameterEnum(self.MATRIX_GEOMETRY_TYPE,
-                                                 self.tr('Generated matrix geometry style'),
+                                                 self.tr('Matrix output type'),
                                                  self.MATRIX_GEOMETRY_TYPES,
                                                  defaultValue=0))
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
@@ -221,7 +220,7 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
         destination_points: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.DESTINATION_POINT_LAYER, context)
         destination_id_field: str = self.parameterAsString(parameters, self.DESTINATION_POINT_LAYER, context)
         strategy: int = self.parameterAsEnum(parameters, self.STRATEGY, context) 
-        matrix_geometry_type: MatrixType =  self.parameterAsEnum(parameters, self.MATRIX_GEOMETRY_TYPE, context) 
+        matrix_geometry_type: int =  self.parameterAsEnum(parameters, self.MATRIX_GEOMETRY_TYPE, context) 
 
         entry_cost_calc_method: int = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context) 
         directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context)

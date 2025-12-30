@@ -122,10 +122,10 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
                            self.tr('Fastest path (time optimization)')
                            ]
 
-        self.MATRIX_GEOMETRY_TYPES = [MatrixType.LINE,
-                                      MatrixType.ROUTE,
-                                      MatrixType.TABLE
+        self.MATRIX_GEOMETRY_TYPES = [self.tr("Line"),
+                                      self.tr("Route")
                                     ]
+
 
         self.ENTRY_COST_CALCULATION_METHODS = [self.tr('ellipsoidal'),
                                        self.tr('planar (only use with projected CRS)')]
@@ -152,7 +152,7 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
                                                  self.ENTRY_COST_CALCULATION_METHODS,
                                                  defaultValue=0))
         params.append(QgsProcessingParameterEnum(self.MATRIX_GEOMETRY_TYPE,
-                                                 self.tr('Generated matrix geometry style'),
+                                                 self.tr('Matrix output type'),
                                                  self.MATRIX_GEOMETRY_TYPES,
                                                  defaultValue=0))
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
@@ -201,7 +201,8 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
         points: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.POINTS, context)
         id_field: str = self.parameterAsString(parameters, self.ID_FIELD, context)
         strategy: int = self.parameterAsEnum(parameters, self.STRATEGY, context) 
-        matrix_type: MatrixType =  self.parameterAsEnum(parameters, self.MATRIX_GEOMETRY_TYPE, context)
+        matrix_type: int =  self.parameterAsEnum(parameters, self.MATRIX_GEOMETRY_TYPE, context)
+
 
         entry_cost_calc_method: int = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context)
         directionFieldName: int = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) 

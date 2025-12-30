@@ -21,7 +21,7 @@ import time
 from osgeo import gdal, ogr, osr
 
 from math import ceil
-from enum import Enum
+from enum import IntEnum
 
 import numpy
 
@@ -76,13 +76,13 @@ if TYPE_CHECKING:
     )
 
 
-class MatrixType(Enum):
+class MatrixType(IntEnum):
     TABLE = 0
     LINE = 1
     ROUTE = 2
 
 
-class IsoAreaType(Enum):
+class IsoAreaType(IntEnum):
     CONTOURS = 0
     POLYGONS = 1
 
