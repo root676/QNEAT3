@@ -51,6 +51,17 @@ from ..QneatUtilities import checkIfAnalysisCrsEqual, getFeatureFromPoint
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
+from typing import (
+    TYPE_CHECKING
+    )  
+
+if TYPE_CHECKING:
+    from qgis.core import (
+        QgsFields,
+        QgsPointXY,
+        QgsProcessingFeatureSource
+        )
+
 class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
 
     INPUT = 'INPUT'
@@ -82,7 +93,7 @@ class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
         return 'isoareaascostsurfacefrompoint'
 
     def displayName(self):
-        return self.tr('Iso-Area as Cost Surface (from Point)')
+        return self.tr('Iso-area as cost surface (from point)')
 
     def shortHelpString(self):
         return  "<b>General:</b><br>"\
@@ -114,7 +125,7 @@ class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
             
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
-                                                              self.tr('Network Layer'),
+                                                              self.tr('Network layer'),
                                                               [QgsProcessing.TypeVectorLine]))
         self.addParameter(QgsProcessingParameterPoint(self.ORIGIN_POINT,
                                                       self.tr('Origin point')))
@@ -127,7 +138,7 @@ class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
                                                     QgsProcessingParameterNumber.Integer,
                                                     10, False, 1, 99999999))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
-                                                     self.tr('Optimization Criterion'),
+                                                     self.tr('Optimization criterion'),
                                                      self.STRATEGIES,
                                                      defaultValue=0))
 
@@ -172,55 +183,45 @@ class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
         
-        self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT, self.tr('Output Interpolation')))
+        self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT, self.tr('Output cost surface')))
 
     def processAlgorithm(self, parameters, context, feedback):
-        feedback.pushInfo(self.tr("[QNEAT3Algorithm] This is a QNEAT3 Algorithm: '{}'".format(self.displayName())))
-        network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
-        startPoint = self.parameterAsPoint(parameters, self.ORIGIN_POINT, context, network.sourceCrs()) #QgsPointXY
-        max_dist = self.parameterAsDouble(parameters, self.MAX_COST, context)#float
-        cell_size = self.parameterAsInt(parameters, self.CELL_SIZE, context)#int
-        strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
+        feedback.setProgress(0)
+        feedback.pushInfo(self.tr("Running '{}'".format(self.displayName())))
 
-        entry_cost_calc_method = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context) #int
-        directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
-        forwardValue = self.parameterAsString(parameters, self.VALUE_FORWARD, context) #str
-        backwardValue = self.parameterAsString(parameters, self.VALUE_BACKWARD, context) #str
-        bothValue = self.parameterAsString(parameters, self.VALUE_BOTH, context) #str
-        defaultDirection = self.parameterAsEnum(parameters, self.DEFAULT_DIRECTION, context) #int
-        speedFieldName = self.parameterAsString(parameters, self.SPEED_FIELD, context) #str
-        defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) #float
-        tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
-        output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
+        network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.INPUT, context) 
+        origin_point: QgsPointXY = self.parameterAsPoint(parameters, self.ORIGIN_POINT, context, network.sourceCrs()) 
+        max_cost: float = self.parameterAsDouble(parameters, self.MAX_COST, context)
+        cell_size: int = self.parameterAsInt(parameters, self.CELL_SIZE, context)
+        strategy: int = self.parameterAsEnum(parameters, self.STRATEGY, context) 
 
-        analysisCrs = network.sourceCrs()
-        input_coordinates = [startPoint]
-        input_point = getFeatureFromPointParameter(startPoint)
+        entry_cost_calc_method: int = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context)
+        directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) 
+        forwardValue: str = self.parameterAsString(parameters, self.VALUE_FORWARD, context) 
+        backwardValue: str = self.parameterAsString(parameters, self.VALUE_BACKWARD, context) 
+        bothValue: str = self.parameterAsString(parameters, self.VALUE_BOTH, context) 
+        defaultDirection: int = self.parameterAsEnum(parameters, self.DEFAULT_DIRECTION, context) 
+        speedFieldName: str = self.parameterAsString(parameters, self.SPEED_FIELD, context) 
+        defaultSpeed: float = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) 
+        tolerance: float = self.parameterAsDouble(parameters, self.TOLERANCE, context)
+        output_path: str = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
+
+        if checkIfAnalysisCrsEqual(network.sourceCrs, context.project().crs()):
+            analysisCrs = network.sourceCrs()
+        else:
+            raise QgsProcessingException(f"Coordinate reference systems of graph is {network.sourceCrs().authid()} and doesn't match up with the coordinate reference system of the project ({context.project().crs().authid()}). Reproject so that the CRSs of analysis layers match up.")
+  
+        input_point_features = [getFeatureFromPoint(0, origin_point)]
+
+        build_progress_range = ProgressRange(feedback, 0.0, 0.3)
+        core = QneatCore(network, input_point_features, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, build_progress_range, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
         
-        feedback.pushInfo("[QNEAT3Algorithm] Building Graph...")
-        feedback.setProgress(10)  
-        net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
-        feedback.setProgress(40)
-        
-        analysis_point = Qneat3AnalysisPoint("point", input_point, "point_id", net, net.list_tiedPoints[0], entry_cost_calc_method, feedback)
-        
-        feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Pointcloud...")
-        iso_pointcloud = net.calcIsoPoints([analysis_point], max_dist)
-        feedback.setProgress(70)
-        
-        uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())
-        
-        iso_pointcloud_layer = QgsVectorLayer(uri, "iso_pointcloud_layer", "memory")
-        iso_pointcloud_provider = iso_pointcloud_layer.dataProvider()
-        iso_pointcloud_provider.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
-        
-        feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Interpolation-Raster using QGIS TIN-Interpolator...")
-        net.calcIsoTinInterpolation(iso_pointcloud_layer, cell_size, output_path)
-        feedback.setProgress(99)
-        
-        feedback.pushInfo("[QNEAT3Algorithm] Ending Algorithm")
-        feedback.setProgress(100)           
-        
+        iso_progress_range = ProgressRange(feedback, 0.33, 0.66)
+        iso_points = core.calcIsoPoints('point_id', max_cost, iso_progress_range)
+
+        tin_progress_range = ProgressRange(feedback, 0.66, 1.0)
+        core.calcIsoTinInterpolation(iso_points, cell_size, output_path, tin_progress_range )
+
         results = {}
         results[self.OUTPUT] = output_path
         return results

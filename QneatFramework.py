@@ -341,7 +341,7 @@ class QneatCore():
         return list(iso_points.values())
         
         
-    def calcIsoTinInterpolation(self, iso_points: list[QgsFeature], cost_field_name : str, cellsize: float, output_interpolation_path : str, progress_range: ProgressRange ) -> QgsRasterLayer:
+    def calcIsoTinInterpolation(self, iso_points: list[QgsFeature], cellsize: float, output_interpolation_path : str, progress_range: ProgressRange, cost_field_name : str = 'cost' ) -> QgsRasterLayer:
 
         if cellsize <= 0:
             raise QgsProcessingException("Cell size for iso area interpolation must be > 0")
