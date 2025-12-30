@@ -46,7 +46,7 @@ from qgis.core import (QgsFeatureSink,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from ..QneatFramework import QneatCore, ProgressRange
+from ..QneatFramework import QneatCore, EntryCostCalculationMethod,ProgressRange
 from ..QneatUtilities import checkIfAnalysisCrsEqual, getFeatureFromPoint
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
@@ -68,7 +68,6 @@ class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
     MAX_COST = "MAX_COST"
     CELL_SIZE = "CELL_SIZE"
     STRATEGY = 'STRATEGY'
-    ENTRY_COST_CALCULATION_METHOD = 'ENTRY_COST_CALCULATION_METHOD'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
     VALUE_BACKWARD = 'VALUE_BACKWARD'
@@ -119,8 +118,6 @@ class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
         self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
                            self.tr('Fastest Path (time optimization)')
                            ]
-
-        self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar (only use with projected CRS)')]
             
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
@@ -142,10 +139,6 @@ class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
                                                      defaultValue=0))
 
         params = []
-        params.append(QgsProcessingParameterEnum(self.ENTRY_COST_CALCULATION_METHOD,
-                                                 self.tr('Entry Cost calculation method'),
-                                                 self.ENTRY_COST_CALCULATION_METHODS,
-                                                 defaultValue=0))
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
                                                   self.tr('Direction field'),
                                                   None,
@@ -194,7 +187,6 @@ class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
         cell_size: int = self.parameterAsInt(parameters, self.CELL_SIZE, context)
         strategy: int = self.parameterAsEnum(parameters, self.STRATEGY, context) 
 
-        entry_cost_calc_method: int = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context)
         directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) 
         forwardValue: str = self.parameterAsString(parameters, self.VALUE_FORWARD, context) 
         backwardValue: str = self.parameterAsString(parameters, self.VALUE_BACKWARD, context) 
@@ -213,7 +205,7 @@ class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
         input_point_features = [getFeatureFromPoint(0, origin_point)]
 
         build_progress_range = ProgressRange(feedback, 0.0, 0.3)
-        core = QneatCore(network, input_point_features, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, build_progress_range, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
+        core = QneatCore(network, input_point_features, strategy, speedFieldName, defaultSpeed, tolerance, EntryCostCalculationMethod.PLANAR, build_progress_range, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
         
         iso_progress_range = ProgressRange(feedback, 0.33, 0.66)
         iso_points = core.calcIsoPoints('point_id', max_cost, iso_progress_range)

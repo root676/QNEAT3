@@ -22,17 +22,14 @@ import os
 from qgis.core import QgsProcessingProvider
 from qgis.PyQt.QtGui import QIcon
 
-#import all algorithms that work with basic qgis modules
 from .algs import ( 
     IsoAreaAsCostSurfaceFromLayer,
     IsoAreaAsCostSurfaceFromPoint,
+    IsoAreaFromPoint,
+    IsoAreaFromLayer,
     ShortestPathBetweenPoints,
     IsoAreaAsPointcloudFromPoint,
     IsoAreaAsPointcloudFromLayer, 
-    IsoAreaAsContoursFromPoint,
-    IsoAreaAsContoursFromLayer,
-    IsoAreaAsPolygonsFromPoint,
-    IsoAreaAsPolygonsFromLayer,
     OdMatrixFromPointsAsLines, 
     OdMatrixFromPointsAsTable, 
     OdMatrixFromLayersAsTable, 
@@ -63,10 +60,8 @@ class QneatProvider(QgsProcessingProvider):
         self.addAlgorithm(IsoAreaAsPointcloudFromLayer.IsoAreaAsPointcloudFromLayer())
         self.addAlgorithm(IsoAreaAsCostSurfaceFromPoint.IsoAreaAsInterpolationFromPoint())
         self.addAlgorithm(IsoAreaAsCostSurfaceFromLayer.IsoAreaAsInterpolationFromLayer())
-        self.addAlgorithm(IsoAreaAsContoursFromPoint.IsoAreaAsContoursFromPoint())
-        self.addAlgorithm(IsoAreaAsPolygonsFromPoint.IsoAreaAsPolygonsFromPoint())
-        self.addAlgorithm(IsoAreaAsPolygonsFromLayer.IsoAreaAsPolygonsFromLayer())
-        self.addAlgorithm(IsoAreaAsContoursFromLayer.IsoAreaAsContoursFromLayer())
+        self.addAlgorithm(IsoAreaFromPoint.IsoAreaFromPoint())
+        self.addAlgorithm(IsoAreaFromLayer.IsoAreaFromLayer())
         self.addAlgorithm(OdMatrixFromPointsAsLines.OdMatrixFromPointsAsLines())
         self.addAlgorithm(OdMatrixFromPointsAsTable.OdMatrixFromPointsAsTable())
         self.addAlgorithm(OdMatrixFromLayersAsTable.OdMatrixFromLayersAsTable())

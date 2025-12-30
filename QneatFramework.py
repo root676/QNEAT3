@@ -75,17 +75,18 @@ if TYPE_CHECKING:
         QgsGraph
     )
 
-
-class MatrixType(IntEnum):
-    TABLE = 0
-    LINE = 1
-    ROUTE = 2
-
+class EntryCostCalculationMethod(IntEnum):
+    PLANAR = 0
+    ELLIPSOID = 1
 
 class IsoAreaType(IntEnum):
     CONTOURS = 0
     POLYGONS = 1
 
+class MatrixType(IntEnum):
+    TABLE = 0
+    LINE = 1
+    ROUTE = 2
 
 class ProgressProxyFeedback (QgsProcessingFeedback):
 
@@ -138,7 +139,7 @@ class QneatCore():
                  speed_field: str,
                  default_speed: float,
                  tolerance: float,
-                 entry_cost_calculation_method: int,
+                 entry_cost_calculation_method: EntryCostCalculationMethod,
                  buildProgressRange: ProgressRange,
                  directionFieldName: Optional[str] = None, 
                  forwardValue: Optional[str] = None,
@@ -184,7 +185,7 @@ class QneatCore():
 
         self.analysis_points: list[QneatAnalysisPoint] = list()
 
-        if entry_cost_calculation_method == 0: 
+        if entry_cost_calculation_method == EntryCostCalculationMethod.ELLIPSOID: 
             dist_calculator = QgsDistanceArea()
             dist_calculator.setSourceCrs(self.analysis_crs, QgsProject().instance().transformContext())
             dist_calculator.setEllipsoid(self.analysis_crs.ellipsoidAcronym())
@@ -193,7 +194,7 @@ class QneatCore():
         for i, tied_point in enumerate(tiedPoints):
             graph_vertex_id: int = self.qgsgraph.findVertex(tied_point)
             input_point: QgsPointXY = xy_points[i]
-            if entry_cost_calculation_method == 0: 
+            if entry_cost_calculation_method == EntryCostCalculationMethod.ELLIPSOID: 
                 dist = dist_calculator.measureLine(input_point, tied_point)
             else: 
                 dist = input_point.distance(tied_point)

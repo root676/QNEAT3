@@ -122,8 +122,8 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
                            self.tr('Fastest Path (time optimization)')
                            ]
 
-        self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Ellipsoidal'),
-                                       self.tr('Planar (only use with projected CRS)')]
+        self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar'),
+                                                self.tr('Ellipsoidal')]
     
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Network Layer'),

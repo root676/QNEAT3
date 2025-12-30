@@ -127,8 +127,8 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
                                     ]
 
 
-        self.ENTRY_COST_CALCULATION_METHODS = [self.tr('ellipsoidal'),
-                                       self.tr('planar (only use with projected CRS)')]
+        self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar'),
+                                                self.tr('Ellipsoidal')]
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Network layer'),
