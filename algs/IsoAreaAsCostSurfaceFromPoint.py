@@ -57,7 +57,6 @@ from typing import (
 
 if TYPE_CHECKING:
     from qgis.core import (
-        QgsFields,
         QgsPointXY,
         QgsProcessingFeatureSource
         )

@@ -1,14 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 ***************************************************************************
-    IsoAreaAsInterpolationFromLayer.py
+    IsoAreaAsCostSurfaceFromPoint.py
     ---------------------
     
-    Partially based on QGIS3 network analysis algorithms. 
-    Copyright 2016 Alexander Bruy    
-    
-    Date                 : March 2018
-    Copyright            : (C) 2018 by Clemens Raffler
+    Date                 : December 2025
+    Copyright            : (C) 2025 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
 *                                                                         *
@@ -21,8 +18,8 @@
 """
 
 __author__ = 'Clemens Raffler'
-__date__ = 'February 2018'
-__copyright__ = '(C) 2018, Clemens Raffler'
+__date__ = 'December 2025'
+__copyright__ = '(C) 2025, Clemens Raffler'
 
 # This will get replaced with a git SHA1 when you do a git archive
 
@@ -31,12 +28,13 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
+from qgis.PyQt.QtCore import QMetaType
 from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import (QgsFeatureSink,
-                       QgsVectorLayer,
+from qgis.core import (QgsField,
                        QgsProcessing,
                        QgsProcessingAlgorithm,
+                       QgsProcessingException,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterField,
                        QgsProcessingParameterNumber,
@@ -47,17 +45,29 @@ from qgis.core import (QgsFeatureSink,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from ..QneatFramework import Qneat3Network, Qneat3AnalysisPoint
-from ..QneatUtilities import getListOfPoints, getFeaturesFromQgsIterable
+from ..QneatFramework import QneatCore, ProgressRange
+from ..QneatUtilities import checkIfAnalysisCrsEqual, getFieldDatatype
+
+from typing import (
+    TYPE_CHECKING
+    )  
+
+if TYPE_CHECKING:
+    from qgis.core import (
+        QgsFeature,
+        QgsFields,
+        QgsProcessingFeatureSource
+        )
+
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 class IsoAreaAsInterpolationFromLayer(QgsProcessingAlgorithm):
 
     INPUT = 'INPUT'
-    START_POINTS = 'START_POINTS'
+    ORIGIN_POINTS = 'ORIGIN_POINTS'
     ID_FIELD = 'ID_FIELD'
-    MAX_DIST = "MAX_DIST"
+    MAX_COST = "MAX_COST"
     CELL_SIZE = "CELL_SIZE"
     STRATEGY = 'STRATEGY'
     ENTRY_COST_CALCULATION_METHOD = 'ENTRY_COST_CALCULATION_METHOD'
@@ -81,24 +91,23 @@ class IsoAreaAsInterpolationFromLayer(QgsProcessingAlgorithm):
         return 'isoareas'
     
     def name(self):
-        return 'isoareaasinterpolationfromlayer'
+        return 'isoareaascostsurfacefromlayer'
 
     def displayName(self):
-        return self.tr('Iso-Area as Interpolation (from Layer)')
+        return self.tr('Iso-area as cost surface (from layer)')
     
     def shortHelpString(self):
         return  "<b>General:</b><br>"\
                 "This algorithm implements iso-area analysis to return the <b>network-distance interpolation for a maximum cost level</b> on a given <b>network dataset for a layer of points</b>.<br>"\
                 "It accounts for <b>points outside of the network</b> (eg. <i>non-network-elements</i>) and increments the iso-areas cost regarding to distance/default speed value. Distances are measured accounting for <b>ellipsoids</b>.<br>Please, <b>only use a projected coordinate system (eg. no WGS84)</b> for this kind of analysis.<br><br>"\
                 "<b>Parameters (required):</b><br>"\
-                "Following Parameters must be set to run the algorithm:"\
-                "<ul><li>Network Layer</li><li>Startpoint Layer</li><li>Unique Point ID Field (numerical)</li><li>Maximum cost level for Iso-Area</li><li>Cellsize in Meters (increase default when analyzing larger networks)</li><li>Cost Strategy</li></ul><br>"\
+                "Following parameters must be set to run the algorithm:"\
+                "<ul><li>Network layer</li><li>Startpoint layer</li><li>Unique point ID field (numerical)</li><li>Maximum cost level for iso-area</li><li>cellsize in meters (increase default when analyzing larger networks)</li><li>Cost strategy</li></ul><br>"\
                 "<b>Parameters (optional):</b><br>"\
                 "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the networks edges."\
-                "<ul><li>Direction Field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed Field</li><li>Default Speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
+                "<ul><li>Direction field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
                 "<b>Output:</b><br>"\
-                "The output of the algorithm is one layer:"\
-                "<ul><li>TIN-Interpolation Distance Raster</li></ul>"
+                "The output of the algorithm is a cost surface raster"
         
     def __init__(self):
         super().__init__()
@@ -117,18 +126,18 @@ class IsoAreaAsInterpolationFromLayer(QgsProcessingAlgorithm):
             
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
-                                                              self.tr('Network Layer'),
+                                                              self.tr('Network layer'),
                                                               [QgsProcessing.TypeVectorLine]))
-        self.addParameter(QgsProcessingParameterFeatureSource(self.START_POINTS,
-                                                              self.tr('Start Points'),
+        self.addParameter(QgsProcessingParameterFeatureSource(self.ORIGIN_POINTS,
+                                                              self.tr('Start points'),
                                                               [QgsProcessing.TypeVectorPoint]))
         self.addParameter(QgsProcessingParameterField(self.ID_FIELD,
-                                                       self.tr('Unique Point ID Field'),
+                                                       self.tr('Unique point ID field'),
                                                        None,
-                                                       self.START_POINTS,
+                                                       self.ORIGIN_POINTS,
                                                        optional=False))
-        self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
-                                                   self.tr('Size of Iso-Area (ddistance in network csr units or time in seconds)'),
+        self.addParameter(QgsProcessingParameterNumber(self.MAX_COST,
+                                                   self.tr('Size of iso-area (distance in network csr units or time in seconds)'),
                                                    QgsProcessingParameterNumber.Double,
                                                    2500.0, False, 0, 99999999.99))
         self.addParameter(QgsProcessingParameterNumber(self.CELL_SIZE,
@@ -136,13 +145,13 @@ class IsoAreaAsInterpolationFromLayer(QgsProcessingAlgorithm):
                                                     QgsProcessingParameterNumber.Integer,
                                                     10, False, 1, 99999999))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
-                                                     self.tr('Optimization Criterion'),
+                                                     self.tr('Optimization criterion'),
                                                      self.STRATEGIES,
                                                      defaultValue=0))
 
         params = []
         params.append(QgsProcessingParameterEnum(self.ENTRY_COST_CALCULATION_METHOD,
-                                                 self.tr('Entry Cost calculation method'),
+                                                 self.tr('Entry cost calculation method'),
                                                  self.ENTRY_COST_CALCULATION_METHODS,
                                                  defaultValue=0))
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
@@ -181,55 +190,58 @@ class IsoAreaAsInterpolationFromLayer(QgsProcessingAlgorithm):
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
         
-        self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT, self.tr('Output Interpolation')))
+        self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT, self.tr('Output interpolation')))
 
     def processAlgorithm(self, parameters, context, feedback):
-        feedback.pushInfo(self.tr("[QNEAT3Algorithm] This is a QNEAT3 Algorithm: '{}'".format(self.displayName())))
-        network = self.parameterAsSource(parameters, self.INPUT, context) #QgsProcessingFeatureSource
-        startPoints = self.parameterAsSource(parameters, self.START_POINTS, context) #QgsProcessingFeatureSource
-        id_field = self.parameterAsString(parameters, self.ID_FIELD, context) #str
-        max_dist = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
-        cell_size = self.parameterAsInt(parameters, self.CELL_SIZE, context)#int
-        strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
+        feedback.setProgress(0)
+        feedback.pushInfo(self.tr("Running '{}'".format(self.displayName())))
 
-        entry_cost_calc_method = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context) #int
-        directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
-        forwardValue = self.parameterAsString(parameters, self.VALUE_FORWARD, context) #str
-        backwardValue = self.parameterAsString(parameters, self.VALUE_BACKWARD, context) #str
-        bothValue = self.parameterAsString(parameters, self.VALUE_BOTH, context) #str
-        defaultDirection = self.parameterAsEnum(parameters, self.DEFAULT_DIRECTION, context) #int
-        speedFieldName = self.parameterAsString(parameters, self.SPEED_FIELD, context) #str
-        defaultSpeed = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) #float
-        tolerance = self.parameterAsDouble(parameters, self.TOLERANCE, context) #float
-        output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
+        network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.INPUT, context) 
+        origin_points: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.START_POINTS, context)
+        id_field: str = self.parameterAsString(parameters, self.ID_FIELD, context) 
+        max_cost: float = self.parameterAsDouble(parameters, self.MAX_COST, context)
+        cell_size: int = self.parameterAsInt(parameters, self.CELL_SIZE, context)
+        strategy: int = self.parameterAsEnum(parameters, self.STRATEGY, context) 
 
-        analysisCrs = network.sourceCrs()
-        input_coordinates = getListOfPoints(startPoints)
+        entry_cost_calc_method: int = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context) 
+        directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) 
+        forwardValue: str = self.parameterAsString(parameters, self.VALUE_FORWARD, context)
+        backwardValue: str = self.parameterAsString(parameters, self.VALUE_BACKWARD, context) 
+        bothValue: str = self.parameterAsString(parameters, self.VALUE_BOTH, context)
+        defaultDirection: int = self.parameterAsEnum(parameters, self.DEFAULT_DIRECTION, context) 
+        speedFieldName: str = self.parameterAsString(parameters, self.SPEED_FIELD, context)
+        defaultSpeed: float = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) 
+        tolerance: float = self.parameterAsDouble(parameters, self.TOLERANCE, context) 
+        output_path: str = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
+
+        if not checkIfAnalysisCrsEqual(network.sourceCrs, context.project().crs()):
+            raise QgsProcessingException(f"Coordinate reference systems of graph is {network.sourceCrs().authid()} and doesn't match up with the coordinate reference system of the project ({context.project().crs().authid()}). Reproject so that the CRSs of analysis layers match up.")
         
-        feedback.pushInfo("[QNEAT3Algorithm] Building Graph...")
-        feedback.setProgress(10)   
-        net = Qneat3Network(network, input_coordinates, strategy, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection, analysisCrs, speedFieldName, defaultSpeed, tolerance, feedback)
-        feedback.setProgress(40)
+        #unpack all points into one list
+        input_point_features: list[QgsFeature] = []
+
+        source_point_fields = QgsFields()
+        source_point_fields.append(QgsField('fid', QMetaType.Type.LongLong))
+        source_point_fields.append(QgsField('user_id'), getFieldDatatype(origin_points, id_field))
+        source_point_fields.append(QgsField('type', QMetaType.Type.QString))
+
+        for f in origin_points.getFeatures():
+            source_feat = QgsFeature(source_point_fields)
+            source_feat["fid"] = f.id()
+            source_feat["user_id"] = f[id_field]
+            source_feat.setGeometry(f.geometry())
         
-        list_apoints = [Qneat3AnalysisPoint("from", feature, id_field, net, net.list_tiedPoints[i], entry_cost_calc_method, feedback) for i, feature in enumerate(getFeaturesFromQgsIterable(startPoints))]
+            input_point_features.append(source_feat)
         
-        feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Pointcloud...")
-        iso_pointcloud = net.calcIsoPoints(list_apoints, max_dist)
-        feedback.setProgress(70)
+        build_progress_range = ProgressRange(feedback, 0.0, 0.33)
+        core = QneatCore(network, input_point_features, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, build_progress_range, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
         
-        uri = "Point?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&field=origin_point_id:string(254)&index=yes".format(analysisCrs.authid())
-        
-        iso_pointcloud_layer = QgsVectorLayer(uri, "iso_pointcloud_layer", "memory")
-        iso_pointcloud_provider = iso_pointcloud_layer.dataProvider()
-        iso_pointcloud_provider.addFeatures(iso_pointcloud, QgsFeatureSink.FastInsert)
-        
-        feedback.pushInfo("[QNEAT3Algorithm] Calculating Iso-Interpolation-Raster using QGIS TIN-Interpolator...")
-        net.calcIsoTinInterpolation(iso_pointcloud_layer, cell_size, output_path)
-        feedback.setProgress(99)
-        
-        feedback.pushInfo("[QNEAT3Algorithm] Ending Algorithm")
-        feedback.setProgress(100)   
-        
+        iso_progress_range = ProgressRange(feedback, 0.33, 0.66)
+        iso_points = core.calcIsoPoints('point_id', max_cost, iso_progress_range)
+
+        tin_progress_range = ProgressRange(feedback, 0.66, 1.0)
+        core.calcIsoTinInterpolation(iso_points, cell_size, output_path, tin_progress_range )
+
         results = {}
         results[self.OUTPUT] = output_path
         return results
