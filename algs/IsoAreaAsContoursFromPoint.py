@@ -129,11 +129,11 @@ class IsoAreaAsContoursFromPoint(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
                                                       self.tr('Start point')))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
-                                                   self.tr('Size of Iso-Area (distance or time value)'),
+                                                   self.tr('Size of Iso-Area (distance in network csr units or time in seconds)'),
                                                    QgsProcessingParameterNumber.Double,
                                                    2500.0, False, 0, 99999999.99))
         self.addParameter(QgsProcessingParameterNumber(self.INTERVAL,
-                                                   self.tr('Contour Interval (distance or time value)'),
+                                                   self.tr('Contour Interval (distance in network csr units or time in seconds)'),
                                                    QgsProcessingParameterNumber.Double,
                                                    500.0, False, 0, 99999999.99))
         self.addParameter(QgsProcessingParameterNumber(self.CELL_SIZE,
