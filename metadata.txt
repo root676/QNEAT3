@@ -51,7 +51,8 @@ changelog=3.0.0:
     - dropped Matplotlib and pyplot prerequesites for contour generation
     - new contour generation using GDAL
     - update of parameter names:
-    - 
+    - silence algorithm output and implement more consistent progress feedback
+    
 # tags are comma separated with spaces allowed
 tags= network analysis, graph analysis, od matrix, distance matrix, od matrices, OD, isochrone areas, catchment areas, shortest path, dijkstra
 
