@@ -75,14 +75,17 @@ if TYPE_CHECKING:
         QgsGraph
     )
 
+
 class MatrixType(Enum):
     TABLE = 0
     LINE = 1
     ROUTE = 2
 
+
 class IsoAreaType(Enum):
     CONTOURS = 0
     POLYGONS = 1
+
 
 class ProgressProxyFeedback (QgsProcessingFeedback):
 
@@ -108,6 +111,7 @@ class ProgressRange:
     def feedback(self) -> ProgressProxyFeedback:
         return self.fb
     
+
 class QneatAnalysisPoint():
     
     def __init__(self, feature: QgsFeature, graph_vertex_id: int, graph_vertex_geom: QgsPointXY, graph_entry_cost: float):
@@ -118,7 +122,8 @@ class QneatAnalysisPoint():
         self.graph_entry_geom: QgsGeometry = QgsGeometry().fromPolylineXY([self.feature.geometry.asPoint(), self.graph_entry_geom])
     
     def __str__(self):
-        return "QneatAnalysisPoint: feature_id: {:30} referencing graph_vertex_id: {:d}".format(self.feature.id(), self.graph_vertex_id)    
+        return "QneatAnalysisPoint: feature_id: {:30} referencing graph_vertex_id: {:d}".format(self.feature.id(), self.graph_vertex_id) 
+       
     
 class QneatCore():
     """
@@ -208,9 +213,11 @@ class QneatCore():
         else:
             self.strategy = QgsNetworkSpeedStrategy(speedFieldId, float(default_speed), 1000.0 / 3600.0)
 
+
     def calcDijkstra(self, source_vertex_id: int) -> tuple[list[int], list[float]]:
         tree, cost = QgsGraphAnalyzer.dijkstra(self.network, source_vertex_id, 0)
         return tree, cost
+        
     
     def queryOdPair(self, tree: list[int], cost: list[float], origin_point: QneatAnalysisPoint, origin_point_id_field: str, destination_point: QneatAnalysisPoint, destination_point_id_field: str, matrix_type: MatrixType) -> QgsFeature:
         origin_id = origin_point.feature[origin_point_id_field]
@@ -275,6 +282,7 @@ class QneatCore():
             feat.setGeometry(route_geom)
 
         return feat
+    
         
     def calcIsoPoints(self, id_field_name: str, max_cost: float, progress_range: ProgressRange) -> list[QgsFeature]:
         iso_points = dict()
@@ -331,140 +339,6 @@ class QneatCore():
             progress_range.feedback().setProgress((i+1)/total_workload)
 
         return list(iso_points.values())
-    
-    def calcQneatInterpolation(self,iso_pointcloud_featurelist, resolution, interpolation_raster_path):  
-        #prepare spatial index
-        uri = 'PointM?crs={}&field=vertex_id:int(254)&field=cost:double(254,7)&key=vertex_id&index=yes'.format(self.AnalysisCrs.authid())
-        
-        mIsoPointcloud = QgsVectorLayer(uri, "mIsoPointcloud_layer", "memory")
-        mIsoPointcloud_provider = mIsoPointcloud.dataProvider()
-        mIsoPointcloud_provider.addFeatures(iso_pointcloud_featurelist, QgsFeatureSink.FastInsert)
-        
-        #implement spatial index for lines (closest line, etc...)
-        spt_idx = QgsSpatialIndex(mIsoPointcloud.getFeatures(QgsFeatureRequest()), self.feedback)
-        
-        #prepare numpy coordinate grids
-        NoData_value = -9999
-        raster_rectangle = mIsoPointcloud.extent()
-        
-        #top left point
-        xmin = raster_rectangle.xMinimum()
-        ymin = raster_rectangle.yMinimum()
-        xmax = raster_rectangle.xMaximum()
-        ymax = raster_rectangle.yMaximum()
-        
-        cols = int((xmax - xmin) / resolution)
-        rows = int((ymax - ymin) / resolution)
-        
-        output_interpolation_raster = gdal.GetDriverByName('GTiff').Create(interpolation_raster_path, cols, rows, 1, gdal.GDT_Float64 )
-        output_interpolation_raster.SetGeoTransform((xmin, resolution, 0, ymax, 0, -resolution))
-        
-        band = output_interpolation_raster.GetRasterBand(1)
-        band.SetNoDataValue(NoData_value)
-        
-        #initialize zero array with 2 dimensions (according to rows and cols)
-        raster_data = numpy.zeros(shape=(rows, cols))
-        
-        #compute raster cell MIDpoints
-        x_pos = numpy.linspace(xmin+(resolution/2), xmax -(resolution/2), raster_data.shape[1])
-        y_pos = numpy.linspace(ymax-(resolution/2), ymin + (resolution/2), raster_data.shape[0])
-        x_grid, y_grid = numpy.meshgrid(x_pos, y_pos) 
-        
-        self.feedback.pushInfo('[QNEAT3Network][calcQneatInterpolation] Beginning with interpolation')
-        total_work = rows * cols
-        counter = 0
-        
-        self.feedback.pushInfo('[QNEAT3Network][calcQneatInterpolation] Total workload: {} cells'.format(total_work))
-        self.feedback.setProgress(0)
-        for i in range(rows):
-            for j in range(cols):
-                current_pixel_midpoint = QgsPointXY(x_grid[i,j],y_grid[i,j])
-                
-                nearest_vertex_fid = spt_idx.nearestNeighbor(current_pixel_midpoint, 1)[0]
-                
-                nearest_feature = mIsoPointcloud.getFeature(nearest_vertex_fid)
-                
-                nearest_vertex = self.network.vertex(nearest_feature['vertex_id'])
-                
-                edges = nearest_vertex.incomingEdges() + nearest_vertex.outgoingEdges()
-                
-                vertex_found = False
-                nearest_counter = 2
-                while vertex_found == False:
-                    n_nearest_feature_fid = spt_idx.nearestNeighbor(current_pixel_midpoint, nearest_counter)[nearest_counter-1]
-                    n_nearest_feature = mIsoPointcloud.getFeature(n_nearest_feature_fid)
-                    n_nearest_vertex_id = n_nearest_feature['vertex_id']
-                    
-                    for edge_id in edges:
-                        from_vertex_id = self.network.edge(edge_id).fromVertex()
-                        to_vertex_id = self.network.edge(edge_id).toVertex()
-                        
-                        if n_nearest_vertex_id == from_vertex_id: 
-                            vertex_found = True
-                            vertex_type = "from_vertex"
-                            from_point = n_nearest_feature.geometry().asPoint()
-                            from_vertex_cost = n_nearest_feature['cost']
-                        if n_nearest_vertex_id == to_vertex_id:
-                            vertex_found = True
-                            vertex_type = "to_vertex"
-                            to_point = n_nearest_feature.geometry().asPoint()
-                            to_vertex_cost = n_nearest_feature['cost']
-                    
-                    nearest_counter = nearest_counter + 1
-                    """
-                    if nearest_counter == 5:
-                        vertex_found = True
-                        vertex_type = "end_vertex"
-                    """
-                
-                if vertex_type == "from_vertex":
-                    nearest_edge_geometry = QgsGeometry().fromPolylineXY([from_point, nearest_vertex.point()])
-                    res = nearest_edge_geometry.closestSegmentWithContext(current_pixel_midpoint)
-                    segment_point = res[1] #[0: distance, 1: point, 2: left_of, 3: epsilon for snapping]
-                    dist_to_segment = segment_point.distance(current_pixel_midpoint)
-                    dist_edge = from_point.distance(segment_point)
-                    #self.feedback.pushInfo("dist_to_segment = {}".format(dist_to_segment))
-                    #self.feedback.pushInfo("dist_on_edge = {}".format(dist_edge))
-                    #self.feedback.pushInfo("cost = {}".format(from_vertex_cost))
-                    pixel_cost = from_vertex_cost + dist_edge + dist_to_segment
-                    raster_data[i,j] = pixel_cost
-                elif vertex_type == "to_vertex":
-                    nearest_edge_geometry = QgsGeometry().fromPolylineXY([nearest_vertex.point(), to_point])
-                    res = nearest_edge_geometry.closestSegmentWithContext(current_pixel_midpoint)
-                    segment_point = res[1] #[0: distance, 1: point, 2: left_of, 3: epsilon for snapping]
-                    dist_to_segment = segment_point.distance(current_pixel_midpoint)
-                    dist_edge = to_point.distance(segment_point)
-                    #self.feedback.pushInfo("dist_to_segment = {}".format(dist_to_segment))
-                    #self.feedback.pushInfo("dist_on_edge = {}".format(dist_edge))
-                    #self.feedback.pushInfo("cost = {}".format(from_vertex_cost))
-                    pixel_cost = to_vertex_cost + dist_edge + dist_to_segment
-                    raster_data[i,j] = pixel_cost
-                else:
-                    pixel_cost = -99999#nearest_feature['cost'] + (nearest_vertex.point().distance(current_pixel_midpoint))
-                            
-                    
-                """
-                nearest_feature_pointxy = nearest_feature.geometry().asPoint()
-                nearest_feature_cost = nearest_feature['cost']
-                
-                dist_to_vertex = current_pixel_midpoint.distance(nearest_feature_pointxy)
-                #implement time cost
-                pixel_cost = dist_to_vertex + nearest_feature_cost
-                
-                raster_data[i,j] = pixel_cost
-                """
-                counter = counter+1
-                if counter%1000 == 0:
-                    self.feedback.pushInfo("[QNEAT3Network][calcQneatInterpolation] Interpolated {} cells...".format(counter))
-                self.feedback.setProgress((counter/total_work)*100)
-                
-                
-        band.WriteArray(raster_data)
-        outRasterSRS = osr.SpatialReference()
-        outRasterSRS.ImportFromWkt(self.AnalysisCrs.toWkt())
-        output_interpolation_raster.SetProjection(outRasterSRS.ExportToWkt())
-        band.FlushCache()
-
         
         
     def calcIsoTinInterpolation(self, iso_points: list[QgsFeature], cost_field_name : str, cellsize: float, output_interpolation_path : str, progress_range: ProgressRange ) -> QgsRasterLayer:
@@ -505,6 +379,7 @@ class QneatCore():
         output_raster.setCrs(self.analysis_crs)
 
         return output_raster
+    
 
     def calcIsoAreas(self, input_interpolation_raster: str, max_cost: float, interval: float, iso_area_type : IsoAreaType, progress_range: ProgressRange) -> QgsVectorLayer:
         
@@ -513,8 +388,6 @@ class QneatCore():
             raise QgsProcessingException("Could not open Interpolation result, please use another cellsize, iso area extent or obtain a valid interpolation raster with the QNEAT Iso-Area as Interpolation algorithm.")
         
         band = interpolation_raster.GetRasterBand(1)
-        xsize_in = band.XSize
-        ysize_in = band.YSize
 
         ogr_driver = ogr.GetDriverByName("MEMORY")
         contours = ogr_driver.CreateDataSource("iso_areas")
