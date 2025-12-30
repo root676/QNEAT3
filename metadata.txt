@@ -2,12 +2,12 @@
 
 
 [general]
-name=QNEAT3
+name=QNEAT
 qgisMinimumVersion=3.00
 qgisMaximumVersion=3.99
-description=QNEAT3 - QGIS Network Analysis Toolbox 3 
-about=The QNEAT3 (short for Qgis Network Analysis Toolbox 3) Plugin aims to provide sophisticated QGIS Processing-Toolbox algorithms in the field of network analysis. QNEAT3 is integrated in the QGIS3 Processing Framework. It offers algorithms that range from simple shortest path solving to more complex tasks like Iso-Area (aka service areas, accessibility polygons) and OD-Matrix (Origin-Destination-Matrix) computation. The usage of some Iso-Area algorithms require the installation of the matplotlib python library from OSGeo4W (see algorithm and help page for more information).
-version=1.0.8
+description=QNEAT - QGIS Network Analysis Toolbox
+about=The QNEAT (short for Qgis Network Analysis Toolbox) Plugin aims to provide sophisticated QGIS Processing-Toolbox algorithms in the field of network analysis. QNEAT3 is integrated in the QGIS3 Processing Framework. It offers algorithms that range from simple shortest path solving to more complex tasks like Iso-Area (aka service areas, accessibility polygons) and OD-Matrix (Origin-Destination-Matrix) computation. The usage of some Iso-Area algorithms require the installation of the matplotlib python library from OSGeo4W (see algorithm and help page for more information).
+version=4.0
 author=Clemens Raffler
 email=clemens.raffler@gmail.com
 
@@ -16,22 +16,22 @@ email=clemens.raffler@gmail.com
 # Optional items:
 
 # Uncomment the following line and add your changelog entries:
-changelog=1.0.0: 
+changelog=3.0.0: 
 	- First release of QNEAT3 Plugin. Enjoy!
-	1.0.1: 
+	3.0.1: 
 	- Fix fatal QGIS crash: Network Strategy must not be added multiple times. 
 	- Minor user-feedback and icon tweaks.
 	- Fixed deprecation warning.
-	1.0.2:
+	3.0.2:
 	- Fix bug #10 OD Matrix randomly dropping one record
 	- Fix bug #8 related to QGIS bug #16858, error in the QNEAT3 provider
 	- Experiments with QNEAT interpolation, probably a solution to fix bug #6
 	- Minor enhancements for log messages
-	1.0.3:
+	3.0.3:
 	- Fix bug #22 Issue with QgsPoint() being constructed from QgsPointXY() in QGIS 3.10 is resolved temporary 
-	1.0.4:
+	3.0.4:
 	- Fix bug #25 Wire tolerance parameter permanently to QgsGraphBuilder
-    1.0.5:
+    3.0.5:
     - New Feature: allow output of route geometry from OD Matrix algorithms (thanks to @garci66)
     - Fix issue #26: report NULL or delete OD pairs with no routes
     - Fix issue #57: Current processing setup does not allow qgis_process (CLI) to access QNEAT3 (thanks to @JanCaha)
@@ -39,14 +39,19 @@ changelog=1.0.0:
     - Fix issue #29: fix analysis crs in contours and interpolation algorithms (thanks to @kufreu and @josephholler)
     - fix issue #36: OD Matrix miscalculates time cost if network CRS does not use linear units of meters (thanks to @kufreu and @josephholler)
     - fix issue #31: Allow for different origin and destination ID data types (thanks to @kufreu and @josephholler)
-    1.0.6:
+    3.0.6:
     - Fix issue #71: change matplotlib contour.collection calls to contour.get_paths() due to deprecation in Matplotlib-3.8 to fix Iso-Area Algorithms
-    1.0.7:
+    3.0.7:
     - Fix issue #73: Unpack tree and cost lists correctly into tuples
     - Fix issue #73: Fix QgsTinInterpolator.TinInterpolation.Linear enum
-    1.0.8:
+    3.0.8:
     - Fix issue #77: Fix wrong unpacking of dijkstra() return values. 
-    
+    4.0:
+    - After nearly 8 years in Service, QNEAT3 is bumped to verson 4. Also, the version number is dropped from the name and moved to the versions - the plugin will from now on simply be named QNEAT. The new version comes a total makeover of QNEAT3 in order to provide a more robust plugin that can be extended more easily. 
+    - dropped Matplotlib and pyplot prerequesites for contour generation
+    - new contour generation using GDAL
+    - update of parameter names:
+    - 
 # tags are comma separated with spaces allowed
 tags= network analysis, graph analysis, od matrix, distance matrix, od matrices, OD, isochrone areas, catchment areas, shortest path, dijkstra
 

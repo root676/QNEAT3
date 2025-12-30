@@ -18,15 +18,15 @@
 """
 
 
-from ..QneatProvider import Qneat3Provider
+from QneatProvider import QneatProvider
 from qgis.core import QgsApplication
 
-class Qneat3Plugin:
+class QneatPlugin:
     def __init__(self, iface):
         self.provider = None
 
     def initProcessing(self):
-        self.provider = Qneat3Provider()
+        self.provider = QneatProvider()
         QgsApplication.processingRegistry().addProvider(self.provider)
 
     def initGui(self):

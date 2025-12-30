@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
 
 def logPanel(message):
-    QgsMessageLog.logMessage(message, "QNEAT3")
+    QgsMessageLog.logMessage(message, "QNEAT")
 
 def checkIfAnalysisCrsEqual(sourceCrss : list[QgsCoordinateReferenceSystem]) -> bool:
     first_crs = sourceCrss[0]

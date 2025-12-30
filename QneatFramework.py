@@ -375,7 +375,7 @@ class QneatCore():
         if result != 0:
             raise QgsProcessingException(f"Failed to write interpolation result file.")
 
-        output_raster = QgsRasterLayer(output_interpolation_path, "temp_qneat3_interpolation_raster")
+        output_raster = QgsRasterLayer(output_interpolation_path, "temp_qneat_interpolation_raster")
         output_raster.setCrs(self.analysis_crs)
 
         return output_raster

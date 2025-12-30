@@ -41,21 +41,21 @@ from .algs import (
 
 pluginPath = os.path.split(os.path.dirname(__file__))[0]
 
-class Qneat3Provider(QgsProcessingProvider):
+class QneatProvider(QgsProcessingProvider):
     def __init__(self):
         super().__init__()
 
     def id(self):
-        return 'qneat3'
+        return 'qneat'
 
     def name(self):
-        return 'QNEAT3 - Qgis Network Analysis Toolbox'
+        return 'QNEAT - Qgis Network Analysis Toolbox'
 
     def icon(self):
-        return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icon_qneat3.svg'))
+        return QIcon(os.path.join(pluginPath, 'QNEAT', 'icon_qneat.svg'))
 
     def svgIconPath(self):
-        return os.path.join(pluginPath, 'QNEAT3', 'icon_qneat3.svg')
+        return os.path.join(pluginPath, 'QNEAT', 'icon_qneat.svg')
 
     def loadAlgorithms(self):
         self.addAlgorithm(ShortestPathBetweenPoints.ShortestPathBetweenPoints())
