@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 ***************************************************************************
-    Qneat3Framework.py
+    QneatFramework.py
     ---------------------
     
-    Date                 : January 2018
-    Copyright            : (C) 2018 by Clemens Raffler
+    Date                 : December 2025
+    Copyright            : (C) 2025 by Clemens Raffler
     Email                : clemens dot raffler at gmail dot com
 ***************************************************************************
 *                                                                         *
