@@ -47,7 +47,7 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from ..QneatFramework import QneatCore, ProgressRange
+from ..QneatFramework import QneatCore, OptimizationStrategy, ProgressRange
 from ..QneatUtilities import getFeatureFromPoint, checkIfAnalysisCrsEqual
 
 from typing import (
@@ -190,7 +190,7 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
         network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.INPUT, context)
         startPoint: QgsPointXY = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs())
         endPoint: QgsPointXY = self.parameterAsPoint(parameters, self.END_POINT, context, network.sourceCrs())
-        strategy: int = self.parameterAsEnum(parameters, self.STRATEGY, context)
+        strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context))
 
         entry_cost_calc_method: int = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context)
         directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context)
@@ -210,7 +210,20 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
         input_point_features = [getFeatureFromPoint(0, startPoint),getFeatureFromPoint(1, endPoint)]
         
         build_progress_range = ProgressRange(feedback, 0.0, 0.95)
-        core = QneatCore(network, input_point_features, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, build_progress_range, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
+        
+        core = QneatCore(network, 
+                         input_point_features, 
+                         strategy, 
+                         speedFieldName, 
+                         defaultSpeed, 
+                         tolerance, 
+                         entry_cost_calc_method, 
+                         build_progress_range, 
+                         directionFieldName, 
+                         forwardValue, 
+                         backwardValue, 
+                         bothValue, 
+                         defaultDirection)
         
         origin_analysis_point = core.analysis_points[0]
         destination_analysis_point = core.analysis_points[1]

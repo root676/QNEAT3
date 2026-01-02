@@ -47,7 +47,7 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import (QgsVectorLayerDirector)
 
-from ..QneatFramework import QneatCore, MatrixType, ProgressRange
+from ..QneatFramework import QneatCore, OptimizationStrategy, MatrixType, ProgressRange
 from ..QneatUtilities import getOdMatrixFields
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
@@ -122,9 +122,9 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
                            self.tr('Fastest path (time optimization)')
                            ]
 
-        self.MATRIX_GEOMETRY_TYPES = [self.tr("Line"),
-                                      self.tr("Route")
-                                    ]
+        self.MATRIX_GEOMETRY_TYPES = [self.tr('Line'),
+                                      self.tr('Route')]
+
 
 
         self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar'),
@@ -200,8 +200,8 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
         network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.INPUT, context)
         points: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.POINTS, context)
         id_field: str = self.parameterAsString(parameters, self.ID_FIELD, context)
-        strategy: int = self.parameterAsEnum(parameters, self.STRATEGY, context) 
-        matrix_type: int =  self.parameterAsEnum(parameters, self.MATRIX_GEOMETRY_TYPE, context)
+        strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context))
+        matrix_type: MatrixType =  MatrixType(self.parameterAsEnum(parameters, self.MATRIX_GEOMETRY_TYPE, context))
 
 
         entry_cost_calc_method: int = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context)
@@ -217,7 +217,21 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
         input_pointlist: list[QgsFeature] = [f for f in points.getFeatures()]
         
         build_progress_range = ProgressRange(feedback, 0.0, 0.5)
-        core = QneatCore(network, input_pointlist, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, build_progress_range, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
+        
+        core = QneatCore(network, 
+                         input_pointlist, 
+                         strategy, 
+                         speedFieldName, 
+                         defaultSpeed, 
+                         tolerance, 
+                         entry_cost_calc_method, 
+                         build_progress_range, 
+                         directionFieldName, 
+                         forwardValue, 
+                         backwardValue, 
+                         bothValue, 
+                         defaultDirection)
+        
         total_workload = float(pow(len(core.analysis_points),2))
 
         #create output sink

@@ -51,7 +51,7 @@ from qgis.core import (Qgis,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from ..QneatFramework import QneatCore, EntryCostCalculationMethod, IsoAreaType, ProgressRange
+from ..QneatFramework import QneatCore, OptimizationStrategy, EntryCostCalculationMethod, IsoAreaType, ProgressRange
 from ..QneatUtilities import checkIfAnalysisCrsEqual, getFeatureFromPoint
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
@@ -203,7 +203,7 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
         interval = self.parameterAsDouble(parameters, self.INTERVAL, context)#float
         max_dist = self.parameterAsDouble(parameters, self.MAX_DIST, context)#float
         cell_size = self.parameterAsInt(parameters, self.CELL_SIZE, context)#int
-        strategy = self.parameterAsEnum(parameters, self.STRATEGY, context) #int
+        strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context))
 
         directionFieldName = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) #str (empty if no field given)
         forwardValue = self.parameterAsString(parameters, self.VALUE_FORWARD, context) #str

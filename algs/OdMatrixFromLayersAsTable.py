@@ -49,7 +49,7 @@ from qgis.core import (QgsWkbTypes,
 
 from qgis.analysis import (QgsVectorLayerDirector)
 
-from ..QneatFramework import QneatCore, MatrixType, ProgressRange
+from ..QneatFramework import QneatCore, OptimizationStrategy, MatrixType, ProgressRange
 from ..QneatUtilities import getFieldDatatype, checkIfAnalysisCrsEqual, getOdMatrixFields
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
@@ -209,7 +209,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
         origin_id_field: str = self.parameterAsString(parameters, self.ORIGIN_ID_FIELD, context)
         destination_points: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.DESTINATION_POINT_LAYER, context)
         destination_id_field: str = self.parameterAsString(parameters, self.DESTINATION_ID_FIELD, context)
-        strategy: int = self.parameterAsEnum(parameters, self.STRATEGY, context)
+        strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context))
         
         entry_cost_calc_method: int = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context)
         directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context)
@@ -259,7 +259,21 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
             input_point_features.append(df)        
 
         build_progress_range = ProgressRange(feedback, 0.0, 0.5)
-        core = QneatCore(network, input_point_features, strategy, speedFieldName, defaultSpeed, tolerance, entry_cost_calc_method, build_progress_range, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
+
+        core = QneatCore(network, 
+                         input_point_features, 
+                         strategy, 
+                         speedFieldName, 
+                         defaultSpeed, 
+                         tolerance, 
+                         entry_cost_calc_method, 
+                         build_progress_range, 
+                         directionFieldName, 
+                         forwardValue, 
+                         backwardValue, 
+                         bothValue, 
+                         defaultDirection)
+        
         total_workload = float(pow(len(core.analysis_points),2))
 
         output_fields: QgsFields = getOdMatrixFields(origin_points, origin_id_field, destination_points, destination_id_field)

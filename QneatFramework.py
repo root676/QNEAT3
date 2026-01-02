@@ -74,6 +74,9 @@ if TYPE_CHECKING:
     from qgis.analysis import (
         QgsGraph
     )
+class OptimizationStrategy(IntEnum):
+    DISTANCE = 0
+    TIME = 1
 
 class EntryCostCalculationMethod(IntEnum):
     PLANAR = 0
@@ -135,7 +138,7 @@ class QneatCore():
     def __init__(self, 
                  graph_source: QgsProcessingFeatureSource,
                  point_featurelist: list[QgsFeature],
-                 optimization_strategy: int,
+                 optimization_strategy: OptimizationStrategy,
                  speed_field: str,
                  default_speed: float,
                  tolerance: float,
@@ -172,7 +175,8 @@ class QneatCore():
     
         #Setup cost-strategy pattern.
         self.default_speed = default_speed
-        self.setNetworkStrategy(optimization_strategy, graph_source, speed_field, self.default_speed)
+        speed_field_id = graph_source.fields().lookupField(speed_field)
+        self.setNetworkStrategy(optimization_strategy, speed_field_id, self.default_speed)
 
         #add the strategy to the QgsGraphDirector
         director.addStrategy(self.strategy)
@@ -199,7 +203,7 @@ class QneatCore():
             else: 
                 dist = input_point.distance(tied_point)
             
-            if self.strategy == 0: 
+            if optimization_strategy == OptimizationStrategy.DISTANCE: 
                 entry_cost = dist
             else:
                 entry_cost = dist/(self.default_speed*(1000.0 / 3600.0))
@@ -207,12 +211,11 @@ class QneatCore():
             self.analysis_points.append(QneatAnalysisPoint(point_featurelist[i], graph_vertex_id, tied_point, entry_cost))
             
           
-    def setNetworkStrategy(self, optimization_strategy, graph, speedField, default_speed):
-        speedFieldId = graph.fields().lookupField(speedField)
-        if optimization_strategy == 0:
+    def setNetworkStrategy(self, optimization_strategy: OptimizationStrategy, speed_field_index: int, default_speed: float):
+        if optimization_strategy == OptimizationStrategy.DISTANCE:
             self.strategy = QgsNetworkDistanceStrategy()
         else:
-            self.strategy = QgsNetworkSpeedStrategy(speedFieldId, float(default_speed), 1000.0 / 3600.0)
+            self.strategy = QgsNetworkSpeedStrategy(speed_field_index, float(default_speed), 1000.0 / 3600.0)
 
 
     def calcDijkstra(self, source_vertex_id: int) -> tuple[list[int], list[float]]:

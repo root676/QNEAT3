@@ -45,7 +45,7 @@ from qgis.core import (QgsField,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from ..QneatFramework import QneatCore, EntryCostCalculationMethod, ProgressRange
+from ..QneatFramework import QneatCore, EntryCostCalculationMethod, OptimizationStrategy, ProgressRange
 from ..QneatUtilities import checkIfAnalysisCrsEqual, getFieldDatatype
 
 from typing import (
@@ -193,7 +193,7 @@ class IsoAreaAsInterpolationFromLayer(QgsProcessingAlgorithm):
         id_field: str = self.parameterAsString(parameters, self.ID_FIELD, context) 
         max_cost: float = self.parameterAsDouble(parameters, self.MAX_COST, context)
         cell_size: int = self.parameterAsInt(parameters, self.CELL_SIZE, context)
-        strategy: int = self.parameterAsEnum(parameters, self.STRATEGY, context) 
+        strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context))
 
         directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) 
         forwardValue: str = self.parameterAsString(parameters, self.VALUE_FORWARD, context)
@@ -225,7 +225,20 @@ class IsoAreaAsInterpolationFromLayer(QgsProcessingAlgorithm):
             input_point_features.append(source_feat)
         
         build_progress_range = ProgressRange(feedback, 0.0, 0.33)
-        core = QneatCore(network, input_point_features, strategy, speedFieldName, defaultSpeed, tolerance, EntryCostCalculationMethod.PLANAR, build_progress_range, directionFieldName, forwardValue, backwardValue, bothValue, defaultDirection)
+        
+        core = QneatCore(network, 
+                         input_point_features, 
+                         strategy, 
+                         speedFieldName, 
+                         defaultSpeed, 
+                         tolerance, 
+                         EntryCostCalculationMethod.PLANAR, 
+                         build_progress_range, 
+                         directionFieldName, 
+                         forwardValue, 
+                         backwardValue, 
+                         bothValue, 
+                         defaultDirection)
         
         iso_progress_range = ProgressRange(feedback, 0.33, 0.66)
         iso_points = core.calcIsoPoints('point_id', max_cost, iso_progress_range)
