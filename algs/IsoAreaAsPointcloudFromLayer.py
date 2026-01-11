@@ -82,6 +82,12 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
     TOLERANCE = 'TOLERANCE'
     OUTPUT = 'OUTPUT'
 
+    def __init__(self):
+        super().__init__()
+    
+    def createInstance(self):
+        return IsoAreaAsPointcloudFromLayer()
+
     def tr(self, string):
         return QCoreApplication.translate('QNEAT', string)
 

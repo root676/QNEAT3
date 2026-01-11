@@ -79,6 +79,12 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
     TOLERANCE = 'TOLERANCE'
     OUTPUT = 'OUTPUT'
 
+    def __init__(self):
+        super().__init__()
+    
+    def createInstance(self):
+        return ShortestPathBetweenPoints()
+
     def tr(self, string):
         return QCoreApplication.translate('QNEAT', string)
 
@@ -111,9 +117,6 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is a layer containing a <b>single linestring</b>, the attributes showcase the"\
                 "<ul><li>name and coordinates of startpoint</li><li>name and coordinates of endpoint</li><li>entry-cost to enter network</li><li>exit-cost to exit network</li><li>cost of shortest path on graph</li><li>total cost as sum of all cost elements</li></ul>"
-    
-    def __init__(self):
-        super().__init__()
 
     def initAlgorithm(self):
         self.DIRECTIONS = OrderedDict([

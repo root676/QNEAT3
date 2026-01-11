@@ -79,6 +79,12 @@ class IsoAreaAsInterpolationFromLayer(QgsProcessingAlgorithm):
     TOLERANCE = 'TOLERANCE'
     OUTPUT = 'OUTPUT'
 
+    def __init__(self):
+        super().__init__()
+    
+    def createInstance(self):
+        return IsoAreaAsInterpolationFromLayer()
+
     def tr(self, string):
         return QCoreApplication.translate('QNEAT', string)
 
@@ -109,9 +115,6 @@ class IsoAreaAsInterpolationFromLayer(QgsProcessingAlgorithm):
                 "<ul><li>Direction field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is a cost surface raster"
-        
-    def __init__(self):
-        super().__init__()
 
     def initAlgorithm(self):
         self.DIRECTIONS = OrderedDict([

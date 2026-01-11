@@ -80,6 +80,12 @@ class IsoAreaAsPointcloudFromPoint(QgsProcessingAlgorithm):
     TOLERANCE = 'TOLERANCE'
     OUTPUT = 'OUTPUT'
 
+    def __init__(self):
+        super().__init__()
+    
+    def createInstance(self):
+        return IsoAreaAsPointcloudFromPoint()
+
     def tr(self, string):
         return QCoreApplication.translate('QNEAT', string)
 
@@ -112,9 +118,6 @@ class IsoAreaAsPointcloudFromPoint(QgsProcessingAlgorithm):
                 "The output of the algorithm is one layer:"\
                 "<ul><li>Point layer of reachable network nodes</li></ul><br>"\
                 "You may use the output pointcloud as input for further analyses."
-
-    def __init__(self):
-        super().__init__()
 
     def initAlgorithm(self):
         self.DIRECTIONS = OrderedDict([

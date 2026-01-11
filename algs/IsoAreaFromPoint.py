@@ -81,6 +81,12 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
     OUTPUT_COST_SURFACE = 'OUTPUT_COST_SURFACE'
     OUTPUT_ISO_AREAS = 'OUTPUT_ISO_AREAS'
 
+    def __init__(self):
+        super().__init__()
+    
+    def createInstance(self):
+        return IsoAreaFromPoint()
+
     def tr(self, string):
         return QCoreApplication.translate('QNEAT', string)
 
@@ -112,9 +118,6 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
 
     def displayName(self):
         return self.tr('Iso-area from point')
-    
-    def __init__(self):
-        super().__init__()
 
     def initAlgorithm(self):
         self.DIRECTIONS = OrderedDict([

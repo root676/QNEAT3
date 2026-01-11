@@ -83,6 +83,12 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
     TOLERANCE = 'TOLERANCE'
     OUTPUT = 'OUTPUT'
 
+    def __init__(self):
+        super().__init__()
+
+    def createInstance(self):
+        return OdMatrixFromLayersAsTable()
+
     def tr(self, string):
         return QCoreApplication.translate('QNEAT', string)
 
@@ -114,9 +120,6 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is one table:"\
                 "<ul><li>OD-matrix as table with network based distances as attributes</li></ul>"  
-
-    def __init__(self):
-        super().__init__()
 
     def initAlgorithm(self):
         self.DIRECTIONS = OrderedDict([

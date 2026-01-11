@@ -86,6 +86,12 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
     OUTPUT = 'OUTPUT'
     MATRIX_GEOMETRY_TYPE = 'MATRIX_GEOMETRY_TYPE'
 
+    def __init__(self):
+        super().__init__()
+
+    def createInstance(self):
+        return OdMatrixFromLayersAsLines()
+
     def tr(self, string):
         return QCoreApplication.translate('QNEAT', string)
 
@@ -117,9 +123,6 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is one layer:"\
                 "<ul><li>OD-matrix as lines with network based distances as attributes</li></ul>"    
-
-    def __init__(self):
-        super().__init__()
 
     def initAlgorithm(self):
         self.DIRECTIONS = OrderedDict([
