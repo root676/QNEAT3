@@ -249,7 +249,7 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_ISO_AREAS, context, iso_area_layer.fields(), wkb_type, analysisCrs)   
 
-        sink.addFeatures(iso_area_layer.getFeatures(), QgsFeatureSink.FastInsert)
+        sink.addFeatures(iso_area_layer.getFeatures(), QgsFeatureSink.Flag.FastInsert)
         
         results = {}
         results[self.OUTPUT_COST_SURFACE] = output_cost_surface

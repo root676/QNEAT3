@@ -244,7 +244,7 @@ class IsoAreaAsContoursFromPoint(QgsProcessingAlgorithm):
         contour_featurelist = net.calcIsoContours(max_dist, interval, output_path)
         feedback.setProgress(90)
         
-        sink.addFeatures(contour_featurelist, QgsFeatureSink.FastInsert)
+        sink.addFeatures(contour_featurelist, QgsFeatureSink.Flag.FastInsert)
         feedback.pushInfo("[QNEAT3Algorithm] Ending Algorithm")
         feedback.setProgress(100)
         

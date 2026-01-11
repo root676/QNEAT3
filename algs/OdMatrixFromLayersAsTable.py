@@ -292,7 +292,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
             for destination_point in d_analysis_points:
 
                 outfeat = core.queryOdPair(tree, cost, origin_point, origin_id_field, destination_point, destination_id_field, MatrixType.TABLE)                
-                sink.addFeature(outfeat, QgsFeatureSink.FastInsert)  
+                sink.addFeature(outfeat, QgsFeatureSink.Flag.FastInsert)  
                 i+=i
                 od_progress_range.feedback().setProgress(i/total_workload)
 

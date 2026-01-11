@@ -299,7 +299,7 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
             tree, cost = core.calcDijkstra(origin_point.graph_vertex_id)
             for destination_point in d_analysis_points:
                 outfeat = core.queryOdPair(tree, cost, origin_point, origin_id_field, destination_point, destination_id_field, matrix_geometry_type)                
-                sink.addFeature(outfeat, QgsFeatureSink.FastInsert)  
+                sink.addFeature(outfeat, QgsFeatureSink.Flag.FastInsert)  
                 i+=i
                 od_progress_range.feedback().setProgress(i/total_workload)
 

@@ -289,7 +289,7 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
         feat['total_cost'] = total_cost 
         feat.setGeometry(route_geom)
             
-        sink.addFeature(feat, QgsFeatureSink.FastInsert)
+        sink.addFeature(feat, QgsFeatureSink.Flag.FastInsert)
         feedback.setProgress(100)
         results = {}
         results[self.OUTPUT] = dest_id
