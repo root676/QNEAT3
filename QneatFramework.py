@@ -118,7 +118,7 @@ class QneatAnalysisPoint():
         self.graph_vertex_id: int = graph_vertex_id
         self.graph_vertex_geom: QgsPointXY = graph_vertex_geom
         self.graph_entry_cost: float = graph_entry_cost
-        self.graph_entry_geom: QgsGeometry = QgsGeometry().fromPolylineXY([self.feature.geometry.asPoint(), self.graph_entry_geom])
+        self.graph_entry_geom: QgsGeometry = QgsGeometry().fromPolylineXY([self.feature.geometry().asPoint(), self.graph_entry_geom])
     
     def __str__(self):
         return "QneatAnalysisPoint: feature_id: {:30} referencing graph_vertex_id: {:d}".format(self.feature.id(), self.graph_vertex_id) 
@@ -179,7 +179,7 @@ class QneatCore():
         
         #tell the graph-director to make the graph using the builder object and tie the start point geometries to the graph
         self.feedback.pushInfo("building graph...")
-        tiedPoints: list[QgsPointXY] = self.director.makeGraph(builder, xy_points, buildProgressRange.feedback())
+        tiedPoints: list[QgsPointXY] = director.makeGraph(builder, xy_points, buildProgressRange.feedback())
         self.qgsgraph: QgsGraph = builder.graph()
 
         self.analysis_points: list[QneatAnalysisPoint] = list()
