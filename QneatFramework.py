@@ -43,6 +43,7 @@ from qgis.core import (
     QgsPoint, 
     QgsPointXY, 
     QgsProcessingException,
+    QgsProcessingFeedback,
     QgsProject,
     QgsRasterLayer,
     QgsRectangle,
@@ -52,7 +53,7 @@ from qgis.core import (
 
 from qgis.PyQt.QtCore import QVariant
 
-import QneatUtilities
+from .QneatUtilities import buildQgsVectorLayer, getFieldDatatype
 
 from typing import (
     Optional,
@@ -288,7 +289,7 @@ class QneatCore():
         output_fields = QgsFields()
         output_fields.append(QgsField('vertex_id', QVariant.Int))
         output_fields.append(QgsField('cost', QVariant.Double))
-        output_fields.append(QgsField('origin_point_id',QneatUtilities.getFieldDatatype(id_field_name)))
+        output_fields.append(QgsField('origin_point_id',getFieldDatatype(id_field_name)))
 
         total_workload: int = len(self.analysis_points)
 
@@ -345,7 +346,7 @@ class QneatCore():
             raise QgsProcessingException("Cell size for iso area interpolation must be > 0")
         
         #pack iso_point_features in a QgsFeatureSource in order to be usable for QgsInterpolator
-        iso_point_layer: QgsVectorLayer = QneatUtilities.buildQgsVectorLayer(iso_points, "iso_points", self.analysis_crs, iso_points)
+        iso_point_layer: QgsVectorLayer = buildQgsVectorLayer(iso_points, "iso_points", self.analysis_crs, iso_points)
         iso_point_layer.updateExtents()
 
         if self.analysis_crs.isGeographic():

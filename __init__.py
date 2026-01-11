@@ -19,6 +19,6 @@
 
 
 def classFactory(iface):
-    from .QneatPlugin import Qneat3Plugin
+    from .QneatPlugin import QneatPlugin
     return QneatPlugin(iface)
     

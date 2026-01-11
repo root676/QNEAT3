@@ -18,7 +18,7 @@
 """
 
 
-from QneatProvider import QneatProvider
+from .QneatProvider import QneatProvider
 from qgis.core import QgsApplication
 
 class QneatPlugin:
