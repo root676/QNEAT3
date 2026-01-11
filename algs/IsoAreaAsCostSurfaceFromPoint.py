@@ -125,11 +125,11 @@ class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterNumber(self.MAX_COST,
                                                    self.tr('Size of Iso-Area (distance in network csr units or time value in seconds)'),
                                                    Qgis.ProcessingNumberParameterType.Double,
-                                                   2500.0, False, 0, 99999999.99))
+                                                   2500.0, False, 0))
         self.addParameter(QgsProcessingParameterNumber(self.CELL_SIZE,
                                                     self.tr('Cellsize of interpolation raster'),
-                                                    Qgis.ProcessingNumberParameterType.Integer,
-                                                    10, False, 1, 99999999))
+                                                    Qgis.ProcessingNumberParameterType.Double,
+                                                    10, False, 1))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
                                                      self.tr('Optimization criterion'),
                                                      self.STRATEGIES,
@@ -181,7 +181,7 @@ class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
         network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.INPUT, context) 
         origin_point: QgsPointXY = self.parameterAsPoint(parameters, self.ORIGIN_POINT, context, network.sourceCrs()) 
         max_cost: float = self.parameterAsDouble(parameters, self.MAX_COST, context)
-        cell_size: int = self.parameterAsInt(parameters, self.CELL_SIZE, context)
+        cell_size: float = self.parameterAsDouble(parameters, self.CELL_SIZE, context)
         strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context))
 
         directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) 

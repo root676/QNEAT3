@@ -199,7 +199,7 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
         iso_area_type: IsoAreaType = IsoAreaType(self.parameterAsEnum(parameters, self.ISO_AREA_TYPE, context))
         interval: float = self.parameterAsDouble(parameters, self.INTERVAL, context)
         max_cost: float = self.parameterAsDouble(parameters, self.MAX_COST, context)
-        cell_size: float = self.parameterAsInt(parameters, self.CELL_SIZE, context)
+        cell_size: float = self.parameterAsDouble(parameters, self.CELL_SIZE, context)
         strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context)) 
 
         directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context)

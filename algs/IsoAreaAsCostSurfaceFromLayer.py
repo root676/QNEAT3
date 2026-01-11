@@ -136,7 +136,7 @@ class IsoAreaAsInterpolationFromLayer(QgsProcessingAlgorithm):
                                                    2500.0, False, 0))
         self.addParameter(QgsProcessingParameterNumber(self.CELL_SIZE,
                                                     self.tr('Cellsize of interpolation raster'),
-                                                    Qgis.ProcessingNumberParameterType.Integer,
+                                                    Qgis.ProcessingNumberParameterType.Double,
                                                     10, False, 1))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
                                                      self.tr('Optimization criterion'),
@@ -170,11 +170,11 @@ class IsoAreaAsInterpolationFromLayer(QgsProcessingAlgorithm):
         params.append(QgsProcessingParameterNumber(self.DEFAULT_SPEED,
                                                    self.tr('Default speed (km/h)'),
                                                    Qgis.ProcessingNumberParameterType.Double,
-                                                   5.0, False, 0, 99999999.99))
+                                                   5.0, False, 0))
         params.append(QgsProcessingParameterNumber(self.TOLERANCE,
                                                    self.tr('Topology tolerance'),
                                                    Qgis.ProcessingNumberParameterType.Double,
-                                                   0.0, False, 0, 99999999.99))
+                                                   0.0, False, 0))
 
         for p in params:
             p.setFlags(p.flags() | Qgis.ProcessingParameterFlag.Advanced)
@@ -187,10 +187,10 @@ class IsoAreaAsInterpolationFromLayer(QgsProcessingAlgorithm):
         feedback.pushInfo(self.tr("Running '{}'".format(self.displayName())))
 
         network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.INPUT, context) 
-        origin_points: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.START_POINTS, context)
+        origin_points: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.ORIGIN_POINTS, context)
         id_field: str = self.parameterAsString(parameters, self.ID_FIELD, context) 
         max_cost: float = self.parameterAsDouble(parameters, self.MAX_COST, context)
-        cell_size: int = self.parameterAsInt(parameters, self.CELL_SIZE, context)
+        cell_size: float = self.parameterAsDouble(parameters, self.CELL_SIZE, context)
         strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context))
 
         directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) 
