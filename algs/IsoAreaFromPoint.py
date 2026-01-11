@@ -37,7 +37,6 @@ from qgis.core import (Qgis,
                        QgsFeatureSink,
                        QgsFields,
                        QgsField,
-                       QgsProcessing,
                        QgsProcessingAlgorithm,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterPoint,
@@ -51,8 +50,8 @@ from qgis.core import (Qgis,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from ..QneatFramework import QneatCore, OptimizationStrategy, EntryCostCalculationMethod, IsoAreaType, ProgressRange
-from ..QneatUtilities import checkIfAnalysisCrsEqual, getFeatureFromPoint
+from ..QneatFramework import QneatCore, IsoAreaType, OptimizationStrategy,  EntryCostCalculationMethod, ProgressRange
+from ..QneatUtilities import checkIfAnalysisCrsEqual, getFieldDatatype
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
@@ -68,9 +67,10 @@ if TYPE_CHECKING:
 
 class IsoAreaFromPoint(QgsProcessingAlgorithm):
 
-    INPUT = 'INPUT'
+    NETWORK_LAYER = 'NETWORK_LAYER'
     ORIGIN_POINT = 'ORIGIN_POINT'
     ISO_AREA_TYPE = 'ISO_AREA_TYPE'
+    ORIGIN_ID_FIELD = 'ORIGIN_ID_FIELD'
     MAX_COST = "MAX_COST"
     CELL_SIZE = "CELL_SIZE"
     INTERVAL = "INTERVAL"
@@ -83,8 +83,8 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
     SPEED_FIELD = 'SPEED_FIELD'
     DEFAULT_SPEED = 'DEFAULT_SPEED'
     TOLERANCE = 'TOLERANCE'
-    OUTPUT_INTERPOLATION = 'OUTPUT_INTERPOLATION'
-    OUTPUT_POLYGONS = 'OUTPUT_POLYGONS'
+    OUTPUT_COST_SURFACE = 'OUTPUT_COST_SURFACE'
+    OUTPUT_ISO_AREAS = 'OUTPUT_ISO_AREAS'
 
     def icon(self):
         return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_polygon.svg'))
@@ -113,7 +113,7 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
         return 'isoareafrompoint'
 
     def displayName(self):
-        return self.tr('Iso-area (from Point)')
+        return self.tr('Iso-area from point')
     
     def __init__(self):
         super().__init__()
@@ -124,33 +124,33 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),
             (self.tr('Both directions'), QgsVectorLayerDirector.DirectionBoth)])
         
-        self.OUTPUT_ISO_AREA_TYPE = [self.tr("Polygons"), 
-                                     self.tr("Contours")]
+        self.ISO_AREA_TYPE = [self.tr("Polygons"), 
+                              self.tr("Contours")]
 
         self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
-                           self.tr('Fastest Path (time optimization)')]  
+                           self.tr('Fastest Path (time optimization)')]
 
-        self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
+        self.addParameter(QgsProcessingParameterFeatureSource(self.NETWORK_LAYER,
                                                               self.tr('Network layer'),
-                                                              [QgsProcessing.TypeVectorLine]))
+                                                              [Qgis.ProcessingSourceType.VectorLine]))
         self.addParameter(QgsProcessingParameterPoint(self.ORIGIN_POINT,
-                                                      self.tr('origin point')))
+                                                      self.tr('Origin point')))
         self.addParameter(QgsProcessingParameterEnum(self.ISO_AREA_TYPE,
                                                  self.tr('Iso-area type'),
                                                  self.ISO_AREA_TYPE,
                                                  defaultValue=0))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_COST,
-                                                   self.tr('Size of Iso-Area (distance in network csr units or time value in seconds)'),
-                                                   QgsProcessingParameterNumber.Double,
-                                                   2500.0, False, 0, 99999999.99))
+                                                   self.tr('Size of iso-area (distance in network CRS units or time value in seconds)'),
+                                                   Qgis.ProcessingNumberParameterType.Double,
+                                                   2500.0, False, 0))
         self.addParameter(QgsProcessingParameterNumber(self.INTERVAL,
-                                                   self.tr('Contour Interval (distance in network csr units or time value in seconds)'),
-                                                   QgsProcessingParameterNumber.Double,
-                                                   500.0, False, 0, 99999999.99))
+                                                   self.tr('Contour Interval (distance in network CRS units or time value in seconds)'),
+                                                   Qgis.ProcessingNumberParameterType.Double,
+                                                   500.0, False, 0))
         self.addParameter(QgsProcessingParameterNumber(self.CELL_SIZE,
                                                     self.tr('Cellsize of interpolation raster'),
-                                                    QgsProcessingParameterNumber.Integer,
-                                                    10, False, 1, 99999999))
+                                                    Qgis.ProcessingNumberParameterType.Double,
+                                                    10, False, 0.0000001))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
                                                      self.tr('Optimization Criterion'),
                                                      self.STRATEGIES,
@@ -160,7 +160,7 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
                                                   self.tr('Direction field'),
                                                   None,
-                                                  self.INPUT,
+                                                  self.NETWORK_LAYER,
                                                   optional=True))
         params.append(QgsProcessingParameterString(self.VALUE_FORWARD,
                                                    self.tr('Value for forward direction'),
@@ -178,19 +178,19 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
         params.append(QgsProcessingParameterField(self.SPEED_FIELD,
                                                   self.tr('Speed field'),
                                                   None,
-                                                  self.INPUT,
+                                                  self.NETWORK_LAYER,
                                                   optional=True))
         params.append(QgsProcessingParameterNumber(self.DEFAULT_SPEED,
                                                    self.tr('Default speed (km/h)'),
-                                                   QgsProcessingParameterNumber.Double,
-                                                   5.0, False, 0, 99999999.99))
+                                                   Qgis.ProcessingNumberParameterType.Double,
+                                                   5.0, False, 0))
         params.append(QgsProcessingParameterNumber(self.TOLERANCE,
                                                    self.tr('Topology tolerance'),
-                                                   QgsProcessingParameterNumber.Double,
-                                                   0.0, False, 0, 99999999.99))
+                                                   Qgis.ProcessingNumberParameterType.Double,
+                                                   0.0, False, 0))
 
         for p in params:
-            p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+            p.setFlags(p.flags() | Qgis.ProcessingParameterFlag.Advanced)
             self.addParameter(p)
 
         self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT_INTERPOLATION, self.tr('Output Interpolation')))

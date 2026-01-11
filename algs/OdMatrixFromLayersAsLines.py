@@ -124,14 +124,13 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
             (self.tr('Both directions'), QgsVectorLayerDirector.DirectionBoth)])
 
         self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
-                           self.tr('Fastest Path (time optimization)')
-                           ]
+                                      self.tr('Fastest Path (time optimization)')]
 
         self.MATRIX_GEOMETRY_TYPES = [self.tr('Line'),
-                                      self.tr('Route')]
+                                                  self.tr('Route')]
 
-        self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar'),
-                                                self.tr('Ellipsoidal')]
+        self.ENTRY_COST_CALCULATION_METHODS = OrderedDict([self.tr('Planar'),
+                                                           self.tr('Ellipsoidal')])
             
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Network Layer'),
@@ -239,7 +238,7 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
         
         o_fields = QgsFields()
         o_fields.append(QgsField('fid', QMetaType.Type.LongLong))
-        o_fields.append(QgsField('user_id'), getFieldDatatype(origin_points, origin_id_field))
+        o_fields.append(QgsField('user_id', getFieldDatatype(origin_points, origin_id_field)))
         o_fields.append(QgsField('type', QMetaType.Type.QString))
 
         #unpack all points into one list
@@ -256,7 +255,7 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
         
         d_fields = QgsFields()
         d_fields.append(QgsField('fid', QMetaType.Type.LongLong))
-        d_fields.append(QgsField('user_id'), getFieldDatatype(destination_points, destination_id_field))
+        d_fields.append(QgsField('user_id', getFieldDatatype(destination_points, destination_id_field)))
         d_fields.append(QgsField('type', QMetaType.Type.QString))
 
         for f in destination_points.getFeatures():

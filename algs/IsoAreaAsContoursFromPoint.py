@@ -34,7 +34,8 @@ from collections import OrderedDict
 from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import (QgsWkbTypes,
+from qgis.core import (Qgis,
+                       QgsWkbTypes,
                        QgsVectorLayer,
                        QgsFeatureSink,
                        QgsFields,
@@ -117,8 +118,7 @@ class IsoAreaAsContoursFromPoint(QgsProcessingAlgorithm):
             (self.tr('Both directions'), QgsVectorLayerDirector.DirectionBoth)])
 
         self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
-                           self.tr('Fastest Path (time optimization)')
-                           ]
+                           self.tr('Fastest Path (time optimization)')]
 
         self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar (only use with projected CRS)')]
             
@@ -183,7 +183,7 @@ class IsoAreaAsContoursFromPoint(QgsProcessingAlgorithm):
                                                    0.0, False, 0, 99999999.99))
 
         for p in params:
-            p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+            p.setFlags(p.flags() | Qgis.ProcessingParameterFlag.Advanced)
             self.addParameter(p)
 
         self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT_INTERPOLATION, self.tr('Output Interpolation')))

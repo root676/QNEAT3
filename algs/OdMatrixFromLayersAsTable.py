@@ -31,7 +31,8 @@ from collections import OrderedDict
 from qgis.PyQt.QtCore import QMetaType
 from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import (QgsWkbTypes,
+from qgis.core import (Qgis,
+                       QgsWkbTypes,
                        QgsFields,
                        QgsField,
                        QgsFeature,
@@ -195,7 +196,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
                                                    0.0, False, 0, 99999999.99))
 
         for p in params:
-            p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+            p.setFlags(p.flags() | Qgis.ProcessingParameterFlag.Advanced)
             self.addParameter(p)
 
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Output OD matrix'), QgsProcessing.TypeVectorLine), True)

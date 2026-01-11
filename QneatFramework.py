@@ -292,8 +292,8 @@ class QneatCore():
         iso_points = dict()
 
         output_fields = QgsFields()
-        output_fields.append(QgsField('vertex_id', QVariant.Int))
-        output_fields.append(QgsField('cost', QVariant.Double))
+        output_fields.append(QgsField('vertex_id', QMetaType.Type.Int))
+        output_fields.append(QgsField('cost', QMetaType.Type.Double))
         output_fields.append(QgsField('origin_point_id',QneatUtilities.getFieldDatatype(id_field_name)))
 
         total_workload: int = len(self.analysis_points)
@@ -385,9 +385,9 @@ class QneatCore():
         return output_raster
     
 
-    def calcIsoAreas(self, input_interpolation_raster: str, max_cost: float, interval: float, iso_area_type : IsoAreaType, progress_range: ProgressRange) -> QgsVectorLayer:
+    def calcIsoAreas(self, input_cost_raster_path: str, max_cost: float, interval: float, iso_area_type : IsoAreaType, progress_range: ProgressRange) -> QgsVectorLayer:
         
-        interpolation_raster = gdal.Open(input_interpolation_raster)
+        interpolation_raster = gdal.Open(input_cost_raster_path)
         if interpolation_raster is None:
             raise QgsProcessingException("Could not open Interpolation result, please use another cellsize, iso area extent or obtain a valid interpolation raster with the QNEAT Iso-Area as Interpolation algorithm.")
         
@@ -410,12 +410,11 @@ class QneatCore():
         field_list = list()
         id_field: ogr.FieldDefn = ogr.FieldDefn('id', ogr.OFTInteger)
         cost_level_field: ogr.FieldDefn = ogr.FieldDefn('cost_level', ogr.OFTReal)
-        field_list.append(id_field, cost_level_field)
+        field_list.extend([id_field, cost_level_field])
 
         ogr_layer.CreateFields(field_list)
 
-        max_level = interval * ceil(max_cost/interval) + interval
-        levels: list[float] = list(range(start=interval, end=max_level, step=interval))
+        levels = [i * interval for i in range(1, int(ceil(max_cost / interval)) + 1)]
 
         gdal.ContourGenerate(
             band,
@@ -437,7 +436,7 @@ class QneatCore():
         iso_area_fields.append(QgsField('cost_level'), QMetaType.Type.Double)
         provider = iso_areas.dataProvider()
         provider.addAttributes(iso_area_fields)
-        iso_areas.updatedFields()
+        iso_areas.updateFields()
 
         total_workload = ogr_layer.getFeatureCount()
 
@@ -450,7 +449,7 @@ class QneatCore():
             if ogr_geom and iso_area_type == IsoAreaType.CONTOURS:
                 qgs_feat.setGeometry(QgsGeometry.fromWkt(ogr_geom.ExportToWkt()))
             elif ogr_geom and iso_area_type == IsoAreaType.POLYGONS:
-                geom: QgsGeometry = QgsGeometry.fromWkt(ogr_feat.ExportToWkt())
+                geom: QgsGeometry = QgsGeometry.fromWkt(ogr_geom.ExportToWkt())
 
                 if not geom or geom.isEmpty():
                     continue #TODO!!!
@@ -471,7 +470,7 @@ class QneatCore():
                             continue #TODO!!!
                     
                     multipolygon = QgsGeometry.unaryUnion(polygons)
-                    qgs_feat.setGeometry(QgsGeometry.fromMultiPolygonxy(multipolygon))
+                    qgs_feat.setGeometry(multipolygon)
 
             qgs_feat.setAttribute("id", ogr_feat.GetField("id"))
             qgs_feat.setAttribute("cost_level", ogr_feat.GetField("cost_level"))
@@ -484,6 +483,11 @@ class QneatCore():
 
         provider.addFeatures(iso_area_features)
         iso_areas.updateExtents()
+
+        #handle gdal refcounting
+        band = None
+        interpolation_raster = None
+        contours = None
 
         return iso_areas
         

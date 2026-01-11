@@ -30,7 +30,7 @@ from collections import OrderedDict
 
 from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import (QgsFeatureSink,
+from qgis.core import (Qgis,
                        QgsVectorLayer,
                        QgsProcessing,
                        QgsProcessingAlgorithm,
@@ -116,8 +116,7 @@ class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
             (self.tr('Both directions'), QgsVectorLayerDirector.DirectionBoth)])
 
         self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
-                           self.tr('Fastest Path (time optimization)')
-                           ]
+                           self.tr('Fastest Path (time optimization)')]
             
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
@@ -172,7 +171,7 @@ class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
                                                    0.0, False, 0, 99999999.99))
 
         for p in params:
-            p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+            p.setFlags(p.flags() | Qgis.ProcessingParameterFlag.Advanced)
             self.addParameter(p)
         
         self.addParameter(QgsProcessingParameterRasterDestination(self.OUTPUT, self.tr('Output cost surface')))
@@ -221,7 +220,7 @@ class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
                          defaultDirection)
         
         iso_progress_range = ProgressRange(feedback, 0.33, 0.66)
-        iso_points = core.calcIsoPoints('point_id', max_cost, iso_progress_range)
+        iso_points = core.calcIsoPoints('user_id', max_cost, iso_progress_range)
 
         tin_progress_range = ProgressRange(feedback, 0.66, 1.0)
         core.calcIsoTinInterpolation(iso_points, cell_size, output_path, tin_progress_range )

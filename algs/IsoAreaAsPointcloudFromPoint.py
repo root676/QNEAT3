@@ -122,8 +122,7 @@ class IsoAreaAsPointcloudFromPoint(QgsProcessingAlgorithm):
             (self.tr('Both directions'), QgsVectorLayerDirector.DirectionBoth)])
 
         self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
-                           self.tr('Fastest Path (time optimization)')
-                           ]
+                           self.tr('Fastest Path (time optimization)')]
 
         self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar'),
                                                 self.tr('Ellipsoidal')]
@@ -237,7 +236,7 @@ class IsoAreaAsPointcloudFromPoint(QgsProcessingAlgorithm):
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, analysisCrs)
 
         iso_progress_range = ProgressRange(feedback, 0.5, 1.0)
-        iso_points = core.calcIsoPoints('point_id', max_cost, iso_progress_range)
+        iso_points = core.calcIsoPoints('user_id', max_cost, iso_progress_range)
         
         sink.addFeatures(iso_points, QgsFeatureSink.FastInsert)
         

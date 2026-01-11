@@ -31,7 +31,8 @@ from collections import OrderedDict
 from qgis.PyQt.QtCore import QMetaType
 from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import (QgsWkbTypes,
+from qgis.core import (Qgis, 
+                       QgsWkbTypes,
                        QgsFeature,
                        QgsFeatureSink,
                        QgsFields,
@@ -119,8 +120,7 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
             (self.tr('Both directions'), QgsVectorLayerDirector.DirectionBoth)])
 
         self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
-                           self.tr('Fastest Path (time optimization)')
-                           ]
+                           self.tr('Fastest Path (time optimization)')]
 
         self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar'),
                                                 self.tr('Ellipsoidal')]
@@ -183,7 +183,7 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
                                                    0.0, False, 0, 99999999.99))
 
         for p in params:
-            p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+            p.setFlags(p.flags() | Qgis.ProcessingParameterFlag.Advanced)
             self.addParameter(p)
         
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT,
@@ -255,7 +255,7 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, analysisCrs)
         
         iso_progress_range = ProgressRange(feedback, 0.5, 1.0)
-        iso_points = core.calcIsoPoints('point_id', max_cost, iso_progress_range)
+        iso_points = core.calcIsoPoints('user_id', max_cost, iso_progress_range)
         
         sink.addFeatures(iso_points, QgsFeatureSink.FastInsert)  
         
