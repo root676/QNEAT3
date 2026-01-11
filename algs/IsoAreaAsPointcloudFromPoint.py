@@ -119,7 +119,7 @@ class IsoAreaAsPointcloudFromPoint(QgsProcessingAlgorithm):
                 "<ul><li>Point layer of reachable network nodes</li></ul><br>"\
                 "You may use the output pointcloud as input for further analyses."
 
-    def initAlgorithm(self):
+    def initAlgorithm(self, config=None):
         self.DIRECTIONS = OrderedDict([
             (self.tr('Forward direction'), QgsVectorLayerDirector.DirectionForward),
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),

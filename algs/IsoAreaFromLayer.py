@@ -123,7 +123,7 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
                 "The output of the algorithm are two layers:"\
                 "<ul><li>Cost surface raster</li><li>Iso-area polygons or line contours</li></ul>"    
 
-    def initAlgorithm(self):
+    def initAlgorithm(self, config=None):
         self.DIRECTIONS = OrderedDict([
             (self.tr('Forward direction'), QgsVectorLayerDirector.DirectionForward),
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),

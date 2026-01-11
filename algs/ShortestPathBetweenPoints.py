@@ -118,7 +118,7 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
                 "The output of the algorithm is a layer containing a <b>single linestring</b>, the attributes showcase the"\
                 "<ul><li>name and coordinates of startpoint</li><li>name and coordinates of endpoint</li><li>entry-cost to enter network</li><li>exit-cost to exit network</li><li>cost of shortest path on graph</li><li>total cost as sum of all cost elements</li></ul>"
 
-    def initAlgorithm(self):
+    def initAlgorithm(self, config=None):
         self.DIRECTIONS = OrderedDict([
             (self.tr('Forward direction'), QgsVectorLayerDirector.DirectionForward),
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),

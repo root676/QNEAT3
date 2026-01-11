@@ -116,7 +116,7 @@ class IsoAreaAsCostSurfaceFromLayer(QgsProcessingAlgorithm):
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is a cost surface raster"
 
-    def initAlgorithm(self):
+    def initAlgorithm(self, config=None):
         self.DIRECTIONS = OrderedDict([
             (self.tr('Forward direction'), QgsVectorLayerDirector.DirectionForward),
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),

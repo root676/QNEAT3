@@ -124,7 +124,7 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
                 "The output of the algorithm is one layer:"\
                 "<ul><li>OD-matrix as lines with network based distances as attributes</li></ul>"    
 
-    def initAlgorithm(self):
+    def initAlgorithm(self, config=None):
         self.DIRECTIONS = OrderedDict([
             (self.tr('Forward direction'), QgsVectorLayerDirector.DirectionForward),
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),

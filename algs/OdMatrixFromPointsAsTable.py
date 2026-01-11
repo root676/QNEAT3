@@ -116,7 +116,7 @@ class OdMatrixFromPointsAsTable(QgsProcessingAlgorithm):
                 "The output of the algorithm is one table:"\
                 "<ul><li>OD-matrix as table with network based distances as attributes</li></ul>"  
 
-    def initAlgorithm(self):
+    def initAlgorithm(self, config=None):
         self.DIRECTIONS = OrderedDict([
             (self.tr('Forward direction'), QgsVectorLayerDirector.DirectionForward),
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),
