@@ -200,7 +200,7 @@ class IsoAreaAsCostSurfaceFromPoint(QgsProcessingAlgorithm):
         tolerance: float = self.parameterAsDouble(parameters, self.TOLERANCE, context)
         output_path: str = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
 
-        if checkIfAnalysisCrsEqual(network.sourceCrs, context.project().crs()):
+        if checkIfAnalysisCrsEqual([network.sourceCrs(), context.project().crs()]):
             analysisCrs = network.sourceCrs()
         else:
             raise QgsProcessingException(f"Coordinate reference systems of graph is {network.sourceCrs().authid()} and doesn't match up with the coordinate reference system of the project ({context.project().crs().authid()}). Reproject so that the CRSs of analysis layers match up.")

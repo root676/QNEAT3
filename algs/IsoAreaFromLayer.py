@@ -231,7 +231,7 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
         output_cost_surface: str = self.parameterAsOutputLayer(parameters, self.OUTPUT_COST_SURFACE, context) 
         output_iso_area: str = self.parameterAsOutputLayer(parameters, self.OUTPUT_ISO_AREAS, context)
 
-        if not checkIfAnalysisCrsEqual(network.sourceCrs, context.project().crs()):
+        if not checkIfAnalysisCrsEqual([network.sourceCrs(), context.project().crs()]):
             raise QgsProcessingException(f"Coordinate reference systems of graph is {network.sourceCrs().authid()} and doesn't match up with the coordinate reference system of the project ({context.project().crs().authid()}). Reproject so that the CRSs of analysis layers match up.")
         
         #unpack all points into one list
