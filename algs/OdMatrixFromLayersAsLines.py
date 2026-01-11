@@ -28,7 +28,7 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
-from qgis.PyQt.QtCore import QVariant
+from qgis.PyQt.QtCore import QCoreApplication, QVariant
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (Qgis,
@@ -85,6 +85,9 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
     TOLERANCE = 'TOLERANCE'
     OUTPUT = 'OUTPUT'
     MATRIX_GEOMETRY_TYPE = 'MATRIX_GEOMETRY_TYPE'
+
+    def tr(self, string):
+        return QCoreApplication.translate('QNEAT', string)
 
     def icon(self):
         return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_matrix.svg'))

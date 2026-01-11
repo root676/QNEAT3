@@ -28,13 +28,12 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
+from qgis.PyQt.QtCore import QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (Qgis,
-                       QgsWkbTypes,
                        QgsFeature,
                        QgsFeatureSink,
-                       QgsProcessing,
                        QgsProcessingAlgorithm,
                        QgsProcessingException,
                        QgsProcessingParameterEnum,
@@ -79,6 +78,9 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
     OUTPUT = 'OUTPUT'
     MATRIX_GEOMETRY_TYPE = 'MATRIX_GEOMETRY_TYPE'
 
+    def tr(self, string):
+        return QCoreApplication.translate('QNEAT', string)
+    
     def icon(self):
         return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_matrix.svg'))
 
@@ -247,7 +249,7 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
                 feat = core.queryOdPair(tree, cost, origin_point, id_field, destination_point, id_field, matrix_type)
                 sink.addFeature(feat, QgsFeatureSink.Flag.FastInsert)  
 
-                i+=i
+                i += 1
                 od_progress_range.feedback().setProgress(i/total_workload)
 
         results = {}

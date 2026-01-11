@@ -28,6 +28,7 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
+from qgis.PyQt.QtCore import QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (Qgis,
@@ -79,6 +80,9 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
     TOLERANCE = 'TOLERANCE'
     OUTPUT_COST_SURFACE = 'OUTPUT_COST_SURFACE'
     OUTPUT_ISO_AREAS = 'OUTPUT_ISO_AREAS'
+
+    def tr(self, string):
+        return QCoreApplication.translate('QNEAT', string)
 
     def icon(self):
         return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_polygon.svg'))

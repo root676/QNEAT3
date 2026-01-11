@@ -28,17 +28,15 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
-from qgis.PyQt.QtCore import QVariant
+from qgis.PyQt.QtCore import QCoreApplication, QVariant
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (Qgis,
-                       QgsWkbTypes,
                        QgsVectorLayer,
                        QgsFeature,
                        QgsFeatureSink,
                        QgsFields,
                        QgsField,
-                       QgsProcessing,
                        QgsProcessingAlgorithm,
                        QgsProcessingException,
                        QgsProcessingParameterEnum,
@@ -86,6 +84,9 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
     TOLERANCE = 'TOLERANCE'
     OUTPUT_COST_SURFACE = 'OUTPUT_COST_SURFACE'
     OUTPUT_ISO_AREAS = 'OUTPUT_ISO_AREAS'
+
+    def tr(self, string):
+        return QCoreApplication.translate('QNEAT', string)
 
     def icon(self):
         return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_servicearea_polygon_multiple.svg'))

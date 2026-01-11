@@ -28,6 +28,7 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
+from qgis.PyQt.QtCore import QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (Qgis,
@@ -76,6 +77,9 @@ class OdMatrixFromPointsAsTable(QgsProcessingAlgorithm):
     DEFAULT_SPEED = 'DEFAULT_SPEED'
     TOLERANCE = 'TOLERANCE'
     OUTPUT = 'OUTPUT'
+
+    def tr(self, string):
+        return QCoreApplication.translate('QNEAT', string)
 
     def icon(self):
         return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_matrix.svg'))
@@ -240,7 +244,7 @@ class OdMatrixFromPointsAsTable(QgsProcessingAlgorithm):
 
                 feat = core.queryOdPair(tree, cost, origin_point, id_field, destination_point, id_field, MatrixType.TABLE)                
                 sink.addFeature(feat, QgsFeatureSink.Flag.FastInsert)  
-                i+=i
+                i += 1
                 
                 od_progress_range.feedback().setProgress(i/total_workload)
 

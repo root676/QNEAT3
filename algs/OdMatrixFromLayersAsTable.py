@@ -28,11 +28,10 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
-from qgis.PyQt.QtCore import QVariant
+from qgis.PyQt.QtCore import QCoreApplication, QVariant
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (Qgis,
-                       QgsWkbTypes,
                        QgsFields,
                        QgsField,
                        QgsFeature,
@@ -45,8 +44,7 @@ from qgis.core import (Qgis,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterField,
                        QgsProcessingParameterNumber,
-                       QgsProcessingParameterString,
-                       QgsProcessingParameterDefinition)
+                       QgsProcessingParameterString)
 
 from qgis.analysis import (QgsVectorLayerDirector)
 
@@ -84,6 +82,9 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
     DEFAULT_SPEED = 'DEFAULT_SPEED'
     TOLERANCE = 'TOLERANCE'
     OUTPUT = 'OUTPUT'
+
+    def tr(self, string):
+        return QCoreApplication.translate('QNEAT', string)
 
     def icon(self):
         return QIcon(os.path.join(pluginPath, 'QNEAT3', 'icons', 'icon_matrix.svg'))
@@ -293,7 +294,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
 
                 outfeat = core.queryOdPair(tree, cost, origin_point, origin_id_field, destination_point, destination_id_field, MatrixType.TABLE)                
                 sink.addFeature(outfeat, QgsFeatureSink.Flag.FastInsert)  
-                i+=i
+                i += 1
                 od_progress_range.feedback().setProgress(i/total_workload)
 
         results = {}
