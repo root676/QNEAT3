@@ -129,8 +129,8 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),
             (self.tr('Both directions'), QgsVectorLayerDirector.DirectionBoth)])
 
-        self.ISO_AREA_TYPE = [self.tr("Polygons"), 
-                              self.tr("Contours")]
+        self.ISO_AREA_TYPE_DEFINITIONS = [self.tr("Polygons"), 
+                                          self.tr("Contours")]
 
         self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
                            self.tr('Fastest Path (time optimization)')]
@@ -148,7 +148,7 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
                                                        optional=False))
         self.addParameter(QgsProcessingParameterEnum(self.ISO_AREA_TYPE,
                                                  self.tr('Iso-area type'),
-                                                 self.ISO_AREA_TYPE,
+                                                 self.ISO_AREA_TYPE_DEFINITIONS,
                                                  defaultValue=0))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_COST,
                                                    self.tr('Size of iso-area (distance in network CRS units or time value in seconds)'),
