@@ -46,7 +46,7 @@ from qgis.core import (Qgis,
 from qgis.analysis import (QgsVectorLayerDirector)
 
 from ..QneatFramework import QneatCore, OptimizationStrategy, MatrixType, ProgressRange
-from ..QneatUtilities import getOdMatrixFields
+from ..QneatUtilities import getOdMatrixFields, checkIfAnalysisCrsEqual
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
@@ -217,6 +217,14 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
         speedFieldName: str = self.parameterAsString(parameters, self.SPEED_FIELD, context) 
         defaultSpeed: float = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) 
         tolerance: float = self.parameterAsDouble(parameters, self.TOLERANCE, context) 
+
+        #check if network and points have the same crs
+        if checkIfAnalysisCrsEqual([network.sourceCrs(), points.sourceCrs()]):
+            self.analysis_crs = network.sourceCrs()
+        else:
+            raise QgsProcessingException(f"Coordinate reference systems of graph is {network.sourceCrs().authid()} doesn't match up with the coordinate reference system of the point layer (origin points: {points.sourceCrs().authid()}) Reproject all datasets so that their CRSs match up.")
+
+
 
         input_pointlist: list[QgsFeature] = [f for f in points.getFeatures()]
         
