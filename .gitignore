@@ -4,3 +4,4 @@
 .pydevproject
 *.pyc
 todo.md
+deploy.sh
