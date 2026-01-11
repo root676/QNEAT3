@@ -61,7 +61,7 @@ if TYPE_CHECKING:
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
-class IsoAreaAsInterpolationFromLayer(QgsProcessingAlgorithm):
+class IsoAreaAsCostSurfaceFromLayer(QgsProcessingAlgorithm):
 
     INPUT = 'INPUT'
     ORIGIN_POINTS = 'ORIGIN_POINTS'
@@ -83,7 +83,7 @@ class IsoAreaAsInterpolationFromLayer(QgsProcessingAlgorithm):
         super().__init__()
     
     def createInstance(self):
-        return IsoAreaAsInterpolationFromLayer()
+        return IsoAreaAsCostSurfaceFromLayer()
 
     def tr(self, string):
         return QCoreApplication.translate('QNEAT', string)

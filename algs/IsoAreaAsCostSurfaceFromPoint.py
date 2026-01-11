@@ -59,7 +59,7 @@ if TYPE_CHECKING:
         QgsProcessingFeatureSource
         )
 
-class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
+class IsoAreaAsCostSurfaceFromPoint(QgsProcessingAlgorithm):
 
     INPUT = 'INPUT'
     ORIGIN_POINT = 'ORIGIN_POINT'
@@ -80,7 +80,7 @@ class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
         super().__init__()
 
     def createInstance(self):
-        return IsoAreaAsInterpolationFromPoint()
+        return IsoAreaAsCostSurfaceFromPoint()
 
     def tr(self, string):
         return QCoreApplication.translate('QNEAT', string)
