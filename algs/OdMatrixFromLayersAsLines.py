@@ -223,7 +223,7 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
         origin_points: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.ORIGIN_POINT_LAYER, context)
         origin_id_field: str = self.parameterAsString(parameters, self.ORIGIN_ID_FIELD, context) 
         destination_points: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.DESTINATION_POINT_LAYER, context)
-        destination_id_field: str = self.parameterAsString(parameters, self.DESTINATION_POINT_LAYER, context)
+        destination_id_field: str = self.parameterAsString(parameters, self.DESTINATION_ID_FIELD, context)
         strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context))
         matrix_geometry_type: MatrixType =  MatrixType(self.parameterAsEnum(parameters, self.MATRIX_GEOMETRY_TYPE, context))
 
