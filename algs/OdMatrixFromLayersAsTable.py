@@ -66,7 +66,7 @@ if TYPE_CHECKING:
 
 class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
 
-    INPUT = 'INPUT'
+    GRAPH_LAYER = 'GRAPH_LAYER'
     ORIGIN_POINT_LAYER = 'ORIGIN_POINT_LAYER'
     ORIGIN_ID_FIELD = 'ORIGIN_ID_FIELD'
     DESTINATION_POINT_LAYER = 'DESTINATION_POINT_LAYER'
@@ -133,26 +133,26 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
         self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar'),
                                                 self.tr('Ellipsoidal')]
 
-        self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
-                                                              self.tr('Network layer'),
-                                                              [QgsProcessing.TypeVectorLine]))
+        self.addParameter(QgsProcessingParameterFeatureSource(self.GRAPH_LAYER,
+                                                              self.tr('Graph layer'),
+                                                              [Qgis.ProcessingSourceType.VectorLine]))
         
         self.addParameter(QgsProcessingParameterFeatureSource(self.ORIGIN_POINT_LAYER,
                                                               self.tr('Origin point layer'),
-                                                              [QgsProcessing.TypeVectorPoint]))
+                                                              [Qgis.ProcessingSourceType.VectorPoint]))
         
-        self.addParameter(QgsProcessingParameterField(self.FROM_ID_FIELD,
-                                                       self.tr('Unique origin point ID field'),
+        self.addParameter(QgsProcessingParameterField(self.ORIGIN_ID_FIELD,
+                                                       self.tr('Origin point ID field'),
                                                        None,
                                                        self.ORIGIN_POINT_LAYER,
                                                        optional=False))
         
         self.addParameter(QgsProcessingParameterFeatureSource(self.DESTINATION_POINT_LAYER,
                                                       self.tr('Destination point layer'),
-                                                      [QgsProcessing.TypeVectorPoint]))
+                                                      [Qgis.ProcessingSourceType.VectorPoint]))
         
         self.addParameter(QgsProcessingParameterField(self.DESTINATION_ID_FIELD,
-                                                     self.tr('Unique destination point ID field'),
+                                                     self.tr('Destination point ID field'),
                                                      None,
                                                      self.DESTINATION_POINT_LAYER,
                                                      optional=False))
@@ -170,7 +170,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
                                                   self.tr('Direction field'),
                                                   None,
-                                                  self.INPUT,
+                                                  self.GRAPH_LAYER,
                                                   optional=True))
         params.append(QgsProcessingParameterString(self.VALUE_FORWARD,
                                                    self.tr('Value for forward direction'),
@@ -188,7 +188,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
         params.append(QgsProcessingParameterField(self.SPEED_FIELD,
                                                   self.tr('Speed field'),
                                                   None,
-                                                  self.INPUT,
+                                                  self.GRAPH_LAYER,
                                                   optional=True))
         params.append(QgsProcessingParameterNumber(self.DEFAULT_SPEED,
                                                    self.tr('Default speed (km/h)'),
@@ -209,7 +209,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
         feedback.setProgress(0)
         feedback.pushInfo(self.tr("Running '{}'".format(self.displayName())))
 
-        network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.INPUT, context)
+        network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.GRAPH_LAYER, context)
         origin_points: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.ORIGIN_POINT_LAYER, context) 
         origin_id_field: str = self.parameterAsString(parameters, self.ORIGIN_ID_FIELD, context)
         destination_points: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.DESTINATION_POINT_LAYER, context)

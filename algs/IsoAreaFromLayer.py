@@ -66,7 +66,7 @@ if TYPE_CHECKING:
 
 class IsoAreaFromLayer(QgsProcessingAlgorithm):
 
-    NETWORK_LAYER = 'NETWORK_LAYER'
+    GRAPH_LAYER = 'GRAPH_LAYER'
     ORIGIN_POINT_LAYER = 'ORIGIN_POINT_LAYER'
     ISO_AREA_TYPE = 'ISO_AREA_TYPE'
     ORIGIN_ID_FIELD = 'ORIGIN_ID_FIELD'
@@ -135,7 +135,7 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
         self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
                            self.tr('Fastest Path (time optimization)')]
 
-        self.addParameter(QgsProcessingParameterFeatureSource(self.NETWORK_LAYER,
+        self.addParameter(QgsProcessingParameterFeatureSource(self.GRAPH_LAYER,
                                                               self.tr('Network layer'),
                                                               [Qgis.ProcessingSourceType.VectorLine]))
         self.addParameter(QgsProcessingParameterFeatureSource(self.ORIGIN_POINT_LAYER,
@@ -171,7 +171,7 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
                                                   self.tr('Direction field'),
                                                   None,
-                                                  self.NETWORK_LAYER,
+                                                  self.GRAPH_LAYER,
                                                   optional=True))
         params.append(QgsProcessingParameterString(self.VALUE_FORWARD,
                                                    self.tr('Value for forward direction'),
@@ -189,7 +189,7 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
         params.append(QgsProcessingParameterField(self.SPEED_FIELD,
                                                   self.tr('Speed field'),
                                                   None,
-                                                  self.NETWORK_LAYER,
+                                                  self.GRAPH_LAYER,
                                                   optional=True))
         params.append(QgsProcessingParameterNumber(self.DEFAULT_SPEED,
                                                    self.tr('Default speed (km/h)'),
@@ -211,7 +211,7 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
         feedback.setProgress(0)
         feedback.pushInfo(self.tr("Running '{}'".format(self.displayName())))
 
-        network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.NETWORK_LAYER, context) 
+        network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.GRAPH_LAYER, context) 
         origin_points: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.ORIGIN_POINT_LAYER, context) 
         origin_id_field: str = self.parameterAsString(parameters, self.ORIGIN_ID_FIELD, context) 
         iso_area_type: IsoAreaType = IsoAreaType(self.parameterAsEnum(parameters, self.ISO_AREA_TYPE, context))

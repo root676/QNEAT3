@@ -61,7 +61,7 @@ if TYPE_CHECKING:
 
 class IsoAreaAsCostSurfaceFromPoint(QgsProcessingAlgorithm):
 
-    INPUT = 'INPUT'
+    GRAPH_LAYER = 'GRAPH_LAYER'
     ORIGIN_POINT = 'ORIGIN_POINT'
     MAX_COST = "MAX_COST"
     CELL_SIZE = "CELL_SIZE"
@@ -123,7 +123,7 @@ class IsoAreaAsCostSurfaceFromPoint(QgsProcessingAlgorithm):
                            self.tr('Fastest Path (time optimization)')]
             
 
-        self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
+        self.addParameter(QgsProcessingParameterFeatureSource(self.GRAPH_LAYER,
                                                               self.tr('Network layer'),
                                                               [Qgis.ProcessingSourceType.VectorLine]))
         self.addParameter(QgsProcessingParameterPoint(self.ORIGIN_POINT,
@@ -145,7 +145,7 @@ class IsoAreaAsCostSurfaceFromPoint(QgsProcessingAlgorithm):
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
                                                   self.tr('Direction field'),
                                                   None,
-                                                  self.INPUT,
+                                                  self.GRAPH_LAYER,
                                                   optional=True))
         params.append(QgsProcessingParameterString(self.VALUE_FORWARD,
                                                    self.tr('Value for forward direction'),
@@ -163,7 +163,7 @@ class IsoAreaAsCostSurfaceFromPoint(QgsProcessingAlgorithm):
         params.append(QgsProcessingParameterField(self.SPEED_FIELD,
                                                   self.tr('Speed field'),
                                                   None,
-                                                  self.INPUT,
+                                                  self.GRAPH_LAYER,
                                                   optional=True))
         params.append(QgsProcessingParameterNumber(self.DEFAULT_SPEED,
                                                    self.tr('Default speed (km/h)'),
@@ -184,7 +184,7 @@ class IsoAreaAsCostSurfaceFromPoint(QgsProcessingAlgorithm):
         feedback.setProgress(0)
         feedback.pushInfo(self.tr("Running '{}'".format(self.displayName())))
 
-        network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.INPUT, context) 
+        network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.GRAPH_LAYER, context) 
         origin_point: QgsPointXY = self.parameterAsPoint(parameters, self.ORIGIN_POINT, context, network.sourceCrs()) 
         max_cost: float = self.parameterAsDouble(parameters, self.MAX_COST, context)
         cell_size: float = self.parameterAsDouble(parameters, self.CELL_SIZE, context)

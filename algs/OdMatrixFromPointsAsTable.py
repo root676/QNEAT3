@@ -63,7 +63,7 @@ if TYPE_CHECKING:
 
 class OdMatrixFromPointsAsTable(QgsProcessingAlgorithm):
 
-    INPUT = 'INPUT'
+    GRAPH_LAYER = 'GRAPH_LAYER'
     POINTS = 'POINTS'
     ID_FIELD = 'ID_FIELD'    
     STRATEGY = 'STRATEGY'
@@ -129,14 +129,14 @@ class OdMatrixFromPointsAsTable(QgsProcessingAlgorithm):
                                                 self.tr('Ellipsoidal')]
 
 
-        self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
-                                                              self.tr('Network layer'),
-                                                              [QgsProcessing.TypeVectorLine]))
+        self.addParameter(QgsProcessingParameterFeatureSource(self.GRAPH_LAYER,
+                                                              self.tr('Graph layer'),
+                                                              [Qgis.ProcessingSourceType.VectorLine]))
         self.addParameter(QgsProcessingParameterFeatureSource(self.POINTS,
                                                               self.tr('Point layer'),
-                                                              [QgsProcessing.TypeVectorPoint]))
+                                                              [Qgis.ProcessingSourceType.VectorPoint]))
         self.addParameter(QgsProcessingParameterField(self.ID_FIELD,
-                                                       self.tr('Unique point ID field'),
+                                                       self.tr('Point ID field'),
                                                        None,
                                                        self.POINTS,
                                                        optional=False))
@@ -153,7 +153,7 @@ class OdMatrixFromPointsAsTable(QgsProcessingAlgorithm):
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
                                                   self.tr('Direction field'),
                                                   None,
-                                                  self.INPUT,
+                                                  self.GRAPH_LAYER,
                                                   optional=True))
         params.append(QgsProcessingParameterString(self.VALUE_FORWARD,
                                                    self.tr('Value for forward direction'),
@@ -171,7 +171,7 @@ class OdMatrixFromPointsAsTable(QgsProcessingAlgorithm):
         params.append(QgsProcessingParameterField(self.SPEED_FIELD,
                                                   self.tr('Speed field'),
                                                   None,
-                                                  self.INPUT,
+                                                  self.GRAPH_LAYER,
                                                   optional=True))
         params.append(QgsProcessingParameterNumber(self.DEFAULT_SPEED,
                                                    self.tr('Default speed (km/h)'),
@@ -191,7 +191,7 @@ class OdMatrixFromPointsAsTable(QgsProcessingAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         feedback.setProgress(0)
         feedback.pushInfo(self.tr("Running '{}'".format(self.displayName())))
-        network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.INPUT, context)
+        network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.GRAPH_LAYER, context)
         points: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.POINTS, context)
         id_field: str = self.parameterAsString(parameters, self.ID_FIELD, context)
         strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context))

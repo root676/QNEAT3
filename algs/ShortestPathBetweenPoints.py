@@ -64,7 +64,7 @@ pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
 class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
 
-    INPUT = 'INPUT'
+    GRAPH_LAYER = 'GRAPH_LAYER'
     START_POINT = 'START_POINT'
     END_POINT = 'END_POINT'
     STRATEGY = 'STRATEGY'
@@ -132,13 +132,13 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
                                                 self.tr('Ellipsoidal')]
             
 
-        self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
-                                                              self.tr('Network layer'),
-                                                              [QgsProcessing.TypeVectorLine]))
+        self.addParameter(QgsProcessingParameterFeatureSource(self.GRAPH_LAYER,
+                                                              self.tr('Graph layer'),
+                                                              [Qgis.ProcessingSourceType.VectorLine]))
         self.addParameter(QgsProcessingParameterPoint(self.START_POINT,
-                                                      self.tr('Start point')))
+                                                      self.tr('Origin point')))
         self.addParameter(QgsProcessingParameterPoint(self.END_POINT,
-                                                      self.tr('End point')))
+                                                      self.tr('Destination point')))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
                                                      self.tr('Optimization criterion'),
                                                      self.STRATEGIES,
@@ -152,7 +152,7 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
                                                   self.tr('Direction field'),
                                                   None,
-                                                  self.INPUT,
+                                                  self.GRAPH_LAYER,
                                                   optional=True))
         params.append(QgsProcessingParameterString(self.VALUE_FORWARD,
                                                    self.tr('Value for forward direction'),
@@ -170,7 +170,7 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
         params.append(QgsProcessingParameterField(self.SPEED_FIELD,
                                                   self.tr('Speed field'),
                                                   None,
-                                                  self.INPUT,
+                                                  self.GRAPH_LAYER,
                                                   optional=True))
         params.append(QgsProcessingParameterNumber(self.DEFAULT_SPEED,
                                                    self.tr('Default speed (km/h)'),
@@ -192,7 +192,7 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         feedback.setProgress(0)
         feedback.pushInfo(self.tr("Running '{}'".format(self.displayName())))
-        network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.INPUT, context)
+        network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.GRAPH_LAYER, context)
         startPoint: QgsPointXY = self.parameterAsPoint(parameters, self.START_POINT, context, network.sourceCrs())
         endPoint: QgsPointXY = self.parameterAsPoint(parameters, self.END_POINT, context, network.sourceCrs())
         strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context))
