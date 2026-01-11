@@ -129,8 +129,6 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
         self.MATRIX_GEOMETRY_TYPES = [self.tr('Line'),
                                       self.tr('Route')]
 
-
-
         self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar'),
                                                 self.tr('Ellipsoidal')]
 
