@@ -17,13 +17,10 @@
 ***************************************************************************
 """
 
-import time
 from osgeo import gdal, ogr, osr
 
 from math import ceil
 from enum import IntEnum
-
-import numpy
 
 from qgis.analysis import (
     QgsGraphAnalyzer,
@@ -40,8 +37,6 @@ from qgis.core import (
     Qgis,
     QgsDistanceArea, 
     QgsFeature, 
-    QgsFeatureRequest,
-    QgsFeatureSink, 
     QgsField, 
     QgsFields,
     QgsGeometry,  
@@ -52,11 +47,10 @@ from qgis.core import (
     QgsRasterLayer,
     QgsRectangle,
     QgsVectorLayer,   
-    QgsSpatialIndex,
     QgsWkbTypes
     )
 
-from qgis.PyQt.QtCore import QVariant, QMetaType
+from qgis.PyQt.QtCore import QVariant
 
 import QneatUtilities
 
@@ -292,8 +286,8 @@ class QneatCore():
         iso_points = dict()
 
         output_fields = QgsFields()
-        output_fields.append(QgsField('vertex_id', QMetaType.Type.Int))
-        output_fields.append(QgsField('cost', QMetaType.Type.Double))
+        output_fields.append(QgsField('vertex_id', QVariant.Int))
+        output_fields.append(QgsField('cost', QVariant.Double))
         output_fields.append(QgsField('origin_point_id',QneatUtilities.getFieldDatatype(id_field_name)))
 
         total_workload: int = len(self.analysis_points)
@@ -432,8 +426,8 @@ class QneatCore():
         iso_areas.setCrs(self.analysis_crs)
 
         iso_area_fields = QgsFields()
-        iso_area_fields.append(QgsField('id', QMetaType.Type.LongLong))
-        iso_area_fields.append(QgsField('cost_level'), QMetaType.Type.Double)
+        iso_area_fields.append(QgsField('id', QVariant.LongLong))
+        iso_area_fields.append(QgsField('cost_level'), QVariant.Double)
         provider = iso_areas.dataProvider()
         provider.addAttributes(iso_area_fields)
         iso_areas.updateFields()

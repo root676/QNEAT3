@@ -28,7 +28,7 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
-from qgis.PyQt.QtCore import QMetaType
+from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (Qgis,
@@ -190,11 +190,11 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
         params.append(QgsProcessingParameterNumber(self.DEFAULT_SPEED,
                                                    self.tr('Default speed (km/h)'),
                                                    Qgis.ProcessingNumberParameterType.Double,
-                                                   5.0, False, 0, 99999999.99))
+                                                   5.0, False, 0))
         params.append(QgsProcessingParameterNumber(self.TOLERANCE,
                                                    self.tr('Topology tolerance'),
                                                    Qgis.ProcessingNumberParameterType.Double,
-                                                   0.0, False, 0, 99999999.99))
+                                                   0.0, False, 0))
 
         for p in params:
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
@@ -234,9 +234,9 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
         input_point_features: list[QgsFeature] = []
 
         source_point_fields = QgsFields()
-        source_point_fields.append(QgsField('fid', QMetaType.Type.LongLong))
+        source_point_fields.append(QgsField('fid', QVariant.LongLong))
         source_point_fields.append(QgsField('user_id'), getFieldDatatype(origin_points, origin_id_field))
-        source_point_fields.append(QgsField('type', QMetaType.Type.QString))
+        source_point_fields.append(QgsField('type', QVariant.String))
 
         for f in origin_points.getFeatures():
             source_feat = QgsFeature(source_point_fields)

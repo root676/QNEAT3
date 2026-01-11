@@ -28,7 +28,7 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
-from qgis.PyQt.QtCore import QMetaType
+from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (Qgis, 
@@ -45,8 +45,7 @@ from qgis.core import (Qgis,
                        QgsProcessingParameterNumber,
                        QgsProcessingParameterString,
                        QgsProcessingParameterFeatureSource,
-                       QgsProcessingParameterFeatureSink,
-                       QgsProcessingParameterDefinition)
+                       QgsProcessingParameterFeatureSink)
 
 from qgis.analysis import QgsVectorLayerDirector
 
@@ -127,10 +126,10 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
     
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Network Layer'),
-                                                              [QgsProcessing.TypeVectorLine]))
+                                                              [Qgis.ProcessingSourceType.VectorLine]))
         self.addParameter(QgsProcessingParameterFeatureSource(self.ORIGIN_POINTS,
                                                               self.tr('Origin point Layer'),
-                                                              [QgsProcessing.TypeVectorPoint]))
+                                                              [Qgis.ProcessingSourceType.VectorPoint]))
         self.addParameter(QgsProcessingParameterField(self.ID_FIELD,
                                                        self.tr('Unique Point ID Field'),
                                                        None,
@@ -138,8 +137,8 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
                                                        optional=False))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
                                                    self.tr('Size of Iso-Area (distance in network csr units or time value in seconds)'),
-                                                   QgsProcessingParameterNumber.Double,
-                                                   2500.0, False, 0, 99999999.99))
+                                                   Qgis.ProcessingNumberParameterType.Double,
+                                                   2500.0, False, 0))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
                                                      self.tr('Optimization criterion'),
                                                      self.STRATEGIES,
@@ -175,12 +174,12 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
                                                   optional=True))
         params.append(QgsProcessingParameterNumber(self.DEFAULT_SPEED,
                                                    self.tr('Default speed (km/h)'),
-                                                   QgsProcessingParameterNumber.Double,
-                                                   5.0, False, 0, 99999999.99))
+                                                   Qgis.ProcessingNumberParameterType.Double,
+                                                   5.0, False, 0))
         params.append(QgsProcessingParameterNumber(self.TOLERANCE,
                                                    self.tr('Topology tolerance'),
-                                                   QgsProcessingParameterNumber.Double,
-                                                   0.0, False, 0, 99999999.99))
+                                                   Qgis.ProcessingNumberParameterType.Double,
+                                                   0.0, False, 0))
 
         for p in params:
             p.setFlags(p.flags() | Qgis.ProcessingParameterFlag.Advanced)
@@ -188,7 +187,7 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
         
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT,
                                                             self.tr('Output Pointcloud'),
-                                                            QgsProcessing.TypeVectorPoint))
+                                                            Qgis.ProcessingSourceType.VectorPoint))
 
     def processAlgorithm(self, parameters, context, feedback):
         feedback.setProgress(0)
@@ -219,9 +218,9 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
         input_point_features: list[QgsFeature] = []
 
         source_point_fields = QgsFields()
-        source_point_fields.append(QgsField('fid', QMetaType.Type.LongLong))
+        source_point_fields.append(QgsField('fid', QVariant.LongLong))
         source_point_fields.append(QgsField('user_id'), getFieldDatatype(origin_points, id_field))
-        source_point_fields.append(QgsField('type', QMetaType.Type.QString))
+        source_point_fields.append(QgsField('type', QVariant.String))
 
         for f in origin_points.getFeatures():
             source_feat = QgsFeature(source_point_fields)
@@ -248,11 +247,11 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
                          defaultDirection)
         
         fields = QgsFields()
-        fields.append(QgsField('vertex_id', QMetaType.Type.Int))
-        fields.append(QgsField('cost', QMetaType.Type.Double))
+        fields.append(QgsField('vertex_id', QVariant.Int))
+        fields.append(QgsField('cost', QVariant.Double))
         fields.append(QgsField('origin_point_id', getFieldDatatype(origin_points, id_field)))
         
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.Point, analysisCrs)
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, Qgis.WkbType.PointM, analysisCrs)
         
         iso_progress_range = ProgressRange(feedback, 0.5, 1.0)
         iso_points = core.calcIsoPoints('user_id', max_cost, iso_progress_range)

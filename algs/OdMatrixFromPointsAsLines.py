@@ -28,7 +28,6 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
-from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (Qgis,
@@ -43,8 +42,7 @@ from qgis.core import (Qgis,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterField,
                        QgsProcessingParameterNumber,
-                       QgsProcessingParameterString,
-                       QgsProcessingParameterDefinition)
+                       QgsProcessingParameterString)
 
 from qgis.analysis import (QgsVectorLayerDirector)
 
@@ -133,10 +131,10 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Network layer'),
-                                                              [QgsProcessing.TypeVectorLine]))
+                                                              [Qgis.ProcessingSourceType.VectorLine]))
         self.addParameter(QgsProcessingParameterFeatureSource(self.POINTS,
                                                               self.tr('Point layer'),
-                                                              [QgsProcessing.TypeVectorPoint]))
+                                                              [Qgis.ProcessingSourceType.VectorPoint]))
         self.addParameter(QgsProcessingParameterField(self.ID_FIELD,
                                                        self.tr('Unique point ID field'),
                                                        None,
@@ -181,19 +179,19 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
                                                   optional=True))
         params.append(QgsProcessingParameterNumber(self.DEFAULT_SPEED,
                                                    self.tr('Default speed (km/h)'),
-                                                   QgsProcessingParameterNumber.Double,
-                                                   5.0, False, 0, 99999999.99))
+                                                   Qgis.ProcessingNumberParameterType.Double,
+                                                   5.0, False, 0))
         params.append(QgsProcessingParameterNumber(self.TOLERANCE,
                                                    self.tr('Topology tolerance'),
-                                                   QgsProcessingParameterNumber.Double,
-                                                   0.0, False, 0, 99999999.99))
+                                                   Qgis.ProcessingNumberParameterType.Double,
+                                                   0.0, False, 0))
 
         for p in params:
             p.setFlags(p.flags() | Qgis.ProcessingParameterFlag.Advanced)
             self.addParameter(p)
 
 
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Output OD matrix'), QgsProcessing.TypeVectorLine), True)
+        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Output OD matrix'), Qgis.ProcessingSourceType.VectorLine), True)
 
     def processAlgorithm(self, parameters, context, feedback):
         feedback.setProgress(0)
@@ -237,7 +235,7 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
 
         #create output sink
         output_fields: QgsFields = getOdMatrixFields(points, id_field, points, id_field)
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, output_fields, QgsWkbTypes.LineString, network.sourceCrs())
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, output_fields, Qgis.WkbType.LineString, network.sourceCrs())
 
         feedback.pushInfo(f"{int(total_workload)} od pairs will be routed")
         od_progress_range = ProgressRange(feedback, 0.5, 1.0)

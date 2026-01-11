@@ -28,7 +28,6 @@ from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (Qgis,
-                       QgsWkbTypes,
                        QgsFeature,
                        QgsFeatureSink,
                        QgsGeometry,
@@ -43,8 +42,7 @@ from qgis.core import (Qgis,
                        QgsProcessingParameterNumber,
                        QgsProcessingParameterString,
                        QgsProcessingParameterFeatureSource,
-                       QgsProcessingParameterFeatureSink,
-                       QgsProcessingParameterDefinition)
+                       QgsProcessingParameterFeatureSink)
 
 from qgis.analysis import QgsVectorLayerDirector
 
@@ -170,12 +168,12 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
                                                   optional=True))
         params.append(QgsProcessingParameterNumber(self.DEFAULT_SPEED,
                                                    self.tr('Default speed (km/h)'),
-                                                   QgsProcessingParameterNumber.Double,
-                                                   5.0, False, 0, 99999999.99))
+                                                   Qgis.ProcessingNumberParameterType.Double,
+                                                   5.0, False, 0))
         params.append(QgsProcessingParameterNumber(self.TOLERANCE,
                                                    self.tr('Topology tolerance'),
-                                                   QgsProcessingParameterNumber.Double,
-                                                   0.0, False, 0, 99999999.99))
+                                                   Qgis.ProcessingNumberParameterType.Double,
+                                                   0.0, False, 0))
 
         for p in params:
             p.setFlags(p.flags() | Qgis.ProcessingParameterFlag.Advanced)
@@ -183,7 +181,7 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
 
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT,
                                                             self.tr('Shortest path layer'),
-                                                            QgsProcessing.TypeVectorLine))
+                                                            Qgis.ProcessingSourceType.VectorLine))
 
     def processAlgorithm(self, parameters, context, feedback):
         feedback.setProgress(0)
@@ -277,7 +275,7 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
         fields.append(QgsField('total_cost', QVariant.Double))
         feat.setFields(fields)
         
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, QgsWkbTypes.LineString, analysisCrs)
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, Qgis.WkbType.LineString, analysisCrs)
         
         feat['start_id'] = origin_analysis_point.feature["user_id"]
         feat['start_coordinates'] = startPoint.toString()

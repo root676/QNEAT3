@@ -17,9 +17,14 @@
 ***************************************************************************
 """
 
-from qgis.core import QgsWkbTypes, QgsMessageLog, QgsVectorLayer, QgsFeature, QgsGeometry, QgsFields, QgsField, QgsFeatureRequest
+from qgis.PyQt.QtCore import QVariant
 
-from qgis.PyQt.QtCore import QVariant, QMetaType
+from qgis.core import (QgsMessageLog, 
+                       QgsVectorLayer, 
+                       QgsFeature, 
+                       QgsGeometry, 
+                       QgsFields, 
+                       QgsField)
 
 from typing import TYPE_CHECKING, Union
 
@@ -28,10 +33,6 @@ if TYPE_CHECKING:
         QgsCoordinateReferenceSystem,
         QgsFeatureSource,
         QgsPointXY
-    )
-
-    from QneatFramework import(
-        QneatAnalysisPoint
     )
 
 
@@ -58,15 +59,15 @@ def buildQgsVectorLayer(string_geomtype: str, string_layername: str, crs: QgsCoo
 def getFeatureFromPoint(user_id: int, qgs_point_xy: QgsPointXY) -> QgsFeature:     
     feature = QgsFeature()
     fields = QgsFields()
-    fields.append(QgsField('user_id', QMetaType.Type.Int))
+    fields.append(QgsField('user_id', QVariant.Int))
     feature.setFields(fields)
     feature.setGeometry(QgsGeometry.fromPointXY(qgs_point_xy))
     feature['user_id']=user_id
     return feature
         
-def getFieldDatatype(qgs_feature_storage: Union[QgsFeatureSource, QgsFeature], fieldname) -> QMetaType.Type:
+def getFieldDatatype(qgs_feature_storage: Union[QgsFeatureSource, QgsFeature], fieldname) -> QVariant.Type:
     fields_list: QgsFields = qgs_feature_storage.fields()
-    type: QMetaType.Type = fields_list.field(fieldname).type()
+    type: QVariant.Type = fields_list.field(fieldname).type()
     return type
 
 def getFieldDatatypeFromPythontype(pythonvar):

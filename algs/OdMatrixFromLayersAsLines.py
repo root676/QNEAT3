@@ -28,10 +28,11 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
-from qgis.PyQt.QtCore import QMetaType
+from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import (QgsWkbTypes,
+from qgis.core import (Qgis,
+                       QgsWkbTypes,
                        QgsFields,
                        QgsField,
                        QgsFeature,
@@ -127,18 +128,18 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
                                       self.tr('Fastest Path (time optimization)')]
 
         self.MATRIX_GEOMETRY_TYPES = [self.tr('Line'),
-                                                  self.tr('Route')]
+                                      self.tr('Route')]
 
         self.ENTRY_COST_CALCULATION_METHODS = OrderedDict([self.tr('Planar'),
                                                            self.tr('Ellipsoidal')])
             
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Network Layer'),
-                                                              [QgsProcessing.TypeVectorLine]))
+                                                              [Qgis.ProcessingSourceType.VectorLine]))
         
         self.addParameter(QgsProcessingParameterFeatureSource(self.FROM_POINT_LAYER,
                                                               self.tr('From-Point Layer'),
-                                                              [QgsProcessing.TypeVectorPoint]))
+                                                              [Qgis.ProcessingSourceType.VectorPoint]))
         
         self.addParameter(QgsProcessingParameterField(self.FROM_ID_FIELD,
                                                        self.tr('Unique Point ID Field'),
@@ -148,7 +149,7 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
         
         self.addParameter(QgsProcessingParameterFeatureSource(self.TO_POINT_LAYER,
                                                       self.tr('To-Point Layer'),
-                                                      [QgsProcessing.TypeVectorPoint]))
+                                                      [Qgis.ProcessingSourceType.VectorPoint]))
         
         self.addParameter(QgsProcessingParameterField(self.TO_ID_FIELD,
                                                      self.tr('Unique Point ID Field'),
@@ -195,18 +196,18 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
                                                   optional=True))
         params.append(QgsProcessingParameterNumber(self.DEFAULT_SPEED,
                                                    self.tr('Default speed (km/h)'),
-                                                   QgsProcessingParameterNumber.Double,
-                                                   5.0, False, 0, 99999999.99))
+                                                   Qgis.ProcessingNumberParameterType.Double,
+                                                   5.0, False, 0))
         params.append(QgsProcessingParameterNumber(self.TOLERANCE,
                                                    self.tr('Topology tolerance'),
-                                                   QgsProcessingParameterNumber.Double,
-                                                   0.0, False, 0, 99999999.99))
+                                                   Qgis.ProcessingNumberParameterType.Double,
+                                                   0.0, False, 0))
 
         for p in params:
             p.setFlags(p.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
             self.addParameter(p)
 
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Output OD Matrix'), QgsProcessing.TypeVectorLine), True)
+        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Output OD Matrix'), Qgis.ProcessingSourceType.VectorLine), True)
 
     def processAlgorithm(self, parameters, context, feedback):
         feedback.setProgress(0)
@@ -237,9 +238,9 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
             raise QgsProcessingException(f"Coordinate reference systems of graph is {network.sourceCrs().authid()} doesn't match up with the coordinate reference system of the point layers (origin points: {origin_points.sourceCrs().authid()}, destination points: {destination_points.sourceCrs().authid()}) Reproject all datasets so that their CRSs match up.")
         
         o_fields = QgsFields()
-        o_fields.append(QgsField('fid', QMetaType.Type.LongLong))
+        o_fields.append(QgsField('fid', QVariant.LongLong))
         o_fields.append(QgsField('user_id', getFieldDatatype(origin_points, origin_id_field)))
-        o_fields.append(QgsField('type', QMetaType.Type.QString))
+        o_fields.append(QgsField('type', QVariant.String))
 
         #unpack all points into one list
         input_point_features: list[QgsFeature] = []
@@ -254,9 +255,9 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
             input_point_features.append(of)
         
         d_fields = QgsFields()
-        d_fields.append(QgsField('fid', QMetaType.Type.LongLong))
+        d_fields.append(QgsField('fid', QVariant.LongLong))
         d_fields.append(QgsField('user_id', getFieldDatatype(destination_points, destination_id_field)))
-        d_fields.append(QgsField('type', QMetaType.Type.QString))
+        d_fields.append(QgsField('type', QVariant.String))
 
         for f in destination_points.getFeatures():
             df = QgsFeature(d_fields)
@@ -286,7 +287,7 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
         total_workload = float(pow(len(core.analysis_points),2))
 
         output_fields: QgsFields = getOdMatrixFields(origin_points, origin_id_field, destination_points, destination_id_field)
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, output_fields, QgsWkbTypes.NoGeometry, analysis_crs)
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, output_fields, Qgis.WkbType.LineString, analysis_crs)
 
         feedback.pushInfo(f"{int(total_workload)} od pairs will be routed")
         od_progress_range = ProgressRange(feedback, 0.5, 1.0)

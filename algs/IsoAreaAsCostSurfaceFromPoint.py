@@ -31,7 +31,6 @@ from collections import OrderedDict
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (Qgis,
-                       QgsVectorLayer,
                        QgsProcessing,
                        QgsProcessingAlgorithm,
                        QgsProcessingException,
@@ -41,8 +40,7 @@ from qgis.core import (Qgis,
                        QgsProcessingParameterNumber,
                        QgsProcessingParameterString,
                        QgsProcessingParameterFeatureSource,
-                       QgsProcessingParameterRasterDestination,
-                       QgsProcessingParameterDefinition)
+                       QgsProcessingParameterRasterDestination)
 
 from qgis.analysis import QgsVectorLayerDirector
 
@@ -121,16 +119,16 @@ class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
 
         self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
                                                               self.tr('Network layer'),
-                                                              [QgsProcessing.TypeVectorLine]))
+                                                              [Qgis.ProcessingSourceType.VectorLine]))
         self.addParameter(QgsProcessingParameterPoint(self.ORIGIN_POINT,
                                                       self.tr('Origin point')))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_COST,
                                                    self.tr('Size of Iso-Area (distance in network csr units or time value in seconds)'),
-                                                   QgsProcessingParameterNumber.Double,
+                                                   Qgis.ProcessingNumberParameterType.Double,
                                                    2500.0, False, 0, 99999999.99))
         self.addParameter(QgsProcessingParameterNumber(self.CELL_SIZE,
                                                     self.tr('Cellsize of interpolation raster'),
-                                                    QgsProcessingParameterNumber.Integer,
+                                                    Qgis.ProcessingNumberParameterType.Integer,
                                                     10, False, 1, 99999999))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
                                                      self.tr('Optimization criterion'),
@@ -163,11 +161,11 @@ class IsoAreaAsInterpolationFromPoint(QgsProcessingAlgorithm):
                                                   optional=True))
         params.append(QgsProcessingParameterNumber(self.DEFAULT_SPEED,
                                                    self.tr('Default speed (km/h)'),
-                                                   QgsProcessingParameterNumber.Double,
+                                                   Qgis.ProcessingNumberParameterType.Double,
                                                    5.0, False, 0, 99999999.99))
         params.append(QgsProcessingParameterNumber(self.TOLERANCE,
                                                    self.tr('Topology tolerance'),
-                                                   QgsProcessingParameterNumber.Double,
+                                                   Qgis.ProcessingNumberParameterType.Double,
                                                    0.0, False, 0, 99999999.99))
 
         for p in params:
