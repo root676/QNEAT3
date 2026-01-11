@@ -144,7 +144,7 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
                                                        None,
                                                        self.ORIGIN_POINTS,
                                                        optional=False))
-        self.addParameter(QgsProcessingParameterNumber(self.MAX_DIST,
+        self.addParameter(QgsProcessingParameterNumber(self.MAX_COST,
                                                    self.tr('Size of Iso-Area (distance in network csr units or time value in seconds)'),
                                                    Qgis.ProcessingNumberParameterType.Double,
                                                    2500.0, False, 0))
