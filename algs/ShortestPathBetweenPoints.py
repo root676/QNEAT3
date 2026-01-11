@@ -250,16 +250,16 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
                 raise QgsProcessingException(self.tr('Could not find a path from start point to end point - Check your graph or change the input points.'))
             
             route_points: list[QgsPointXY] = list()
-            route_points.append(origin_analysis_point.feature.geometry().asPoint())
-            route_points.append(origin_analysis_point.graph_vertex_geom)
+            route_points.append(destination_analysis_point.graph_vertex_geom)
+            route_points.append(destination_analysis_point.feature.geometry().asPoint())
 
             current_vertex_id = destination_vertex_id
             while current_vertex_id != origin_vertex_id:
-                current_vertex_idx = core.qgsgraph.edge(dijkstra_query[0][current_vertex_idx]).fromVertex()
-                route_points.append(core.qgsgraph.vertex(current_vertex_idx).point())
-            
-            route_points.append(destination_analysis_point.graph_vertex_geom)
-            route_points.append(destination_analysis_point.feature.geometry().asPoint())
+                current_vertex_id = core.qgsgraph.edge(dijkstra_query[0][current_vertex_id]).fromVertex()
+                route_points.append(core.qgsgraph.vertex(current_vertex_id).point())
+
+            route_points.append(origin_analysis_point.feature.geometry().asPoint())
+            route_points.append(origin_analysis_point.graph_vertex_geom)
 
             route_geom: QgsGeometry = QgsGeometry().fromPolylineXY(route_points)
 
