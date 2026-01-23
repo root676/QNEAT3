@@ -209,11 +209,8 @@ class IsoAreaAsPointcloudFromPoint(QgsProcessingAlgorithm):
         defaultSpeed: float = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) 
         tolerance: float = self.parameterAsDouble(parameters, self.TOLERANCE, context) 
 
-        if checkIfAnalysisCrsEqual([network.sourceCrs(), context.project().crs()]):
-            analysisCrs = network.sourceCrs()
-        else:
-            raise QgsProcessingException(f"Coordinate reference systems of graph is {network.sourceCrs().authid()} and doesn't match up with the coordinate reference system of the project ({context.project().crs().authid()}). Reproject so that the CRSs of analysis layers match up.")
-  
+        analysisCrs = network.sourceCrs()
+
         input_point_features = [getFeatureFromPoint(0, origin_point)]
 
         build_progress_range = ProgressRange(feedback, 0.0, 0.5)

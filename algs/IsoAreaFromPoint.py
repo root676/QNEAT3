@@ -202,7 +202,7 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
         feedback.pushInfo(self.tr("Running '{}'".format(self.displayName())))
 
         network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.GRAPH_LAYER, context) 
-        origin_point: QgsProcessingParameterPoint = self.parameterAsPoint(parameters, self.ORIGIN_POINT, context) 
+        origin_point: QgsProcessingParameterPoint = self.parameterAsPoint(parameters, self.ORIGIN_POINT, context, network.sourceCrs()) 
         iso_area_type: IsoAreaType = IsoAreaType(self.parameterAsEnum(parameters, self.ISO_AREA_TYPE, context))
         interval: float = self.parameterAsDouble(parameters, self.INTERVAL, context)
         max_cost: float = self.parameterAsDouble(parameters, self.MAX_COST, context)
@@ -220,11 +220,8 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
         output_cost_surface: str = self.parameterAsOutputLayer(parameters, self.OUTPUT_COST_SURFACE, context) 
         output_iso_area: str = self.parameterAsOutputLayer(parameters, self.OUTPUT_ISO_AREAS, context)
 
-        if checkIfAnalysisCrsEqual([network.sourceCrs(), context.project().crs()]):
-            analysisCrs = network.sourceCrs()
-        else:
-            raise QgsProcessingException(f"Coordinate reference systems of graph is {network.sourceCrs().authid()} and doesn't match up with the coordinate reference system of the project ({context.project().crs().authid()}). Reproject so that the CRSs of analysis layers match up.")
-  
+        analysisCrs = network.sourceCrs()
+
         input_point_features = [getFeatureFromPoint(0, origin_point)]
 
         build_progress_range = ProgressRange(feedback, 0.0, 0.25)
