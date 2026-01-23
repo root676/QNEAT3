@@ -276,7 +276,7 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
         fields.append(QgsField('total_cost', QVariant.Double))
         feat.setFields(fields)
         
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, Qgis.WkbType.LineString, analysisCrs)
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, Qgis.WkbType.LineString, network.sourceCrs())
         
         feat['start_id'] = origin_analysis_point.feature["user_id"]
         feat['start_coordinates'] = startPoint.toString()
