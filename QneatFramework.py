@@ -304,7 +304,7 @@ class QneatCore():
                 feat['vertex_id'] = origin_point.graph_vertex_id
                 feat['cost'] = entry_cost
                 feat['origin_point_id'] = origin_point.feature["user_id"]
-                pt_m = QgsPoint(self.network.vertex(origin_point.graph_vertex_id).point())
+                pt_m = QgsPoint(self.qgsgraph.vertex(origin_point.graph_vertex_id).point())
                 pt_m.addMValue(entry_cost)
                 geom = QgsGeometry(pt_m)
                 feat.setGeometry(geom)
