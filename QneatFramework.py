@@ -428,7 +428,7 @@ class QneatCore():
 
         iso_area_fields = QgsFields()
         iso_area_fields.append(QgsField('id', QVariant.LongLong))
-        iso_area_fields.append(QgsField('cost_level'), QVariant.Double)
+        iso_area_fields.append(QgsField('cost_level', QVariant.Double))
         provider = iso_areas.dataProvider()
         provider.addAttributes(iso_area_fields)
         iso_areas.updateFields()
