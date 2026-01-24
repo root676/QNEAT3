@@ -43,7 +43,7 @@ def checkIfAnalysisCrsEqual(sourceCrss : list[QgsCoordinateReferenceSystem]) -> 
     first_crs = sourceCrss[0]
 
     return all(
-        crs == first_crs
+        crs.toWkt() == first_crs.toWkt()
         for crs in sourceCrss
         )
 

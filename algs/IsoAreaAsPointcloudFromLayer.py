@@ -218,7 +218,7 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
         defaultSpeed: float = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context)
         tolerance: float = self.parameterAsDouble(parameters, self.TOLERANCE, context) 
 
-        if checkIfAnalysisCrsEqual([network.sourceCrs(), origin_points.sourceCrs]):
+        if checkIfAnalysisCrsEqual([network.sourceCrs(), origin_points.sourceCrs()]):
             analysisCrs = network.sourceCrs()
         else:
             raise QgsProcessingException(f"Coordinate reference system (CRS) of graph is {network.sourceCrs().authid()} and doesn't match up with the CRS of the origin point layer ({origin_points.sourceCrs().authid()}). Reproject so that the analysis layer CRSs match up.")
@@ -230,7 +230,7 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
 
         source_point_fields = QgsFields()
         source_point_fields.append(QgsField('fid', QVariant.LongLong))
-        source_point_fields.append(QgsField('user_id'), user_id_field_datatype)
+        source_point_fields.append(QgsField('user_id', user_id_field_datatype))
         source_point_fields.append(QgsField('type', QVariant.String))
 
         for f in origin_points.getFeatures():

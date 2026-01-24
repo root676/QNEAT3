@@ -238,11 +238,11 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
         tolerance: float = self.parameterAsDouble(parameters, self.TOLERANCE, context)
         
         #check if network and points have the same crs
-        if network.sourceCrs() == origin_points.sourceCrs() and network.sourceCrs() == destination_points.sourceCrs():
+        if network.sourceCrs().toWkt() == origin_points.sourceCrs().toWkt() and network.sourceCrs().toWkt() == destination_points.sourceCrs().toWkt():
             analysis_crs = network.sourceCrs()
-        elif network.sourceCrs() == origin_points.sourceCrs() and network.sourceCrs() != destination_points.sourceCrs():
+        elif network.sourceCrs().toWkt() == origin_points.sourceCrs().toWkt() and network.sourceCrs().toWkt() != destination_points.sourceCrs().toWkt():
             raise QgsProcessingException(f"Coordinate reference system (CRS) of graph is {network.sourceCrs().authid()} and doesn't match up with the CRS of the destination point layer ({destination_points.sourceCrs().authid()}). Reproject so that the analysis layers CRSs match up.")
-        elif network.sourceCrs() != origin_points.sourceCrs() and network.sourceCrs() == destination_points.sourceCrs():
+        elif network.sourceCrs().toWkt() != origin_points.sourceCrs().toWkt() and network.sourceCrs().toWkt() == destination_points.sourceCrs().toWkt():
             raise QgsProcessingException(f"Coordinate reference system (CRS) of graph is {network.sourceCrs().authid()} and doesn't match up with the CRS of the origin point layer ({origin_points.sourceCrs().authid()}). Reproject so that the analysis layers CRSs match up.")
         else:
              raise QgsProcessingException(f"Coordinate reference system (CRS) of graph is {network.sourceCrs().authid()} and doesn't match up with the CRSs of both, origin ({origin_points.sourceCrs().authid()}) and destination ({destination_points.sourceCrs().authid()}) point layers. Reproject so that the analysis layers CRSs match up.")
