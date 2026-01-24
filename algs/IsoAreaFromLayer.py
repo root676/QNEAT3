@@ -241,7 +241,7 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
 
         source_point_fields = QgsFields()
         source_point_fields.append(QgsField('fid', QVariant.LongLong))
-        source_point_fields.append(QgsField('user_id'), user_id_field_datatype)
+        source_point_fields.append(QgsField('user_id', user_id_field_datatype))
         source_point_fields.append(QgsField('type', QVariant.String))
 
         for f in origin_points.getFeatures():
