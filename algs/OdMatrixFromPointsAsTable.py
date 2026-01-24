@@ -210,7 +210,7 @@ class OdMatrixFromPointsAsTable(QgsProcessingAlgorithm):
         if checkIfAnalysisCrsEqual([network.sourceCrs(), points.sourceCrs()]):
             self.analysis_crs = network.sourceCrs()
         else:
-            raise QgsProcessingException(f"Coordinate reference systems of graph is {network.sourceCrs().authid()} doesn't match up with the coordinate reference system of the point layer (origin points: {points.sourceCrs().authid()}) Reproject all datasets so that their CRSs match up.")
+            raise QgsProcessingException(f"Coordinate reference system (CRS) of graph is {network.sourceCrs().authid()} and doesn't match up with the CRS of the point layer ({points.sourceCrs().authid()}). Reproject so that the analysis layers CRSs match up.")
 
 
         input_pointlist: list[QgsFeature] = [f for f in points.getFeatures()]

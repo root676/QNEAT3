@@ -49,7 +49,7 @@ from qgis.core import (Qgis,
 from qgis.analysis import (QgsVectorLayerDirector)
 
 from ..QneatFramework import QneatCore, OptimizationStrategy, MatrixType, ProgressRange
-from ..QneatUtilities import getFieldDatatype, checkIfAnalysisCrsEqual, getOdMatrixFields
+from ..QneatUtilities import getFieldDatatype, getOdMatrixFields
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
 
@@ -227,11 +227,15 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
         tolerance: float = self.parameterAsDouble(parameters, self.TOLERANCE, context) 
 
         #check if network and points have the same crs
-        if checkIfAnalysisCrsEqual([network.sourceCrs(), origin_points.sourceCrs(), destination_points.sourceCrs()]):
+        if network.sourceCrs() == origin_points.sourceCrs() and network.sourceCrs() == destination_points.sourceCrs():
             analysis_crs = network.sourceCrs()
+        elif network.sourceCrs() == origin_points.sourceCrs() and network.sourceCrs() != destination_points.sourceCrs():
+            raise QgsProcessingException(f"Coordinate reference system (CRS) of graph is {network.sourceCrs().authid()} and doesn't match up with the CRS of the destination point layer ({destination_points.sourceCrs().authid()}). Reproject so that the analysis layers CRSs match up.")
+        elif network.sourceCrs() != origin_points.sourceCrs() and network.sourceCrs() == destination_points.sourceCrs():
+            raise QgsProcessingException(f"Coordinate reference system (CRS) of graph is {network.sourceCrs().authid()} and doesn't match up with the CRS of the origin point layer ({origin_points.sourceCrs().authid()}). Reproject so that the analysis layers CRSs match up.")
         else:
-            raise QgsProcessingException(f"Coordinate reference systems of graph is {network.sourceCrs().authid()} doesn't match up with the coordinate reference system of the point layers (origin points: {origin_points.sourceCrs().authid()}, destination points: {destination_points.sourceCrs().authid()}) Reproject all datasets so that their CRSs match up.")
-
+             raise QgsProcessingException(f"Coordinate reference system (CRS) of graph is {network.sourceCrs().authid()} and doesn't match up with the CRSs of both, origin ({origin_points.sourceCrs().authid()}) and destination ({destination_points.sourceCrs().authid()}) point layers. Reproject so that the analysis layers CRSs match up.")
+        
         o_fields = QgsFields()
         o_fields.append(QgsField('fid', QVariant.LongLong))
         o_fields.append(QgsField('user_id'), getFieldDatatype(origin_points, origin_id_field))

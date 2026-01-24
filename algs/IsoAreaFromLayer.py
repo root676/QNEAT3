@@ -232,7 +232,7 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
         output_iso_area: str = self.parameterAsOutputLayer(parameters, self.OUTPUT_ISO_AREAS, context)
 
         if not checkIfAnalysisCrsEqual([network.sourceCrs(), origin_points.sourceCrs()]):
-            raise QgsProcessingException(f"Coordinate reference systems of graph is {network.sourceCrs().authid()} and doesn't match up with the coordinate reference system of the project ({context.project().crs().authid()}). Reproject so that the CRSs of analysis layers match up.")
+            raise QgsProcessingException(f"Coordinate reference system (CRS) of graph is {network.sourceCrs().authid()} and doesn't match up with the CRS of the origin point layer ({origin_points.sourceCrs().authid()}). Reproject so that the analysis layer CRSs match up.")
         
         #unpack all points into one list
         input_point_features: list[QgsFeature] = []
