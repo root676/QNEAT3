@@ -230,14 +230,14 @@ class IsoAreaAsPointcloudFromPoint(QgsProcessingAlgorithm):
                          defaultDirection)
         
         fields = QgsFields()
-        fields.append(QgsField('vertex_id', QVariant.Int))
+        fields.append(QgsField('vertex_id', QVariant.LongLong))
         fields.append(QgsField('cost', QVariant.Double))
-        fields.append(QgsField('origin_point_id', QVariant.Int))
+        fields.append(QgsField('origin_point_id', QVariant.LongLong))
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, Qgis.WkbType.PointM, analysisCrs)
 
         iso_progress_range = ProgressRange(feedback, 0.5, 1.0)
-        iso_points = core.calcIsoPoints('user_id', max_cost, iso_progress_range)
+        iso_points = core.calcIsoPoints(max_cost, iso_progress_range)
         
         sink.addFeatures(iso_points, QgsFeatureSink.Flag.FastInsert)
         

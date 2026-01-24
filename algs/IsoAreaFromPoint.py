@@ -241,7 +241,7 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
                     defaultDirection)
         
         iso_progress_range = ProgressRange(feedback, 0.25, 0.5)
-        iso_points = core.calcIsoPoints('user_id', max_cost, iso_progress_range)
+        iso_points = core.calcIsoPoints(max_cost, iso_progress_range)
 
         tin_progress_range = ProgressRange(feedback, 0.5, 0.75)
         core.calcIsoTinInterpolation(iso_points, cell_size, output_cost_surface, tin_progress_range )

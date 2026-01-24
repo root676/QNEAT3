@@ -283,13 +283,13 @@ class QneatCore():
         return feat
     
         
-    def calcIsoPoints(self, id_field_name: str, max_cost: float, progress_range: ProgressRange) -> list[QgsFeature]:
+    def calcIsoPoints(self, max_cost: float, progress_range: ProgressRange, id_field_datatype: QVariant = QVariant.LongLong) -> list[QgsFeature]:
         iso_points = dict()
 
         output_fields = QgsFields()
-        output_fields.append(QgsField('vertex_id', QVariant.Int))
+        output_fields.append(QgsField('vertex_id', QVariant.LongLong))
         output_fields.append(QgsField('cost', QVariant.Double))
-        output_fields.append(QgsField('origin_point_id',getFieldDatatype(id_field_name)))
+        output_fields.append(QgsField('origin_point_id', id_field_datatype))
 
         total_workload: int = len(self.analysis_points)
 
@@ -303,7 +303,7 @@ class QneatCore():
                 feat = QgsFeature(output_fields)
                 feat['vertex_id'] = origin_point.graph_vertex_id
                 feat['cost'] = entry_cost
-                feat['origin_point_id'] = origin_point.feature[id_field_name]
+                feat['origin_point_id'] = origin_point.feature["user_id"]
                 pt_m = QgsPoint(self.network.vertex(origin_point.graph_vertex_id).point())
                 pt_m.addMValue(entry_cost)
                 geom = QgsGeometry(pt_m)
@@ -326,14 +326,14 @@ class QneatCore():
                     feat = QgsFeature(output_fields)
                     feat['vertex_id'] = v
                     feat['cost'] = real_cost
-                    feat['origin_point_id'] = origin_point.feature[id_field_name]
+                    feat['origin_point_id'] = origin_point.feature['user_id']
                     pt_m = QgsPoint(self.qgsgraph.vertex(v).point()) 
                     pt_m.addMValue(real_cost)
                     feat.setGeometry(QgsGeometry(pt_m))
 
                     iso_points[v] = feat
             else:
-                self.feedback.pushInfo(f"WARNING: Skipping origin point with ID {origin_point.feature[id_field_name]} as it is outside of maximum iso-area bounds of {max_cost}.")
+                self.feedback.pushInfo(f"WARNING: Skipping origin point with ID {origin_point.feature['user_id']} as it is outside of maximum iso-area bounds of {max_cost}.")
 
             progress_range.feedback().setProgress((i+1)/total_workload)
 

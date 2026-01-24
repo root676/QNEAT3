@@ -59,7 +59,7 @@ def buildQgsVectorLayer(string_geomtype: str, string_layername: str, crs: QgsCoo
 def getFeatureFromPoint(user_id: int, qgs_point_xy: QgsPointXY) -> QgsFeature:     
     feature = QgsFeature()
     fields = QgsFields()
-    fields.append(QgsField('user_id', QVariant.Int))
+    fields.append(QgsField('user_id', QVariant.LongLong))
     feature.setFields(fields)
     feature.setGeometry(QgsGeometry.fromPointXY(qgs_point_xy))
     feature['user_id']=user_id

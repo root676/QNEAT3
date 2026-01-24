@@ -237,9 +237,11 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
         #unpack all points into one list
         input_point_features: list[QgsFeature] = []
 
+        user_id_field_datatype = getFieldDatatype(origin_points, origin_id_field)
+
         source_point_fields = QgsFields()
         source_point_fields.append(QgsField('fid', QVariant.LongLong))
-        source_point_fields.append(QgsField('user_id'), getFieldDatatype(origin_points, origin_id_field))
+        source_point_fields.append(QgsField('user_id'), user_id_field_datatype)
         source_point_fields.append(QgsField('type', QVariant.String))
 
         for f in origin_points.getFeatures():
@@ -267,7 +269,7 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
                          defaultDirection)
         
         iso_progress_range = ProgressRange(feedback, 0.25, 0.5)
-        iso_points = core.calcIsoPoints('user_id', max_cost, iso_progress_range)
+        iso_points = core.calcIsoPoints(max_cost, iso_progress_range, user_id_field_datatype)
 
         tin_progress_range = ProgressRange(feedback, 0.5, 0.75)
         core.calcIsoTinInterpolation(iso_points, cell_size, output_cost_surface, tin_progress_range )

@@ -65,7 +65,7 @@ class IsoAreaAsCostSurfaceFromLayer(QgsProcessingAlgorithm):
 
     GRAPH_LAYER = 'GRAPH_LAYER'
     ORIGIN_POINTS = 'ORIGIN_POINTS'
-    ID_FIELD = 'ID_FIELD'
+    ORIGIN_ID_FIELD = 'ORIGIN_ID_FIELD'
     MAX_COST = "MAX_COST"
     CELL_SIZE = "CELL_SIZE"
     STRATEGY = 'STRATEGY'
@@ -131,7 +131,7 @@ class IsoAreaAsCostSurfaceFromLayer(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterFeatureSource(self.ORIGIN_POINTS,
                                                               self.tr('Start points'),
                                                               [Qgis.ProcessingSourceType.VectorPoint]))
-        self.addParameter(QgsProcessingParameterField(self.ID_FIELD,
+        self.addParameter(QgsProcessingParameterField(self.ORIGIN_ID_FIELD,
                                                        self.tr('Unique point ID field'),
                                                        None,
                                                        self.ORIGIN_POINTS,
@@ -194,7 +194,7 @@ class IsoAreaAsCostSurfaceFromLayer(QgsProcessingAlgorithm):
 
         network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.GRAPH_LAYER, context) 
         origin_points: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.ORIGIN_POINTS, context)
-        id_field: str = self.parameterAsString(parameters, self.ID_FIELD, context) 
+        origin_id_field: str = self.parameterAsString(parameters, self.ORIGIN_ID_FIELD, context) 
         max_cost: float = self.parameterAsDouble(parameters, self.MAX_COST, context)
         cell_size: float = self.parameterAsDouble(parameters, self.CELL_SIZE, context)
         strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context))
@@ -215,15 +215,17 @@ class IsoAreaAsCostSurfaceFromLayer(QgsProcessingAlgorithm):
         #unpack all points into one list
         input_point_features: list[QgsFeature] = []
 
+        user_id_field_datatype = getFieldDatatype(origin_points, origin_id_field)
+
         source_point_fields = QgsFields()
         source_point_fields.append(QgsField('fid', QVariant.LongLong))
-        source_point_fields.append(QgsField('user_id'), getFieldDatatype(origin_points, id_field))
+        source_point_fields.append(QgsField('user_id'), user_id_field_datatype)
         source_point_fields.append(QgsField('type', QVariant.String))
 
         for f in origin_points.getFeatures():
             source_feat = QgsFeature(source_point_fields)
             source_feat["fid"] = f.id()
-            source_feat["user_id"] = f[id_field]
+            source_feat["user_id"] = f[origin_id_field]
             source_feat.setGeometry(f.geometry())
         
             input_point_features.append(source_feat)
@@ -245,7 +247,7 @@ class IsoAreaAsCostSurfaceFromLayer(QgsProcessingAlgorithm):
                          defaultDirection)
         
         iso_progress_range = ProgressRange(feedback, 0.33, 0.66)
-        iso_points = core.calcIsoPoints('user_id', max_cost, iso_progress_range)
+        iso_points = core.calcIsoPoints(max_cost, iso_progress_range, user_id_field_datatype)
 
         tin_progress_range = ProgressRange(feedback, 0.66, 1.0)
         core.calcIsoTinInterpolation(iso_points, cell_size, output_path, tin_progress_range )
