@@ -381,12 +381,19 @@ class QneatCore():
     
 
     def calcIsoAreas(self, input_cost_raster_path: str, max_cost: float, interval: float, iso_area_type : IsoAreaType, progress_range: ProgressRange) -> QgsVectorLayer:
-        
+
         interpolation_raster = gdal.Open(input_cost_raster_path)
         if interpolation_raster is None:
             raise QgsProcessingException("Could not open Interpolation result, please use another cellsize, iso area extent or obtain a valid interpolation raster with the QNEAT Iso-Area as Interpolation algorithm.")
         
-        band = interpolation_raster.GetRasterBand(1)
+        ogr_geom_type = ogr.wkbMultiLineString
+        qgis_geom_type = Qgis.WkbType.MultiLineString
+        contour_polygonize = False
+        if iso_area_type == IsoAreaType.POLYGONS:
+            ogr_geom_type = ogr.wkbMultiPolygon
+            qgis_geom_type = Qgis.WkbType.MultiPolygon
+            contour_polygonize = True
+            
 
         ogr_driver = ogr.GetDriverByName("MEMORY")
         contours = ogr_driver.CreateDataSource("iso_areas")
@@ -398,7 +405,7 @@ class QneatCore():
         ogr_layer: ogr.Layer = contours.CreateLayer(
             "contours",
             srs = srs,
-            geom_type=ogr.wkbLineString
+            geom_type=ogr_geom_type
         )
 
         #Fields
@@ -411,19 +418,18 @@ class QneatCore():
 
         levels = [i * interval for i in range(1, int(ceil(max_cost / interval)) + 1)]
 
-        gdal.ContourGenerate(
-            band,
-            interval,
-            0.0,
-            levels, #fixed levels
-            0,
-            -9999,
-            ogr_layer,
-            0,
-            1
-        )
+        contour_options = gdal.ContourOptions(
+            elevationName='cost_level',
+            maxName='cost_level',
+            srcNodata=-9999,
+            fixedLevels=levels,
+            polygonize=contour_polygonize
+            )        
+        
+        gdal.Contour(ogr_layer, interpolation_raster, options=contour_options)
 
-        iso_areas = QgsVectorLayer("LineString", "iso_areas", "memory")
+        geom_string = "MultiLineString" if iso_area_type == IsoAreaType.CONTOURS else "MultiPolygon"
+        iso_areas = QgsVectorLayer(geom_string, "iso_areas", "memory")
         iso_areas.setCrs(self.analysis_crs)
 
         iso_area_fields = QgsFields()
@@ -441,36 +447,17 @@ class QneatCore():
             qgs_feat = QgsFeature(iso_area_fields)
 
             ogr_geom = ogr_feat.GetGeometryRef()
-            if ogr_geom and iso_area_type == IsoAreaType.CONTOURS:
-                qgs_feat.setGeometry(QgsGeometry.fromWkt(ogr_geom.ExportToWkt()))
-            elif ogr_geom and iso_area_type == IsoAreaType.POLYGONS:
-                geom: QgsGeometry = QgsGeometry.fromWkt(ogr_geom.ExportToWkt())
+            if ogr_geom:
+                qgs_feat.setGeometry(QgsGeometry.fromWkb(ogr_geom.ExportToWkb()))
 
-                if not geom or geom.isEmpty():
-                    continue #TODO!!!
+                qgs_feat.setAttribute("id", ogr_feat.GetField("id"))
+                qgs_feat.setAttribute("cost_level", ogr_feat.GetField("cost_level"))
 
-                #single polygons
-                if geom.wkbType() == Qgis.WkbType.LineString and not geom.isMultipart():
-                    line = geom.asPolyline()
-                    if len(line) >= 4 and line[0] == line[-1]:
-                        qgs_feat.setGeometry(QgsGeometry.fromPolygonXY([line]))
-                    else:
-                        continue #TODO!!!
-                elif geom.wkbType() == Qgis.WkbType.LineString and geom.isMultipart():
-                    polygons = list()
-                    for line in geom.asMultiPolyline():
-                        if len(line) >= 4 and line [0] == line[-1]:
-                            polygons.append(QgsGeometry.fromPolygonXY([line]))
-                        else:
-                            continue #TODO!!!
-                    
-                    multipolygon = QgsGeometry.unaryUnion(polygons)
-                    qgs_feat.setGeometry(multipolygon)
+                iso_area_features.append(qgs_feat)
+            else:
+                continue
 
-            qgs_feat.setAttribute("id", ogr_feat.GetField("id"))
-            qgs_feat.setAttribute("cost_level", ogr_feat.GetField("cost_level"))
 
-            iso_area_features.append(qgs_feat)
 
             progress = (i + 1) / total_workload
             progress_range.feedback().setProgress(progress)
