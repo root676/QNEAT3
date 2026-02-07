@@ -240,6 +240,9 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
                     bothValue, 
                     defaultDirection)
         
+        #increase max cost by 10% in order to correctly draw last distance band.
+        max_cost = max_cost * 1.1
+        
         iso_progress_range = ProgressRange(feedback, 0.25, 0.5)
         iso_points = core.calcIsoPoints(max_cost, iso_progress_range)
 

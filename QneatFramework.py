@@ -78,8 +78,8 @@ class EntryCostCalculationMethod(IntEnum):
     ELLIPSOID = 1
 
 class IsoAreaType(IntEnum):
-    CONTOURS = 0
-    POLYGONS = 1
+    POLYGONS = 0
+    CONTOURS = 1
 
 class MatrixType(IntEnum):
     TABLE = 0
@@ -423,7 +423,8 @@ class QneatCore():
             1
         )
 
-        iso_areas = QgsVectorLayer("LineString", "iso_areas", "memory")
+        wkb = Qgis.WkbType.LineString if iso_area_type == IsoAreaType.CONTOURS else Qgis.WkbType.Polygon
+        iso_areas = QgsVectorLayer(QgsWkbTypes.displayString(wkb), "iso_areas", "memory")
         iso_areas.setCrs(self.analysis_crs)
 
         iso_area_fields = QgsFields()
@@ -433,7 +434,7 @@ class QneatCore():
         provider.addAttributes(iso_area_fields)
         iso_areas.updateFields()
 
-        total_workload = ogr_layer.getFeatureCount()
+        total_workload = ogr_layer.GetFeatureCount()
 
         iso_area_features = list()
         ogr_layer.ResetReading()
@@ -478,6 +479,7 @@ class QneatCore():
 
         provider.addFeatures(iso_area_features)
         iso_areas.updateExtents()
+        iso_areas.commitChanges()
 
         #handle gdal refcounting
         band = None
