@@ -385,7 +385,11 @@ class QneatCore():
         interpolation_raster = gdal.Open(input_cost_raster_path)
         if interpolation_raster is None:
             raise QgsProcessingException("Could not open Interpolation result, please use another cellsize, iso area extent or obtain a valid interpolation raster with the QNEAT Iso-Area as Interpolation algorithm.")
-        
+
+        band = interpolation_raster.GetRasterBand(1)
+        #band.CreateMaskBand(gdal.GMF_PER_DATASET)
+        #band.DeleteNoDataValue()
+
         ogr_geom_type = ogr.wkbMultiLineString
         qgis_geom_type = Qgis.WkbType.MultiLineString
         contour_polygonize = False
@@ -396,17 +400,8 @@ class QneatCore():
             
 
         ogr_driver = ogr.GetDriverByName("MEMORY")
-        contours = ogr_driver.CreateDataSource("iso_areas")
-        
-
-        srs: osr.SpatialReference = osr.SpatialReference()
-        srs.ImportFromWkt( interpolation_raster.GetProjectionRef() )
-
-        ogr_layer: ogr.Layer = contours.CreateLayer(
-            "contours",
-            srs = srs,
-            geom_type=ogr_geom_type
-        )
+        ogr_ds = ogr_driver.CreateDataSource("iso_areas")
+        ogr_layer = ogr_ds.CreateLayer("iso_areas", geom_type=ogr_geom_type)
 
         #Fields
         field_list = list()
@@ -415,29 +410,31 @@ class QneatCore():
         field_list.extend([id_field, cost_level_field])
 
         ogr_layer.CreateFields(field_list)
-
-        levels = [i * interval for i in range(1, int(ceil(max_cost / interval)) + 1)]
-
-        contour_options = gdal.ContourOptions(
-            elevationName='cost_level',
-            maxName='cost_level',
-            srcNodata=-9999,
-            fixedLevels=levels,
-            polygonize=contour_polygonize
-            )        
         
-        gdal.Contour(ogr_layer, interpolation_raster, options=contour_options)
+        srs: osr.SpatialReference = osr.SpatialReference()
+        srs.ImportFromWkt( interpolation_raster.GetProjectionRef() )
+
+        levels = [i * interval for i in range(int(max_cost / interval) + 1)]
+        
+        gdal.ContourGenerateEx(
+            band,
+            ogr_layer,
+            options=[
+                f"FIXED_LEVELS= {','.join(map(str, levels))}",
+                f"NODATA={band.GetNoDataValue()}",
+                "ID_FIELD=0",
+                "ELEV_FIELD_MAX=1" if contour_polygonize else "ELEV_FIELD=1",
+                "POLYGONIZE=" + 'yes' if contour_polygonize else 'no'
+            ]
+        )
 
         geom_string = "MultiLineString" if iso_area_type == IsoAreaType.CONTOURS else "MultiPolygon"
-        iso_areas = QgsVectorLayer(geom_string, "iso_areas", "memory")
-        iso_areas.setCrs(self.analysis_crs)
+        iso_areas = QgsVectorLayer(f"{geom_string}?crs={self.analysis_crs.authid()}&field=id:integer&field=cost_level:double", "iso_areas", "memory")
 
         iso_area_fields = QgsFields()
         iso_area_fields.append(QgsField('id', QVariant.LongLong))
         iso_area_fields.append(QgsField('cost_level', QVariant.Double))
         provider = iso_areas.dataProvider()
-        provider.addAttributes(iso_area_fields)
-        iso_areas.updateFields()
 
         total_workload = ogr_layer.GetFeatureCount()
 
@@ -448,7 +445,7 @@ class QneatCore():
 
             ogr_geom = ogr_feat.GetGeometryRef()
             if ogr_geom:
-                qgs_feat.setGeometry(QgsGeometry.fromWkb(ogr_geom.ExportToWkb()))
+                qgs_feat.setGeometry(QgsGeometry.fromWkt(ogr_geom.ExportToWkt()))
 
                 qgs_feat.setAttribute("id", ogr_feat.GetField("id"))
                 qgs_feat.setAttribute("cost_level", ogr_feat.GetField("cost_level"))
@@ -465,7 +462,6 @@ class QneatCore():
 
         provider.addFeatures(iso_area_features)
         iso_areas.updateExtents()
-        iso_areas.commitChanges()
 
         #handle gdal refcounting
         band = None

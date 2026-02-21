@@ -252,7 +252,7 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
         iso_area_progress_range = ProgressRange(feedback, 0.75, 1)
         iso_area_layer: QgsVectorLayer = core.calcIsoAreas(output_cost_surface, max_cost, interval, iso_area_type, iso_area_progress_range)
 
-        wkb_type: Qgis.WkbType = Qgis.WkbType.Polygon if iso_area_type == IsoAreaType.POLYGONS else Qgis.WkbType.LineString
+        wkb_type: Qgis.WkbType = Qgis.WkbType.MultiPolygon if iso_area_type == IsoAreaType.POLYGONS else Qgis.WkbType.MultiLineString
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_ISO_AREAS, context, iso_area_layer.fields(), wkb_type, analysisCrs)   
 
