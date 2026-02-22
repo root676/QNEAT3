@@ -17,9 +17,11 @@
 ***************************************************************************
 """
 
+import numpy
+from scipy.ndimage import distance_transform_edt
 from osgeo import gdal, ogr, osr
 
-from math import ceil
+import math
 from enum import IntEnum
 
 from qgis.analysis import (
@@ -53,7 +55,7 @@ from qgis.core import (
 
 from qgis.PyQt.QtCore import QVariant
 
-from .QneatUtilities import buildQgsVectorLayer, getFieldDatatype
+from .QneatUtilities import buildQgsVectorLayer, getCellIndexFromPoint
 
 from typing import (
     Optional,
@@ -77,6 +79,10 @@ class EntryCostCalculationMethod(IntEnum):
     PLANAR = 0
     ELLIPSOID = 1
 
+class IsoAreaMethod(IntEnum):
+    EUCLIDEAN_DISTANCE = 0
+    TIN_INTERPOLATION = 1
+
 class IsoAreaType(IntEnum):
     POLYGONS = 0
     CONTOURS = 1
@@ -99,8 +105,8 @@ class ProgressProxyFeedback (QgsProcessingFeedback):
         global_progress = self._start + progress * self._span
         self._parent_feedback.setProgress(global_progress)
         
-    def isCanceled(self):
-        self._parent_feedback.isCanceled()
+    def isCanceled(self) -> bool:
+        return self._parent_feedback.isCanceled()
 
 
 class ProgressRange:
@@ -366,8 +372,8 @@ class QneatCore():
         tin_interpolator = QgsTinInterpolator([layer_data], QgsTinInterpolator.TinInterpolation.Linear, progress_range.feedback())
         
         extent : QgsRectangle = iso_point_layer.extent()
-        ncol = max(1, ceil(extent.width() / cellsize))
-        nrows = max(1, ceil(extent.width() / cellsize))
+        ncol = max(1, math.ceil(extent.width() / cellsize))
+        nrows = max(1, math.ceil(extent.width() / cellsize))
         
         writer = QgsGridFileWriter(tin_interpolator, output_interpolation_path, extent, ncol, nrows)
         result = writer.writeFile() 
@@ -378,6 +384,83 @@ class QneatCore():
         output_raster.setCrs(self.analysis_crs)
 
         return output_raster
+    
+    def calcEuclideanDistanceRaster(self, iso_points: list[QgsFeature], cellsize: float, output_path: str, progress_range: ProgressRange, cost_field_name : str = 'cost') -> QgsRasterLayer:
+        
+        iso_point_layer: QgsVectorLayer = buildQgsVectorLayer(
+            f'point?crs={self.analysis_crs.authid()}'
+            f'&field=vertex_id:integer'
+            f'&field={cost_field_name}:integer',
+            "iso_points",
+            self.analysis_crs,
+            iso_points
+        )
+
+        progress_range.feedback().setProgress(0.2)
+        rasterExtent: QgsRectangle = iso_point_layer.sourceExtent().scaled(1.1)
+
+        xmin = rasterExtent.xMinimum()
+        ymin = rasterExtent.yMinimum()
+        xmax = rasterExtent.xMaximum()
+        ymax = rasterExtent.yMaximum()   # FIXED
+
+        cols = int(math.ceil((xmax - xmin) / cellsize))
+        rows = int(math.ceil((ymax - ymin) / cellsize))
+
+        driver = gdal.GetDriverByName('GTiff')
+        outputRaster = driver.Create(output_path, cols, rows, 1, gdal.GDT_Float32)
+
+        geotransform = (xmin, cellsize, 0, ymax, 0, -cellsize)
+        outputRaster.SetGeoTransform(geotransform)
+
+        band = outputRaster.GetRasterBand(1)
+        band.SetNoDataValue(-9999)
+
+        seedMask = numpy.ones((rows, cols), dtype=bool)
+        node_cost_raster = numpy.full((rows, cols), numpy.nan, dtype=numpy.float32)
+        progress_range.feedback().setProgress(0.5)
+
+        for node in iso_points:
+
+            pt = node.geometry().asPoint()
+            x, y = pt.x(), pt.y()
+
+            row, col = getCellIndexFromPoint(x, y, rasterExtent, cellsize, rows, cols)
+
+            if 0 <= row < rows and 0 <= col < cols:
+                seedMask[row, col] = False
+                node_cost_raster[row, col] = float(node[cost_field_name])
+
+        eucDist, (inds_r, inds_c) = distance_transform_edt(
+            seedMask,
+            return_indices=True
+        )
+        progress_range.feedback().setProgress(0.8)
+
+        cost_raster = node_cost_raster[inds_r, inds_c] + eucDist * cellsize
+
+        cost_raster = numpy.where(
+            numpy.isnan(cost_raster),
+            -9999,
+            cost_raster
+        )
+
+        band.WriteArray(cost_raster)
+
+        outRasterSRS = osr.SpatialReference()
+        outRasterSRS.ImportFromWkt(self.analysis_crs.toWkt())
+        outputRaster.SetProjection(outRasterSRS.ExportToWkt())
+
+        band.FlushCache()
+        band = None
+        outputRaster = None
+
+        output_raster = QgsRasterLayer(output_path, "temp_qneat_euclidean_distance_raster")
+        output_raster.setCrs(self.analysis_crs)
+        progress_range.feedback().setProgress(0.8)
+
+        return output_raster
+
     
 
     def calcIsoAreas(self, input_cost_raster_path: str, max_cost: float, interval: float, iso_area_type : IsoAreaType, progress_range: ProgressRange) -> QgsVectorLayer:

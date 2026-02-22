@@ -47,7 +47,7 @@ from qgis.core import (Qgis,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from ..QneatFramework import QneatCore, IsoAreaType, OptimizationStrategy,  EntryCostCalculationMethod, ProgressRange
+from ..QneatFramework import QneatCore, IsoAreaMethod, IsoAreaType, OptimizationStrategy,  EntryCostCalculationMethod, ProgressRange
 from ..QneatUtilities import checkIfAnalysisCrsEqual, getFeatureFromPoint, getFieldDatatype
 
 pluginPath = os.path.split(os.path.split(os.path.dirname(__file__))[0])[0]
@@ -65,6 +65,7 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
 
     GRAPH_LAYER = 'GRAPH_LAYER'
     ORIGIN_POINT = 'ORIGIN_POINT'
+    ISO_AREA_METHOD = 'ISO_AREA_METHOD'
     ISO_AREA_TYPE = 'ISO_AREA_TYPE'
     MAX_COST = "MAX_COST"
     CELL_SIZE = "CELL_SIZE"
@@ -124,6 +125,9 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
             (self.tr('Forward direction'), QgsVectorLayerDirector.DirectionForward),
             (self.tr('Backward direction'), QgsVectorLayerDirector.DirectionBackward),
             (self.tr('Both directions'), QgsVectorLayerDirector.DirectionBoth)])
+
+        self.ISO_AREA_METHOD_DEFINITIONS = [self.tr("Euclidean Distance Transform"),
+                                            self.tr("TIN Interpolation")]
         
         self.ISO_AREA_TYPE_DEFINTIONS = [self.tr("Polygons"), 
                                          self.tr("Contours")]
@@ -136,6 +140,10 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
                                                               [Qgis.ProcessingSourceType.VectorLine]))
         self.addParameter(QgsProcessingParameterPoint(self.ORIGIN_POINT,
                                                       self.tr('Origin point')))
+        self.addParameter(QgsProcessingParameterEnum(self.ISO_AREA_METHOD,
+                                                 self.tr('Iso-area type'),
+                                                 self.ISO_AREA_METHOD_DEFINITIONS,
+                                                 defaultValue=0))
         self.addParameter(QgsProcessingParameterEnum(self.ISO_AREA_TYPE,
                                                  self.tr('Iso-area type'),
                                                  self.ISO_AREA_TYPE_DEFINTIONS,
@@ -203,6 +211,7 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
 
         network: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.GRAPH_LAYER, context) 
         origin_point: QgsProcessingParameterPoint = self.parameterAsPoint(parameters, self.ORIGIN_POINT, context, network.sourceCrs()) 
+        iso_area_method: IsoAreaMethod = IsoAreaMethod(self.parameterAsEnum(parameters, self.ISO_AREA_METHOD, context))
         iso_area_type: IsoAreaType = IsoAreaType(self.parameterAsEnum(parameters, self.ISO_AREA_TYPE, context))
         interval: float = self.parameterAsDouble(parameters, self.INTERVAL, context)
         max_cost: float = self.parameterAsDouble(parameters, self.MAX_COST, context)
@@ -246,8 +255,11 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
         iso_progress_range = ProgressRange(feedback, 0.25, 0.5)
         iso_points = core.calcIsoPoints(max_cost, iso_progress_range)
 
-        tin_progress_range = ProgressRange(feedback, 0.5, 0.75)
-        core.calcIsoTinInterpolation(iso_points, cell_size, output_cost_surface, tin_progress_range )
+        iso_area_method_progress_range = ProgressRange(feedback, 0.5, 0.75)
+        if iso_area_method == IsoAreaMethod.EUCLIDEAN_DISTANCE:
+            core.calcEuclideanDistanceRaster(iso_points, cell_size, output_cost_surface, iso_area_method_progress_range ) 
+        else:
+            core.calcIsoTinInterpolation(iso_points, cell_size, output_cost_surface, iso_area_method_progress_range )
 
         iso_area_progress_range = ProgressRange(feedback, 0.75, 1)
         iso_area_layer: QgsVectorLayer = core.calcIsoAreas(output_cost_surface, max_cost, interval, iso_area_type, iso_area_progress_range)

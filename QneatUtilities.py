@@ -17,6 +17,7 @@
 ***************************************************************************
 """
 
+import math
 from qgis.PyQt.QtCore import QVariant
 
 from qgis.core import (QgsMessageLog, 
@@ -89,4 +90,17 @@ def getOdMatrixFields(origin_points: QgsFeatureSource, origin_id_field: str, des
     output_fields.append(QgsField('exit_cost', QVariant.Double))
     output_fields.append(QgsField('total_cost', QVariant.Double))
     return output_fields
+
+def getCellIndexFromPoint(x: float, y:float, rasterExtent:QgsRectangle, cellsize: float, rows: int, cols: int):
+
+    col = int((x - rasterExtent.xMinimum()) / cellsize)
+    row = int((rasterExtent.yMaximum() - y) / cellsize)
+
+    # clamp to valid range
+    if col < 0 or col >= cols or row < 0 or row >= rows:
+        return None
+
+    return row, col
+
+
     
