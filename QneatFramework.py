@@ -289,7 +289,7 @@ class QneatCore():
         return feat
     
         
-    def calcIsoPoints(self, max_cost: float, progress_range: ProgressRange, id_field_datatype: QVariant = QVariant.LongLong) -> list[QgsFeature]:
+    def calcIsoPoints(self, max_cost: float, progress_range: ProgressRange, densify_distance: float | None = None, id_field_datatype: QVariant = QVariant.LongLong) -> list[QgsFeature]:
         iso_points = dict()
 
         output_fields = QgsFields()
@@ -297,51 +297,116 @@ class QneatCore():
         output_fields.append(QgsField('cost', QVariant.Double))
         output_fields.append(QgsField('origin_point_id', id_field_datatype))
 
-        total_workload: int = len(self.analysis_points)
+        total_workload = len(self.analysis_points)
 
         for i, origin_point in enumerate(self.analysis_points):
-            entry_cost = origin_point.graph_entry_cost
 
-            if entry_cost <= max_cost:
-                self.feedback.pushInfo(f"Processing origin point {i}")
-                tree, cost = self.calcDijkstra(origin_point.graph_vertex_id)
+            entry_cost = origin_point.graph_entry_cost
+            if entry_cost > max_cost:
+                continue
+
+            tree, cost = self.calcDijkstra(origin_point.graph_vertex_id)
+
+            #add all reachable vertices
+            for v in range(len(cost)):
+
+                if math.isinf(cost[v]): 
+                    continue
+
+                real_cost = cost[v] + entry_cost
+                if real_cost > max_cost:
+                    continue
+
+                p = self.qgsgraph.vertex(v).point()
 
                 feat = QgsFeature(output_fields)
-                feat['vertex_id'] = origin_point.graph_vertex_id
-                feat['cost'] = entry_cost
-                feat['origin_point_id'] = origin_point.feature["user_id"]
-                pt_m = QgsPoint(self.qgsgraph.vertex(origin_point.graph_vertex_id).point())
-                pt_m.addMValue(entry_cost)
-                geom = QgsGeometry(pt_m)
-                feat.setGeometry(geom)
-                
-                iso_points[origin_point.graph_vertex_id] = feat
+                feat['vertex_id'] = v
+                feat['cost'] = real_cost
+                feat['origin_point_id'] = origin_point.feature['user_id']
 
-                for v in range(len(cost)):
-                    if tree[v] == -1:
-                        continue
+                pt_m = QgsPoint(p)
+                pt_m.addMValue(real_cost)
+                feat.setGeometry(QgsGeometry(pt_m))
 
-                    real_cost = cost[v] + entry_cost
-                    if real_cost > max_cost:
-                        continue
-
-                    existing = iso_points.get(v)
-                    if existing is not None and existing['cost'] <= real_cost:
-                        continue
-
-                    feat = QgsFeature(output_fields)
-                    feat['vertex_id'] = v
-                    feat['cost'] = real_cost
-                    feat['origin_point_id'] = origin_point.feature['user_id']
-                    pt_m = QgsPoint(self.qgsgraph.vertex(v).point()) 
-                    pt_m.addMValue(real_cost)
-                    feat.setGeometry(QgsGeometry(pt_m))
-
+                existing = iso_points.get(v)
+                if existing is None or existing['cost'] > real_cost:
                     iso_points[v] = feat
-            else:
-                self.feedback.pushInfo(f"WARNING: Skipping origin point with ID {origin_point.feature['user_id']} as it is outside of maximum iso-area bounds of {max_cost}.")
 
-            progress_range.feedback().setProgress((i+1)/total_workload)
+            #densify
+            if densify_distance:
+
+                edge_count = self.qgsgraph.edgeCount()
+
+                for edge_id in range(edge_count):
+
+                    edge = self.qgsgraph.edge(edge_id)
+                    u = edge.fromVertex()
+                    v = edge.toVertex()
+
+                    Cu = cost[u]
+                    Cv = cost[v]
+
+                    # If both unreachable → skip
+                    if math.isinf(Cu) and math.isinf(Cv):
+                        continue
+
+                    # Convert to real costs
+                    if not math.isinf(Cu):
+                        Cu += entry_cost
+                    if not math.isinf(Cv):
+                        Cv += entry_cost
+
+                    # If both outside isochrone → skip
+                    if (math.isinf(Cu) or Cu > max_cost) and \
+                    (math.isinf(Cv) or Cv > max_cost):
+                        continue
+
+                    p_u = self.qgsgraph.vertex(u).point()
+                    p_v = self.qgsgraph.vertex(v).point()
+
+                    dx = p_v.x() - p_u.x()
+                    dy = p_v.y() - p_u.y()
+                    length = math.hypot(dx, dy)
+
+                    if length == 0:
+                        continue
+
+                    n_segments = max(1, int(length / densify_distance))
+
+                    for j in range(1, n_segments):
+
+                        frac = j / n_segments
+
+                        # Handle case where one vertex is unreachable
+                        if math.isinf(Cu):
+                            interpolated_cost = Cv
+                        elif math.isinf(Cv):
+                            interpolated_cost = Cu
+                        else:
+                            interpolated_cost = Cu + frac * (Cv - Cu)
+
+                        if interpolated_cost > max_cost:
+                            continue
+
+                        ix = p_u.x() + frac * dx
+                        iy = p_u.y() + frac * dy
+
+                        pt_m = QgsPoint(ix, iy)
+                        pt_m.addMValue(interpolated_cost)
+
+                        feat = QgsFeature(output_fields)
+                        feat['vertex_id'] = -1
+                        feat['cost'] = interpolated_cost
+                        feat['origin_point_id'] = origin_point.feature['user_id']
+                        feat.setGeometry(QgsGeometry(pt_m))
+
+                        key = (edge_id, j)
+
+                        existing = iso_points.get(key)
+                        if existing is None or existing['cost'] > interpolated_cost:
+                            iso_points[key] = feat
+
+            progress_range.feedback().setProgress((i + 1) / total_workload)
 
         return list(iso_points.values())
         
@@ -386,7 +451,7 @@ class QneatCore():
         return output_raster
     
     def calcEuclideanDistanceRaster(self, iso_points: list[QgsFeature], cellsize: float, output_path: str, progress_range: ProgressRange, cost_field_name : str = 'cost') -> QgsRasterLayer:
-        
+        #TODO: TIME optimization
         iso_point_layer: QgsVectorLayer = buildQgsVectorLayer(
             f'point?crs={self.analysis_crs.authid()}'
             f'&field=vertex_id:integer'

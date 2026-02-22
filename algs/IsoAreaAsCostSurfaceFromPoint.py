@@ -228,7 +228,7 @@ class IsoAreaAsCostSurfaceFromPoint(QgsProcessingAlgorithm):
                          defaultDirection)
         
         iso_progress_range = ProgressRange(feedback, 0.33, 0.66)
-        iso_points = core.calcIsoPoints(max_cost, iso_progress_range)
+        iso_points = core.calcIsoPoints(max_cost, iso_progress_range, cell_size * 1.5)
 
         iso_area_method_progress_range = ProgressRange(feedback, 0.66, 1.0)
         if iso_area_method == IsoAreaMethod.EUCLIDEAN_DISTANCE:

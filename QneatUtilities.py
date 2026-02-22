@@ -33,7 +33,8 @@ if TYPE_CHECKING:
     from qgis.core import (
         QgsCoordinateReferenceSystem,
         QgsFeatureSource,
-        QgsPointXY
+        QgsPointXY,
+        QgsRectangle
     )
 
 
