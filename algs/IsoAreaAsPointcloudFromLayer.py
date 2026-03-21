@@ -28,7 +28,7 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
-from qgis.PyQt.QtCore import QCoreApplication, QVariant
+from qgis.PyQt.QtCore import QCoreApplication, QMetaType
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (Qgis, 
@@ -229,9 +229,9 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
         user_id_field_datatype = getFieldDatatype(origin_points, origin_id_field)
 
         source_point_fields = QgsFields()
-        source_point_fields.append(QgsField('fid', QVariant.LongLong))
+        source_point_fields.append(QgsField('fid', QMetaType.LongLong))
         source_point_fields.append(QgsField('user_id', user_id_field_datatype))
-        source_point_fields.append(QgsField('type', QVariant.String))
+        source_point_fields.append(QgsField('type', QMetaType.String))
 
         for f in origin_points.getFeatures():
             source_feat = QgsFeature(source_point_fields)
@@ -258,8 +258,8 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
                          defaultDirection)
         
         fields = QgsFields()
-        fields.append(QgsField('vertex_id', QVariant.Int))
-        fields.append(QgsField('cost', QVariant.Double))
+        fields.append(QgsField('vertex_id', QMetaType.Int))
+        fields.append(QgsField('cost', QMetaType.Double))
         fields.append(QgsField('origin_point_id', user_id_field_datatype))
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, Qgis.WkbType.PointM, analysisCrs)

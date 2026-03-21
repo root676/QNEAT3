@@ -24,7 +24,7 @@ __copyright__ = '(C) 2025, Clemens Raffler'
 import os
 from collections import OrderedDict
 
-from qgis.PyQt.QtCore import QCoreApplication, QVariant
+from qgis.PyQt.QtCore import QCoreApplication, QMetaType
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (Qgis,
@@ -266,14 +266,14 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
         feat = QgsFeature()
         
         fields = QgsFields()
-        fields.append(QgsField('start_id', QVariant.String))
-        fields.append(QgsField('start_coordinates', QVariant.String))
-        fields.append(QgsField('start_entry_cost', QVariant.Double))
-        fields.append(QgsField('end_id', QVariant.String))
-        fields.append(QgsField('end_coordinates', QVariant.String))
-        fields.append(QgsField('end_exit_cost', QVariant.Double))
-        fields.append(QgsField('cost_on_graph', QVariant.Double))
-        fields.append(QgsField('total_cost', QVariant.Double))
+        fields.append(QgsField('start_id', QMetaType.String))
+        fields.append(QgsField('start_coordinates', QMetaType.String))
+        fields.append(QgsField('start_entry_cost', QMetaType.Double))
+        fields.append(QgsField('end_id', QMetaType.String))
+        fields.append(QgsField('end_coordinates', QMetaType.String))
+        fields.append(QgsField('end_exit_cost', QMetaType.Double))
+        fields.append(QgsField('cost_on_graph', QMetaType.Double))
+        fields.append(QgsField('total_cost', QMetaType.Double))
         feat.setFields(fields)
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, Qgis.WkbType.LineString, network.sourceCrs())

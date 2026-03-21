@@ -18,7 +18,7 @@
 """
 
 import math
-from qgis.PyQt.QtCore import QVariant
+from qgis.PyQt.QtCore import QMetaType
 
 from qgis.core import (QgsMessageLog, 
                        QgsVectorLayer, 
@@ -61,35 +61,35 @@ def buildQgsVectorLayer(string_geomtype: str, string_layername: str, crs: QgsCoo
 def getFeatureFromPoint(user_id: int, qgs_point_xy: QgsPointXY) -> QgsFeature:     
     feature = QgsFeature()
     fields = QgsFields()
-    fields.append(QgsField('user_id', QVariant.LongLong))
+    fields.append(QgsField('user_id', QMetaType.LongLong))
     feature.setFields(fields)
     feature.setGeometry(QgsGeometry.fromPointXY(qgs_point_xy))
     feature['user_id']=user_id
     return feature
         
-def getFieldDatatype(qgs_feature_storage: Union[QgsFeatureSource, QgsFeature], fieldname) -> QVariant.Type:
+def getFieldDatatype(qgs_feature_storage: Union[QgsFeatureSource, QgsFeature], fieldname) -> QMetaType.Type:
     fields_list: QgsFields = qgs_feature_storage.fields()
-    type: QVariant.Type = fields_list.field(fieldname).type()
+    type: QMetaType.Type = fields_list.field(fieldname).type()
     return type
 
 def getFieldDatatypeFromPythontype(pythonvar):
     if isinstance(pythonvar, str):
-        return QVariant.String
+        return QMetaType.String
     elif isinstance(pythonvar, int):
-        return QVariant.Int
+        return QMetaType.Int
     elif isinstance(pythonvar, float):
-        return QVariant.Double
+        return QMetaType.Double
     else: 
-        return QVariant.String
+        return QMetaType.String
     
 def getOdMatrixFields(origin_points: QgsFeatureSource, origin_id_field: str, destination_points: QgsFeatureSource, destination_id_field: str) -> QgsFields:
     output_fields = QgsFields()
     output_fields.append(QgsField('origin_id', getFieldDatatype(origin_points, origin_id_field)))
     output_fields.append(QgsField('destination_id', getFieldDatatype(destination_points, destination_id_field)))
-    output_fields.append(QgsField('entry_cost', QVariant.Double))
-    output_fields.append(QgsField('network_cost', QVariant.Double))
-    output_fields.append(QgsField('exit_cost', QVariant.Double))
-    output_fields.append(QgsField('total_cost', QVariant.Double))
+    output_fields.append(QgsField('entry_cost', QMetaType.Double))
+    output_fields.append(QgsField('network_cost', QMetaType.Double))
+    output_fields.append(QgsField('exit_cost', QMetaType.Double))
+    output_fields.append(QgsField('total_cost', QMetaType.Double))
     return output_fields
 
 def getCellIndexFromPoint(x: float, y:float, rasterExtent:QgsRectangle, cellsize: float, rows: int, cols: int):

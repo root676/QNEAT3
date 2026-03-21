@@ -28,7 +28,7 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
-from qgis.PyQt.QtCore import QCoreApplication, QVariant
+from qgis.PyQt.QtCore import QCoreApplication, QMetaType
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (Qgis,
@@ -230,9 +230,9 @@ class IsoAreaAsPointcloudFromPoint(QgsProcessingAlgorithm):
                          defaultDirection)
         
         fields = QgsFields()
-        fields.append(QgsField('vertex_id', QVariant.LongLong))
-        fields.append(QgsField('cost', QVariant.Double))
-        fields.append(QgsField('origin_point_id', QVariant.LongLong))
+        fields.append(QgsField('vertex_id', QMetaType.LongLong))
+        fields.append(QgsField('cost', QMetaType.Double))
+        fields.append(QgsField('origin_point_id', QMetaType.LongLong))
         
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, Qgis.WkbType.PointM, analysisCrs)
 

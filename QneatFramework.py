@@ -53,7 +53,7 @@ from qgis.core import (
     QgsWkbTypes
     )
 
-from qgis.PyQt.QtCore import QVariant, QMetaType
+from qgis.PyQt.QtCore import QMetaType
 
 from .QneatUtilities import buildQgsVectorLayer, getCellIndexFromPoint
 
@@ -235,10 +235,10 @@ class QneatCore():
         fields: QgsFields  = QgsFields()
         fields.append(QgsField('origin_id', origin_id_field_type, '', 254, 0))
         fields.append(QgsField('destination_id', destination_id_field_type, '', 254, 0))
-        fields.append(QgsField('entry_cost', QVariant.Double, '', 20,7))
-        fields.append(QgsField('network_cost', QVariant.Double, '', 20, 7))
-        fields.append(QgsField('exit_cost', QVariant.Double, '', 20,7))
-        fields.append(QgsField('total_cost', QVariant.Double, '', 20,7))
+        fields.append(QgsField('entry_cost', QMetaType.Double, '', 20,7))
+        fields.append(QgsField('network_cost', QMetaType.Double, '', 20, 7))
+        fields.append(QgsField('exit_cost', QMetaType.Double, '', 20,7))
+        fields.append(QgsField('total_cost', QMetaType.Double, '', 20,7))
         feat.setFields(fields)
 
         if origin_id == destination_id:
@@ -289,12 +289,12 @@ class QneatCore():
         return feat
     
         
-    def calcIsoPoints(self, max_cost: float, progress_range: ProgressRange, densify_distance: float | None = None, id_field_datatype: QVariant = QVariant.LongLong) -> list[QgsFeature]:
+    def calcIsoPoints(self, max_cost: float, progress_range: ProgressRange, densify_distance: float | None = None, id_field_datatype: QMetaType.Type = QMetaType.LongLong) -> list[QgsFeature]:
         iso_points = dict()
 
         output_fields = QgsFields()
-        output_fields.append(QgsField('vertex_id', QVariant.LongLong))
-        output_fields.append(QgsField('cost', QVariant.Double))
+        output_fields.append(QgsField('vertex_id', QMetaType.LongLong))
+        output_fields.append(QgsField('cost', QMetaType.Double))
         output_fields.append(QgsField('origin_point_id', id_field_datatype))
 
         total_workload = len(self.analysis_points)

@@ -28,7 +28,7 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
-from qgis.PyQt.QtCore import QCoreApplication, QVariant
+from qgis.PyQt.QtCore import QCoreApplication, QMetaType
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (Qgis,
@@ -248,9 +248,9 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
              raise QgsProcessingException(f"Coordinate reference system (CRS) of graph is {network.sourceCrs().authid()} and doesn't match up with the CRSs of both, origin ({origin_points.sourceCrs().authid()}) and destination ({destination_points.sourceCrs().authid()}) point layers. Reproject so that the analysis layers CRSs match up.")
         
         o_fields = QgsFields()
-        o_fields.append(QgsField('fid', QVariant.LongLong))
+        o_fields.append(QgsField('fid', QMetaType.LongLong))
         o_fields.append(QgsField('user_id', getFieldDatatype(origin_points, origin_id_field)))
-        o_fields.append(QgsField('type', QVariant.String))
+        o_fields.append(QgsField('type', QMetaType.String))
 
         #unpack all points into one list
         input_point_features: list[QgsFeature] = []
@@ -265,9 +265,9 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
             input_point_features.append(of)
         
         d_fields = QgsFields()
-        d_fields.append(QgsField('fid', QVariant.LongLong))
+        d_fields.append(QgsField('fid', QMetaType.LongLong))
         d_fields.append(QgsField('user_id', getFieldDatatype(destination_points, destination_id_field)))
-        d_fields.append(QgsField('type', QVariant.String))
+        d_fields.append(QgsField('type', QMetaType.String))
 
         for f in destination_points.getFeatures():
             df = QgsFeature(d_fields)
