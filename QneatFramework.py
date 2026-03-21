@@ -49,6 +49,7 @@ from qgis.core import (
     QgsProject,
     QgsRasterLayer,
     QgsRectangle,
+    QgsUnitTypes,
     QgsVectorLayer,   
     QgsWkbTypes
     )
@@ -177,6 +178,10 @@ class QneatCore():
         #Setup cost-strategy pattern.
         self.default_speed = default_speed
         speed_field_id = graph_source.fields().lookupField(speed_field)
+
+        #deal with speed calculation for 
+        self.distanceUnitConversionFactor = QgsUnitTypes.fromUnitToUnitFactor(self.analysis_crs.mapUnits(), Qgis.DistanceUnit.Meters)
+        self.optimizationStrategy = optimization_strategy
         self.setNetworkStrategy(optimization_strategy, speed_field_id, self.default_speed)
 
         #add the strategy to the QgsGraphDirector
@@ -207,7 +212,7 @@ class QneatCore():
             if optimization_strategy == OptimizationStrategy.DISTANCE: 
                 entry_cost = dist
             else:
-                entry_cost = dist/(self.default_speed*(1000.0 / 3600.0))
+                entry_cost = (dist * ( 3600.0 / (self.distanceUnitConversionFactor * 1000) ) ) / self.default_speed
 
             self.analysis_points.append(QneatAnalysisPoint(point_featurelist[i], graph_vertex_id, tied_point, entry_cost))
             
@@ -216,7 +221,7 @@ class QneatCore():
         if optimization_strategy == OptimizationStrategy.DISTANCE:
             self.strategy = QgsNetworkDistanceStrategy()
         else:
-            self.strategy = QgsNetworkSpeedStrategy(speed_field_index, float(default_speed), 1000.0 / 3600.0)
+            self.strategy = QgsNetworkSpeedStrategy(speed_field_index, float(default_speed), self.distanceUnitConversionFactor * 1000.0 / 3600.0)
 
 
     def calcDijkstra(self, source_vertex_id: int) -> tuple[list[int], list[float]]:
@@ -451,7 +456,7 @@ class QneatCore():
         return output_raster
     
     def calcEuclideanDistanceRaster(self, iso_points: list[QgsFeature], cellsize: float, output_path: str, progress_range: ProgressRange, cost_field_name : str = 'cost') -> QgsRasterLayer:
-        #TODO: TIME optimization
+
         iso_point_layer: QgsVectorLayer = buildQgsVectorLayer(
             f'point?crs={self.analysis_crs.authid()}'
             f'&field=vertex_id:integer'
@@ -467,7 +472,7 @@ class QneatCore():
         xmin = rasterExtent.xMinimum()
         ymin = rasterExtent.yMinimum()
         xmax = rasterExtent.xMaximum()
-        ymax = rasterExtent.yMaximum()   # FIXED
+        ymax = rasterExtent.yMaximum() 
 
         cols = int(math.ceil((xmax - xmin) / cellsize))
         rows = int(math.ceil((ymax - ymin) / cellsize))
@@ -502,7 +507,13 @@ class QneatCore():
         )
         progress_range.feedback().setProgress(0.8)
 
-        cost_raster = node_cost_raster[inds_r, inds_c] + eucDist * cellsize
+        if self.optimizationStrategy == OptimizationStrategy.TIME:
+            distToTimeFactor = ( 3600 / (self.distanceUnitConversionFactor * 1000.0) )
+            off_network_cost = (eucDist * cellsize * distToTimeFactor) / self.default_speed
+            cost_raster = node_cost_raster[inds_r, inds_c] + off_network_cost
+        else:
+            cost_raster = node_cost_raster[inds_r, inds_c] + eucDist * cellsize 
+        
 
         cost_raster = numpy.where(
             numpy.isnan(cost_raster),
