@@ -227,7 +227,6 @@ class IsoAreaFromPoint(QgsProcessingAlgorithm):
         defaultSpeed: float = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) 
         tolerance: float = self.parameterAsDouble(parameters, self.TOLERANCE, context) 
         output_cost_surface: str = self.parameterAsOutputLayer(parameters, self.OUTPUT_COST_SURFACE, context) 
-        output_iso_area: str = self.parameterAsOutputLayer(parameters, self.OUTPUT_ISO_AREAS, context)
 
         analysisCrs = network.sourceCrs()
 

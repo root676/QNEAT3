@@ -53,7 +53,7 @@ from qgis.core import (
     QgsWkbTypes
     )
 
-from qgis.PyQt.QtCore import QVariant
+from qgis.PyQt.QtCore import QVariant, QMetaType
 
 from .QneatUtilities import buildQgsVectorLayer, getCellIndexFromPoint
 
@@ -539,17 +539,16 @@ class QneatCore():
         #band.DeleteNoDataValue()
 
         ogr_geom_type = ogr.wkbMultiLineString
-        qgis_geom_type = Qgis.WkbType.MultiLineString
         contour_polygonize = False
         if iso_area_type == IsoAreaType.POLYGONS:
             ogr_geom_type = ogr.wkbMultiPolygon
-            qgis_geom_type = Qgis.WkbType.MultiPolygon
             contour_polygonize = True
-            
+        
+        srs: osr.SpatialReference = osr.SpatialReference(wkt=interpolation_raster.GetProjection())
 
         ogr_driver = ogr.GetDriverByName("MEMORY")
         ogr_ds = ogr_driver.CreateDataSource("iso_areas")
-        ogr_layer = ogr_ds.CreateLayer("iso_areas", geom_type=ogr_geom_type)
+        ogr_layer = ogr_ds.CreateLayer("iso_areas", srs, geom_type=ogr_geom_type)
 
         #Fields
         field_list = list()
@@ -558,9 +557,6 @@ class QneatCore():
         field_list.extend([id_field, cost_level_field])
 
         ogr_layer.CreateFields(field_list)
-        
-        srs: osr.SpatialReference = osr.SpatialReference()
-        srs.ImportFromWkt( interpolation_raster.GetProjectionRef() )
 
         levels = [i * interval for i in range(int(max_cost / interval) + 1)]
         
@@ -568,20 +564,20 @@ class QneatCore():
             band,
             ogr_layer,
             options=[
-                f"FIXED_LEVELS= {','.join(map(str, levels))}",
+                f"FIXED_LEVELS={','.join(map(str, levels))}",
                 f"NODATA={band.GetNoDataValue()}",
                 "ID_FIELD=0",
                 "ELEV_FIELD_MAX=1" if contour_polygonize else "ELEV_FIELD=1",
-                "POLYGONIZE=" + 'yes' if contour_polygonize else 'no'
+                f"POLYGONIZE={'yes' if contour_polygonize else 'no'}"
             ]
         )
 
-        geom_string = "MultiLineString" if iso_area_type == IsoAreaType.CONTOURS else "MultiPolygon"
-        iso_areas = QgsVectorLayer(f"{geom_string}?crs={self.analysis_crs.authid()}&field=id:integer&field=cost_level:double", "iso_areas", "memory")
+        geom_string = "multilinestring" if iso_area_type == IsoAreaType.CONTOURS else "multipolygon"
+        iso_areas = QgsVectorLayer(f"{geom_string}?crs={self.analysis_crs.toWkt()}&field=id:integer&field=cost_level:double&index=yes", "iso_areas", "memory")
 
         iso_area_fields = QgsFields()
-        iso_area_fields.append(QgsField('id', QVariant.LongLong))
-        iso_area_fields.append(QgsField('cost_level', QVariant.Double))
+        iso_area_fields.append(QgsField('id', QMetaType.Type.LongLong))
+        iso_area_fields.append(QgsField('cost_level', QMetaType.Type.Double))
         provider = iso_areas.dataProvider()
 
         total_workload = ogr_layer.GetFeatureCount()
@@ -602,19 +598,15 @@ class QneatCore():
             else:
                 continue
 
-
-
             progress = (i + 1) / total_workload
             progress_range.feedback().setProgress(progress)
-            
 
         provider.addFeatures(iso_area_features)
         iso_areas.updateExtents()
 
-        #handle gdal refcounting
         band = None
+        ogr_layer = None
         interpolation_raster = None
-        contours = None
 
         return iso_areas
         

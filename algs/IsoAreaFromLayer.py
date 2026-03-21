@@ -28,7 +28,7 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
-from qgis.PyQt.QtCore import QCoreApplication, QVariant
+from qgis.PyQt.QtCore import QCoreApplication, QMetaType
 from qgis.PyQt.QtGui import QIcon
 
 from qgis.core import (Qgis,
@@ -238,7 +238,6 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
         defaultSpeed: float = self.parameterAsDouble(parameters, self.DEFAULT_SPEED, context) 
         tolerance: float = self.parameterAsDouble(parameters, self.TOLERANCE, context) 
         output_cost_surface: str = self.parameterAsOutputLayer(parameters, self.OUTPUT_COST_SURFACE, context) 
-        output_iso_area: str = self.parameterAsOutputLayer(parameters, self.OUTPUT_ISO_AREAS, context)
 
         if not checkIfAnalysisCrsEqual([network.sourceCrs(), origin_points.sourceCrs()]):
             raise QgsProcessingException(f"Coordinate reference system (CRS) of graph is {network.sourceCrs().authid()} and doesn't match up with the CRS of the origin point layer ({origin_points.sourceCrs().authid()}). Reproject so that the analysis layer CRSs match up.")
@@ -249,9 +248,9 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
         user_id_field_datatype = getFieldDatatype(origin_points, origin_id_field)
 
         source_point_fields = QgsFields()
-        source_point_fields.append(QgsField('fid', QVariant.LongLong))
+        source_point_fields.append(QgsField('fid', QMetaType.LongLong))
         source_point_fields.append(QgsField('user_id', user_id_field_datatype))
-        source_point_fields.append(QgsField('type', QVariant.String))
+        source_point_fields.append(QgsField('type', QMetaType.String))
 
         for f in origin_points.getFeatures():
             source_feat = QgsFeature(source_point_fields)
