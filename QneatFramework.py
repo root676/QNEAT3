@@ -22,6 +22,7 @@ from scipy.ndimage import distance_transform_edt
 from osgeo import gdal, ogr, osr
 
 import math
+from __future__ import annotations
 from enum import IntEnum
 
 from qgis.analysis import (
@@ -162,7 +163,7 @@ class QneatCore():
             if f.geometry() and f.geometry().isEmpty() is False:
                 xy_points.append(f.geometry().asPoint())
             else:
-                raise QgsProcessingException(f"Dataset has wrong geometry type. Got {QgsWkbTypes.displayString(f.geometry.wkbType())} dataset but expected Point dataset instead.")
+                raise QgsProcessingException(f"Dataset has wrong geometry type. Got {QgsWkbTypes.displayString(f.geometry().wkbType())} dataset but expected Point dataset instead.")
 
         defaultDirectionEnum = QgsVectorLayerDirector.Direction(defaultDirection)
 
@@ -180,7 +181,7 @@ class QneatCore():
         speed_field_id = graph_source.fields().lookupField(speed_field)
 
         #deal with speed calculation for 
-        self.distanceUnitConversionFactor = QgsUnitTypes.fromUnitToUnitFactor(self.analysis_crs.mapUnits(), Qgis.DistanceUnit.Meters)
+        self.kmPh_to_unitsPerSecond_factor = QgsUnitTypes.fromUnitToUnitFactor(Qgis.DistanceUnit.Meters, self.analysis_crs.mapUnits()) * 1000.0 / 3600.0
         self.optimizationStrategy = optimization_strategy
         self.setNetworkStrategy(optimization_strategy, speed_field_id, self.default_speed)
 
@@ -212,7 +213,7 @@ class QneatCore():
             if optimization_strategy == OptimizationStrategy.DISTANCE: 
                 entry_cost = dist
             else:
-                entry_cost = (dist * ( 3600.0 / (self.distanceUnitConversionFactor * 1000) ) ) / self.default_speed
+                entry_cost = dist / ( self.default_speed * self.kmPh_to_unitsPerSecond_factor) #output is in seconds
 
             self.analysis_points.append(QneatAnalysisPoint(point_featurelist[i], graph_vertex_id, tied_point, entry_cost))
             
@@ -221,7 +222,7 @@ class QneatCore():
         if optimization_strategy == OptimizationStrategy.DISTANCE:
             self.strategy = QgsNetworkDistanceStrategy()
         else:
-            self.strategy = QgsNetworkSpeedStrategy(speed_field_index, float(default_speed), self.distanceUnitConversionFactor * 1000.0 / 3600.0)
+            self.strategy = QgsNetworkSpeedStrategy(speed_field_index, float(default_speed), self.kmPh_to_unitsPerSecond_factor ) #output is in seconds
 
 
     def calcDijkstra(self, source_vertex_id: int) -> tuple[list[int], list[float]]:
@@ -249,7 +250,6 @@ class QneatCore():
         if origin_id == destination_id:
             feat['origin_id'] = origin_id
             feat['destination_id'] = destination_id
-            feat['entry_cost '] = 0.0
             feat['entry_cost'] = 0.0
             feat['network_cost'] = 0.0
             feat['exit_cost'] = 0.0
@@ -282,8 +282,8 @@ class QneatCore():
 
             current_vertex_id = destination_point.graph_vertex_id
             while current_vertex_id != origin_point.graph_vertex_id:
-                current_vertex_idx = self.qgsgraph.edge(tree[current_vertex_idx]).fromVertex()
-                route_points.append(self.qgsgraph.vertex(current_vertex_idx).point())
+                current_vertex_id = self.qgsgraph.edge(tree[current_vertex_id]).fromVertex()
+                route_points.append(self.qgsgraph.vertex(current_vertex_id).point())
             
             route_points.append(destination_point.graph_vertex_geom)
             route_points.append(destination_point.feature.geometry().asPoint())
@@ -436,14 +436,14 @@ class QneatCore():
         
         layer_data.source = iso_point_layer 
         layer_data.valueSource = QgsInterpolator.ValueSource.Attribute
-        layer_data.interpolationAttribute =  1 #take second field to get costs
+        layer_data.interpolationAttribute =  cost_field_index #take second field to get costs
         layer_data.sourceType = QgsInterpolator.SourceType.Points
 
         tin_interpolator = QgsTinInterpolator([layer_data], QgsTinInterpolator.TinInterpolation.Linear, progress_range.feedback())
         
         extent : QgsRectangle = iso_point_layer.extent()
         ncol = max(1, math.ceil(extent.width() / cellsize))
-        nrows = max(1, math.ceil(extent.width() / cellsize))
+        nrows = max(1, math.ceil(extent.height() / cellsize))
         
         writer = QgsGridFileWriter(tin_interpolator, output_interpolation_path, extent, ncol, nrows)
         result = writer.writeFile() 
@@ -508,9 +508,9 @@ class QneatCore():
         progress_range.feedback().setProgress(0.8)
 
         if self.optimizationStrategy == OptimizationStrategy.TIME:
-            distToTimeFactor = ( 3600 / (self.distanceUnitConversionFactor * 1000.0) )
-            off_network_cost = (eucDist * cellsize * distToTimeFactor) / self.default_speed
-            cost_raster = node_cost_raster[inds_r, inds_c] + off_network_cost
+            distance = (eucDist * cellsize) 
+            off_network_cost = distance / (self.default_speed * self.kmPh_to_unitsPerSecond_factor)
+            cost_raster = node_cost_raster[inds_r, inds_c] + off_network_cost #output is in seconds
         else:
             cost_raster = node_cost_raster[inds_r, inds_c] + eucDist * cellsize 
         
@@ -584,7 +584,7 @@ class QneatCore():
         )
 
         geom_string = "multilinestring" if iso_area_type == IsoAreaType.CONTOURS else "multipolygon"
-        iso_areas = QgsVectorLayer(f"{geom_string}?crs={self.analysis_crs.toWkt()}&field=id:integer&field=cost_level:double&index=yes", "iso_areas", "memory")
+        iso_areas = QgsVectorLayer(f"{geom_string}?crs={self.analysis_crs.authid()}&field=id:integer&field=cost_level:double&index=yes", "iso_areas", "memory")
 
         iso_area_fields = QgsFields()
         iso_area_fields.append(QgsField('id', QMetaType.Type.LongLong))

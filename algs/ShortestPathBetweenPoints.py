@@ -23,6 +23,7 @@ __copyright__ = '(C) 2025, Clemens Raffler'
 
 import os
 from collections import OrderedDict
+from __future__ import annotations
 
 from qgis.PyQt.QtCore import QCoreApplication, QMetaType
 from qgis.PyQt.QtGui import QIcon
