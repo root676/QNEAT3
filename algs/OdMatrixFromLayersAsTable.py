@@ -240,7 +240,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
         o_fields = QgsFields()
         o_fields.append(QgsField('fid', QMetaType.LongLong))
         o_fields.append(QgsField('user_id'), getFieldDatatype(origin_points, origin_id_field))
-        o_fields.append(QgsField('type', QMetaType.String))
+        o_fields.append(QgsField('type', QMetaType.QString))
 
         #unpack all points into one list
         input_point_features: list[QgsFeature] = []
@@ -257,7 +257,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
         d_fields = QgsFields()
         d_fields.append(QgsField('fid', QMetaType.LongLong))
         d_fields.append(QgsField('user_id'), getFieldDatatype(destination_points, destination_id_field))
-        d_fields.append(QgsField('type', QMetaType.String))
+        d_fields.append(QgsField('type', QMetaType.QString))
 
         for f in destination_points.getFeatures():
             df = QgsFeature(d_fields)

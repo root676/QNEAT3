@@ -30,7 +30,6 @@ __revision__ = '$Format:%H$'
 import os
 from collections import OrderedDict
 
-
 from qgis.PyQt.QtCore import QCoreApplication, QMetaType
 from qgis.PyQt.QtGui import QIcon
 

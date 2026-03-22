@@ -76,13 +76,13 @@ def getFieldDatatype(qgs_feature_storage: Union[QgsFeatureSource, QgsFeature], f
 
 def getFieldDatatypeFromPythontype(pythonvar):
     if isinstance(pythonvar, str):
-        return QMetaType.String
+        return QMetaType.QString
     elif isinstance(pythonvar, int):
         return QMetaType.Int
     elif isinstance(pythonvar, float):
         return QMetaType.Double
     else: 
-        return QMetaType.String
+        return QMetaType.QString
     
 def getOdMatrixFields(origin_points: QgsFeatureSource, origin_id_field: str, destination_points: QgsFeatureSource, destination_id_field: str) -> QgsFields:
     output_fields = QgsFields()
