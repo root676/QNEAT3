@@ -16,9 +16,10 @@
 *                                                                         *
 ***************************************************************************
 """
+from __future__ import annotations
 
 import math
-from __future__ import annotations
+
 from qgis.PyQt.QtCore import QMetaType
 
 from qgis.core import (QgsMessageLog, 

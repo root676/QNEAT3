@@ -16,6 +16,7 @@
 *                                                                         *
 ***************************************************************************
 """
+from __future__ import annotations
 
 __author__ = 'Clemens Raffler'
 __date__ = 'February 2018'
@@ -27,7 +28,6 @@ __revision__ = '$Format:%H$'
 
 import os
 from collections import OrderedDict
-from __future__ import annotations
 
 from qgis.PyQt.QtCore import QCoreApplication, QMetaType
 from qgis.PyQt.QtGui import QIcon

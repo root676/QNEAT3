@@ -16,6 +16,7 @@
 *                                                                         *
 ***************************************************************************
 """
+from __future__ import annotations
 
 __author__ = 'Clemens Raffler'
 __date__ = 'December 2025'
@@ -27,7 +28,6 @@ __revision__ = '$Format:%H$'
 
 import os
 from collections import OrderedDict
-from __future__ import annotations
 
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.PyQt.QtGui import QIcon
@@ -68,6 +68,7 @@ class IsoAreaAsCostSurfaceFromPoint(QgsProcessingAlgorithm):
     CELL_SIZE = "CELL_SIZE"
     ISO_AREA_METHOD = 'ISO_AREA_METHOD'
     STRATEGY = 'STRATEGY'
+    MAX_OFF_GRAPH_TRAVEL_COST = 'MAX_OFF_GRAPH_TRAVEL_COST'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
     VALUE_BACKWARD = 'VALUE_BACKWARD'
@@ -151,6 +152,11 @@ class IsoAreaAsCostSurfaceFromPoint(QgsProcessingAlgorithm):
                                                      defaultValue=0))
 
         params = []
+        params.append(QgsProcessingParameterNumber(self.MAX_OFF_GRAPH_TRAVEL_COST, 
+                                                   self.tr('Maximum off-graph travel cost (euclidean distance method only)'),
+                                                   Qgis.ProcessingNumberParameterType.Double, 
+                                                   optional=True, 
+                                                   minValue=0))
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
                                                   self.tr('Direction field'),
                                                   None,
@@ -200,6 +206,7 @@ class IsoAreaAsCostSurfaceFromPoint(QgsProcessingAlgorithm):
         cell_size: float = self.parameterAsDouble(parameters, self.CELL_SIZE, context)
         strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context))
 
+        max_off_graph_travel_cost: float = self.parameterAsDouble(parameters, self.MAX_OFF_GRAPH_TRAVEL_COST, context) #0.0 if not set
         directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) 
         forwardValue: str = self.parameterAsString(parameters, self.VALUE_FORWARD, context) 
         backwardValue: str = self.parameterAsString(parameters, self.VALUE_BACKWARD, context) 
@@ -233,7 +240,7 @@ class IsoAreaAsCostSurfaceFromPoint(QgsProcessingAlgorithm):
 
         iso_area_method_progress_range = ProgressRange(feedback, 0.66, 1.0)
         if iso_area_method == IsoAreaMethod.EUCLIDEAN_DISTANCE:
-            core.calcEuclideanDistanceRaster(iso_points, cell_size, output_path, iso_area_method_progress_range ) 
+            core.calcEuclideanDistanceRaster(iso_points, cell_size, output_path, iso_area_method_progress_range, max_off_graph_travel_cost=max_off_graph_travel_cost ) 
         else:
             core.calcIsoTinInterpolation(iso_points, cell_size, output_path, iso_area_method_progress_range )
 

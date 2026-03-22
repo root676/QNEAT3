@@ -16,6 +16,7 @@
 *                                                                         *
 ***************************************************************************
 """
+from __future__ import annotations
 
 __author__ = 'Clemens Raffler'
 __date__ = 'December 2025'
@@ -23,7 +24,6 @@ __copyright__ = '(C) 2025, Clemens Raffler'
 
 import os
 from collections import OrderedDict
-from __future__ import annotations
 
 from qgis.PyQt.QtCore import QCoreApplication, QMetaType
 from qgis.PyQt.QtGui import QIcon

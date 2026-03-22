@@ -16,13 +16,13 @@
 *                                                                         *
 ***************************************************************************
 """
+from __future__ import annotations
 
 import numpy
 from scipy.ndimage import distance_transform_edt
 from osgeo import gdal, ogr, osr
 
 import math
-from __future__ import annotations
 from enum import IntEnum
 
 from qgis.analysis import (
@@ -455,8 +455,13 @@ class QneatCore():
 
         return output_raster
     
-    def calcEuclideanDistanceRaster(self, iso_points: list[QgsFeature], cellsize: float, output_path: str, progress_range: ProgressRange, cost_field_name : str = 'cost') -> QgsRasterLayer:
+    def calcEuclideanDistanceRaster(self, iso_points: list[QgsFeature], cellsize: float, output_path: str, progress_range: ProgressRange, cost_field_name : str = 'cost', max_off_graph_travel_cost : float = 0.0) -> QgsRasterLayer:
 
+        if max_off_graph_travel_cost == 0.0:
+            limit_off_graph_travel = False
+        else:
+            limit_off_graph_travel = True
+        
         iso_point_layer: QgsVectorLayer = buildQgsVectorLayer(
             f'point?crs={self.analysis_crs.authid()}'
             f'&field=vertex_id:integer'
@@ -507,19 +512,25 @@ class QneatCore():
         )
         progress_range.feedback().setProgress(0.8)
 
+        off_network_distance = (eucDist * cellsize) 
+
+        time_factor = self.default_speed * self.kmPh_to_unitsPerSecond_factor
         if self.optimizationStrategy == OptimizationStrategy.TIME:
-            distance = (eucDist * cellsize) 
-            off_network_cost = distance / (self.default_speed * self.kmPh_to_unitsPerSecond_factor)
+            off_network_cost = off_network_distance / time_factor
+
+            if limit_off_graph_travel:
+                off_network_cost[off_network_cost > max_off_graph_travel_cost] = numpy.inf
+
             cost_raster = node_cost_raster[inds_r, inds_c] + off_network_cost #output is in seconds
         else:
-            cost_raster = node_cost_raster[inds_r, inds_c] + eucDist * cellsize 
-        
 
-        cost_raster = numpy.where(
-            numpy.isnan(cost_raster),
-            -9999,
-            cost_raster
-        )
+            if limit_off_graph_travel:
+                off_network_distance[off_network_distance > max_off_graph_travel_cost] = numpy.inf
+
+            cost_raster = node_cost_raster[inds_r, inds_c] + off_network_distance 
+
+        holes = ~numpy.isfinite(cost_raster)
+        cost_raster[holes] = -9999
 
         band.WriteArray(cost_raster)
 

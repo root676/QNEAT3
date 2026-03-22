@@ -16,7 +16,7 @@
 *                                                                         *
 ***************************************************************************
 """
-
+from __future__ import annotations
 
 from .QneatProvider import QneatProvider
 from qgis.core import QgsApplication
