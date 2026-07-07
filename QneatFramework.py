@@ -163,7 +163,7 @@ class QneatCore():
             if f.geometry() and f.geometry().isEmpty() is False:
                 xy_points.append(f.geometry().asPoint())
             else:
-                raise QgsProcessingException(f"Dataset has wrong geometry type. Got {QgsWkbTypes.displayString(f.geometry().wkbType())} dataset but expected Point dataset instead.")
+                raise QgsProcessingException(f"Dataset has an incorrect geometry type. Got {QgsWkbTypes.displayString(f.geometry().wkbType())} dataset but expected point dataset instead.")
 
         defaultDirectionEnum = QgsVectorLayerDirector.Direction(defaultDirection)
 
@@ -426,7 +426,7 @@ class QneatCore():
         iso_point_layer.updateExtents()
 
         if self.analysis_crs.isGeographic():
-            raise QgsProcessingException('The QGIS TIN-Interpolation algorithm is designed to work with projected coordinate systems.Please use a projected coordinate system (eg. UTM zones) instead of geographic coordinate systems (eg. WGS84)!')
+            raise QgsProcessingException('The QGIS TIN-interpolation algorithm is designed to work with projected coordinate systems.Please use a projected coordinate system (eg. UTM zones) instead of geographic coordinate systems (eg. WGS84)!')
         
         cost_field_index = iso_point_layer.fields().indexFromName(cost_field_name)
         if cost_field_index < 0:
