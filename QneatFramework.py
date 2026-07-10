@@ -19,7 +19,6 @@
 from __future__ import annotations
 
 import numpy
-from scipy.ndimage import distance_transform_edt
 from osgeo import gdal, ogr, osr
 
 import math
@@ -457,95 +456,111 @@ class QneatCore():
     
     def calcEuclideanDistanceRaster(self, iso_points: list[QgsFeature], cellsize: float, output_path: str, progress_range: ProgressRange, cost_field_name : str = 'cost', max_off_graph_travel_cost : float = 0.0) -> QgsRasterLayer:
 
-        if max_off_graph_travel_cost == 0.0:
-            limit_off_graph_travel = False
-        else:
-            limit_off_graph_travel = True
-        
-        iso_point_layer: QgsVectorLayer = buildQgsVectorLayer(
-            f'point?crs={self.analysis_crs.authid()}'
-            f'&field=vertex_id:integer'
-            f'&field={cost_field_name}:integer',
-            "iso_points",
-            self.analysis_crs,
-            iso_points
-        )
+        limit_off_graph_travel = max_off_graph_travel_cost > 0.0
 
-        progress_range.feedback().setProgress(0.2)
-        rasterExtent: QgsRectangle = iso_point_layer.sourceExtent().scaled(1.1)
+        xs = [f.geometry().asPoint().x() for f in iso_points]
+        ys = [f.geometry().asPoint().y() for f in iso_points]
 
-        xmin = rasterExtent.xMinimum()
-        ymin = rasterExtent.yMinimum()
-        xmax = rasterExtent.xMaximum()
-        ymax = rasterExtent.yMaximum() 
+        rasterExtent = QgsRectangle(min(xs), min(ys), max(xs), max(ys)).scaled(1.1)
+
+        xmin, ymin = rasterExtent.xMinimum(), rasterExtent.yMinimum()
+        xmax, ymax = rasterExtent.xMaximum(), rasterExtent.yMaximum()
 
         cols = int(math.ceil((xmax - xmin) / cellsize))
         rows = int(math.ceil((ymax - ymin) / cellsize))
-
-        driver = gdal.GetDriverByName('GTiff')
-        outputRaster = driver.Create(output_path, cols, rows, 1, gdal.GDT_Float32)
-
         geotransform = (xmin, cellsize, 0, ymax, 0, -cellsize)
-        outputRaster.SetGeoTransform(geotransform)
 
-        band = outputRaster.GetRasterBand(1)
-        band.SetNoDataValue(-9999)
+        srs = osr.SpatialReference()
+        srs.ImportFromWkt(self.analysis_crs.toWkt())
+        wkt = srs.ExportToWkt()
 
-        seedMask = numpy.ones((rows, cols), dtype=bool)
-        node_cost_raster = numpy.full((rows, cols), numpy.nan, dtype=numpy.float32)
+        progress_range.feedback().setProgress(0.2)
+
+        #seed points as ogr memory layer
+        pt_dataset = gdal.GetDriverByName('Memory').Create('', 0,0,0,gdal.GDT_Unknown)
+        lyr = pt_dataset.CreateLayer('seeds', srs, ogr.wkbPoint)
+        lyr.CreateField(ogr.FieldDefn(cost_field_name, ogr.OFTReal))
+        for node in iso_points: 
+            pt = node.geometry().asPoint()
+            feat = ogr.Feature(lyr.GetLayerDefn())
+            feat.SetField(cost_field_name, float(node[cost_field_name]))
+            geom = ogr.Geometry(ogr.wkbPoint)
+            geom.AddPoint(pt.x(), pt.y())
+            feat.SetGeometry(geom)
+            lyr.CreateFeature(feat)
+            feat = None
+
+        #binary seed raster for proximity calculation
+        seed_ds = gdal.GetDriverByName('MEM').Create('', cols, rows, 1, gdal.GDT_Byte)
+        seed_ds.SetGeoTransform(geotransform)
+        seed_ds.SetProjection(wkt)
+        gdal.RasterizeLayer(seed_ds, [1], lyr, burn_values=[1])
+
+        prox_ds = gdal.GetDriverByName('MEM').Create('', cols, rows, 1, gdal.GDT_Float32)
+        prox_ds.SetGeoTransform(geotransform)
+        prox_ds.SetProjection(wkt)
+
+        prox_options = ['VALUES=1', 'DISTUNITS=GEO']
+
+        if limit_off_graph_travel:
+            if self.optimizationStrategy == OptimizationStrategy.TIME:
+                time_factor = self.default_speed * self.kmPh_to_unitsPerSecond_factor
+                max_dist = max_off_graph_travel_cost * time_factor   # s -> m
+            else:
+                max_dist = max_off_graph_travel_cost                 # already m
+            prox_options += [f'MAXDIST={max_dist}', 'NODATA=-9999']
+
+        gdal.ComputeProximity(seed_ds.GetRasterBand(1),
+                            prox_ds.GetRasterBand(1),
+                            options=prox_options)
+        off_network_distance = prox_ds.GetRasterBand(1).ReadAsArray()
+
         progress_range.feedback().setProgress(0.5)
 
-        for node in iso_points:
-
-            pt = node.geometry().asPoint()
-            x, y = pt.x(), pt.y()
-
-            row, col = getCellIndexFromPoint(x, y, rasterExtent, cellsize, rows, cols)
-
-            if 0 <= row < rows and 0 <= col < cols:
-                seedMask[row, col] = False
-                node_cost_raster[row, col] = float(node[cost_field_name])
-
-        eucDist, (inds_r, inds_c) = distance_transform_edt(
-            seedMask,
-            return_indices=True
+        grid_options = gdal.GridOptions(
+            format='MEM',
+            width=cols, height=rows,
+            outputBounds=[xmin, ymax, xmax, ymin],   # ulx, uly, lrx, lry
+            outputType=gdal.GDT_Float32,
+            outputSRS=srs,
+            zfield=cost_field_name,
+            # radius 0/0 = search the whole point set -> true nearest neighbour
+            algorithm='nearest:radius1=0:radius2=0:nodata=-9999',
         )
+        alloc_ds = gdal.Grid('', pt_dataset, options=grid_options)
+        nearest_seed_cost = alloc_ds.GetRasterBand(1).ReadAsArray()
+
+        # gdal_grid has a classic gotcha where output can come back south-up
+        # depending on GDAL version / bounds handling — normalize defensively:
+        if alloc_ds.GetGeoTransform()[5] > 0:
+            nearest_seed_cost = numpy.flipud(nearest_seed_cost)
+
         progress_range.feedback().setProgress(0.8)
+        beyond_cap = (off_network_distance == -9999)
 
-        off_network_distance = (eucDist * cellsize) 
-
-        time_factor = self.default_speed * self.kmPh_to_unitsPerSecond_factor
         if self.optimizationStrategy == OptimizationStrategy.TIME:
             off_network_cost = off_network_distance / time_factor
-
-            if limit_off_graph_travel:
-                off_network_cost[off_network_cost > max_off_graph_travel_cost] = numpy.inf
-
-            cost_raster = node_cost_raster[inds_r, inds_c] + off_network_cost #output is in seconds
+            cost_raster = nearest_seed_cost + off_network_cost
         else:
+            cost_raster = nearest_seed_cost + off_network_distance
 
-            if limit_off_graph_travel:
-                off_network_distance[off_network_distance > max_off_graph_travel_cost] = numpy.inf
+        cost_raster[beyond_cap] = -9999
+        cost_raster[~numpy.isfinite(cost_raster)] = -9999
 
-            cost_raster = node_cost_raster[inds_r, inds_c] + off_network_distance 
-
-        holes = ~numpy.isfinite(cost_raster)
-        cost_raster[holes] = -9999
-
+        # --- 5. write output (unchanged) ------------------------------------
+        out_ds = gdal.GetDriverByName('GTiff').Create(output_path, cols, rows, 1,
+                                                    gdal.GDT_Float32)
+        out_ds.SetGeoTransform(geotransform)
+        out_ds.SetProjection(wkt)
+        band = out_ds.GetRasterBand(1)
+        band.SetNoDataValue(-9999)
         band.WriteArray(cost_raster)
-
-        outRasterSRS = osr.SpatialReference()
-        outRasterSRS.ImportFromWkt(self.analysis_crs.toWkt())
-        outputRaster.SetProjection(outRasterSRS.ExportToWkt())
-
         band.FlushCache()
         band = None
-        outputRaster = None
+        out_ds = None
 
         output_raster = QgsRasterLayer(output_path, "temp_qneat_euclidean_distance_raster")
         output_raster.setCrs(self.analysis_crs)
-        progress_range.feedback().setProgress(0.8)
-
         return output_raster
 
     
@@ -557,8 +572,6 @@ class QneatCore():
             raise QgsProcessingException("Could not open Interpolation result, please use another cellsize, iso area extent or obtain a valid interpolation raster with the QNEAT Iso-Area as Interpolation algorithm.")
 
         band = interpolation_raster.GetRasterBand(1)
-        #band.CreateMaskBand(gdal.GMF_PER_DATASET)
-        #band.DeleteNoDataValue()
 
         ogr_geom_type = ogr.wkbMultiLineString
         contour_polygonize = False
@@ -572,7 +585,6 @@ class QneatCore():
         ogr_ds = ogr_driver.CreateDataSource("iso_areas")
         ogr_layer = ogr_ds.CreateLayer("iso_areas", srs, geom_type=ogr_geom_type)
 
-        #Fields
         field_list = list()
         id_field: ogr.FieldDefn = ogr.FieldDefn('id', ogr.OFTInteger)
         cost_level_field: ogr.FieldDefn = ogr.FieldDefn('cost_level', ogr.OFTReal)
