@@ -122,6 +122,11 @@ class ProgressProxyFeedback (QgsProcessingFeedback):
     def isCanceled(self) -> bool:
         return self._parent_feedback.isCanceled()
 
+    def pushInfo(self, info: str):
+        # QgsProcessingFeedback.pushInfo() isn't forwarded anywhere on its own - relay it up
+        # the proxy chain so messages actually reach the real algorithm feedback panel.
+        self._parent_feedback.pushInfo(info)
+
 
 class ProgressRange:
     def __init__(self, feedback: ProgressProxyFeedback, start: float, end: float):
@@ -207,8 +212,13 @@ class QneatCore():
 
         #add the strategy to the QgsGraphDirector
         director.addStrategy(self.strategy)
-        builder = QgsGraphBuilder(self.analysis_crs, True, tolerance)
-        
+        #QgsGraphBuilder measures edge lengths via QgsDistanceArea, which defaults to a
+        #hardcoded "WGS84" ellipsoid regardless of analysis_crs unless told otherwise - pass
+        #the graph's own ellipsoid explicitly so edge costs are measured against the network's
+        #actual reference ellipsoid instead of a mismatched default. This is kept independent of
+        #entry_cost_calculation_method below, which only concerns tying points onto the graph.
+        builder = QgsGraphBuilder(self.analysis_crs, True, tolerance, self.analysis_crs.ellipsoidAcronym())
+
         #tell the graph-director to make the graph using the builder object and tie the start point geometries to the graph
         self.feedback.pushInfo("building graph...")
         tiedPoints: list[QgsPointXY] = director.makeGraph(builder, xy_points, buildProgressRange.feedback())
@@ -216,7 +226,14 @@ class QneatCore():
 
         self.analysis_points: list[QneatAnalysisPoint] = list()
 
-        if entry_cost_calculation_method == EntryCostCalculationMethod.ELLIPSOID: 
+        #plain Cartesian distance on a geographic (lat/lon) CRS isn't a meaningful distance at all,
+        #so ellipsoidal entry-cost calculation is forced on regardless of entry_cost_calculation_method
+        #whenever the graph's CRS is geographic - on a projected CRS the parameter still decides.
+        use_ellipsoid_entry_cost = entry_cost_calculation_method == EntryCostCalculationMethod.ELLIPSOID or self.analysis_crs.isGeographic()
+        if entry_cost_calculation_method == EntryCostCalculationMethod.PLANAR and self.analysis_crs.isGeographic():
+            self.feedback.pushInfo("Analysis CRS is geographic - using ellipsoidal entry cost calculation instead of the requested planar method.")
+
+        if use_ellipsoid_entry_cost:
             dist_calculator = QgsDistanceArea()
             dist_calculator.setSourceCrs(self.analysis_crs, QgsProject().instance().transformContext())
             dist_calculator.setEllipsoid(self.analysis_crs.ellipsoidAcronym())
@@ -225,14 +242,14 @@ class QneatCore():
         for i, tied_point in enumerate(tiedPoints):
             graph_vertex_id: int = self.qgsgraph.findVertex(tied_point)
             input_point: QgsPointXY = xy_points[i]
-            if entry_cost_calculation_method == EntryCostCalculationMethod.ELLIPSOID:
+            if use_ellipsoid_entry_cost:
                 dist = dist_calculator.measureLine(input_point, tied_point) #always returned in meters, regardless of analysis_crs map units
             else:
                 dist = input_point.distance(tied_point) #in analysis_crs map units
 
             if optimization_strategy == OptimizationStrategy.DISTANCE:
                 entry_cost = dist
-            elif entry_cost_calculation_method == EntryCostCalculationMethod.ELLIPSOID:
+            elif use_ellipsoid_entry_cost:
                 entry_cost = dist / ( self.default_speed * 1000.0 / 3600.0 ) #dist is real meters, so convert speed straight to m/s instead of via the map-unit factor
             else:
                 entry_cost = dist / ( self.default_speed * self.kmPh_to_unitsPerSecond_factor) #output is in seconds
