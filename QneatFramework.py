@@ -204,13 +204,15 @@ class QneatCore():
         for i, tied_point in enumerate(tiedPoints):
             graph_vertex_id: int = self.qgsgraph.findVertex(tied_point)
             input_point: QgsPointXY = xy_points[i]
-            if entry_cost_calculation_method == EntryCostCalculationMethod.ELLIPSOID: 
-                dist = dist_calculator.measureLine(input_point, tied_point)
-            else: 
-                dist = input_point.distance(tied_point)
-            
-            if optimization_strategy == OptimizationStrategy.DISTANCE: 
+            if entry_cost_calculation_method == EntryCostCalculationMethod.ELLIPSOID:
+                dist = dist_calculator.measureLine(input_point, tied_point) #always returned in meters, regardless of analysis_crs map units
+            else:
+                dist = input_point.distance(tied_point) #in analysis_crs map units
+
+            if optimization_strategy == OptimizationStrategy.DISTANCE:
                 entry_cost = dist
+            elif entry_cost_calculation_method == EntryCostCalculationMethod.ELLIPSOID:
+                entry_cost = dist / ( self.default_speed * 1000.0 / 3600.0 ) #dist is real meters, so convert speed straight to m/s instead of via the map-unit factor
             else:
                 entry_cost = dist / ( self.default_speed * self.kmPh_to_unitsPerSecond_factor) #output is in seconds
 
@@ -502,12 +504,14 @@ class QneatCore():
 
         prox_options = ['VALUES=1', 'DISTUNITS=GEO']
 
+        if self.optimizationStrategy == OptimizationStrategy.TIME:
+            time_factor = self.default_speed * self.kmPh_to_unitsPerSecond_factor   # units/s, at default (off-graph) speed
+
         if limit_off_graph_travel:
             if self.optimizationStrategy == OptimizationStrategy.TIME:
-                time_factor = self.default_speed * self.kmPh_to_unitsPerSecond_factor
-                max_dist = max_off_graph_travel_cost * time_factor   # s -> m
+                max_dist = max_off_graph_travel_cost * time_factor   # s -> map units
             else:
-                max_dist = max_off_graph_travel_cost                 # already m
+                max_dist = max_off_graph_travel_cost                 # already map units
             prox_options += [f'MAXDIST={max_dist}', 'NODATA=-9999']
 
         gdal.ComputeProximity(seed_ds.GetRasterBand(1),
