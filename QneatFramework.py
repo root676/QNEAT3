@@ -395,18 +395,19 @@ class QneatCore():
                         continue
 
                     n_segments = max(1, int(length / densify_distance))
+                    edge_cost = edge.cost(0)
 
                     for j in range(1, n_segments):
 
                         frac = j / n_segments
 
-                        # Handle case where one vertex is unreachable
-                        if math.isinf(Cu):
-                            interpolated_cost = Cv
-                        elif math.isinf(Cv):
-                            interpolated_cost = Cu
-                        else:
-                            interpolated_cost = Cu + frac * (Cv - Cu)
+                        # Cost of reaching this point by walking in from either endpoint along
+                        # this edge, take the cheaper side. Cu/Cv are shortest-path costs, which
+                        # for an edge not on the shortest-path tree can differ from the edge's own
+                        # cost - so Cv-Cu is not a valid proxy for the edge's traversal cost.
+                        cost_from_u = Cu + frac * edge_cost if not math.isinf(Cu) else math.inf
+                        cost_from_v = Cv + (1 - frac) * edge_cost if not math.isinf(Cv) else math.inf
+                        interpolated_cost = min(cost_from_u, cost_from_v)
 
                         if interpolated_cost > max_cost:
                             continue
