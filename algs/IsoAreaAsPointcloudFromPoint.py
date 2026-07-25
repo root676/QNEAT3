@@ -111,10 +111,10 @@ class IsoAreaAsPointcloudFromPoint(QgsProcessingAlgorithm):
                 "It accounts for <b>points outside of the network</b> (eg. <i>non-network-elements</i>) and increments the iso-areas cost regarding to distance/default speed value. Distances are measured accounting for <b>ellipsoids</b>.<br>Please, <b>only use a projected coordinate system (eg. no WGS84)</b> for this kind of analysis.<br><br>"\
                 "<b>Parameters (required):</b><br>"\
                 "Following parameters must be set to run the algorithm:"\
-                "<ul><li>Network layer</li><li>Origin Point</li><li>Unique point ID field (numerical)</li><li>Maximum cost level for Iso-Area</li><li>Cost strategy</li></ul><br>"\
+                "<ul><li>Network layer</li><li>Origin Point</li><li>Maximum cost level for Iso-Area</li><li>Cost strategy</li></ul><br>"\
                 "<b>Parameters (optional):</b><br>"\
-                "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the networks edges."\
-                "<ul><li>Direction field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
+                "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the network's edges."\
+                "<ul><li>Entry cost calculation method</li><li>Direction field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is one layer:"\
                 "<ul><li>Point layer of reachable network nodes</li></ul><br>"\
@@ -138,7 +138,7 @@ class IsoAreaAsPointcloudFromPoint(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterPoint(self.ORIGIN_POINT,
                                                       self.tr('Origin point')))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_COST,
-                                                   self.tr('Size of Iso-Area (distance in network csr units or time value in seconds)'),
+                                                   self.tr('Size of Iso-Area (distance in network crs units or time value in seconds)'),
                                                    Qgis.ProcessingNumberParameterType.Double,
                                                    2500.0, False, 0))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,

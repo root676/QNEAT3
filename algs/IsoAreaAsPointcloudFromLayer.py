@@ -115,8 +115,8 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
                 "Following parameters must be set to run the algorithm:"\
                 "<ul><li>Network layer</li><li>Origin-point layer</li><li>Unique point ID field (numerical)</li><li>Maximum cost level for iso-area</li><li>Cost strategy</li></ul><br>"\
                 "<b>Parameters (optional):</b><br>"\
-                "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the networks edges."\
-                "<ul><li>Direction field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
+                "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the network's edges."\
+                "<ul><li>Entry cost calculation method</li><li>Direction field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is one layer:"\
                 "<ul><li>Point layer of reachable network nodes</li></ul><br>"\
@@ -146,7 +146,7 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
                                                        self.ORIGIN_POINTS,
                                                        optional=False))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_COST,
-                                                   self.tr('Size of Iso-Area (distance in network csr units or time value in seconds)'),
+                                                   self.tr('Size of Iso-Area (distance in network crs units or time value in seconds)'),
                                                    Qgis.ProcessingNumberParameterType.Double,
                                                    2500.0, False, 0))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,

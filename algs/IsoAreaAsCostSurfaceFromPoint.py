@@ -106,13 +106,13 @@ class IsoAreaAsCostSurfaceFromPoint(QgsProcessingAlgorithm):
     def shortHelpString(self):
         return  "<b>General:</b><br>"\
                 "This algorithm implements iso-area analysis to return the <b>network-distance interpolation for a maximum cost level</b> on a given <b>network dataset for a manually chosen point</b>.<br>"\
-                "It accounts for <b>points outside of the network</b> (eg. <i>non-network-elements</i>) and increments the iso-areas cost regarding to distance/default speed value. Distances are measured accounting for <b>ellipsoids</b>.<br>Please, <b>only use a projected coordinate system (eg. no WGS84)</b> for this kind of analysis.<br><br>"\
+                "It accounts for <b>points outside of the network</b> (eg. <i>non-network-elements</i>) and increments the iso-areas cost regarding to distance/default speed value.<br>Please, <b>only use a projected coordinate system (eg. no WGS84)</b> for this kind of analysis.<br><br>"\
                 "<b>Parameters (required):</b><br>"\
                 "Following parameters must be set to run the algorithm:"\
-                "<ul><li>Network layer</li><li>Startpoint</li><li>Maximum cost level for iso-area</li><li>Cellsize in meters (increase default when analyzing larger networks)</li><li>Cost strategy</li></ul><br>"\
+                "<ul><li>Network layer</li><li>Startpoint</li><li>Maximum cost level for iso-area</li><li>Iso-area method (Euclidean Distance Transform or TIN Interpolation)</li><li>Cellsize in units of your network crs (increase default when analyzing larger networks)</li><li>Cost strategy</li></ul><br>"\
                 "<b>Parameters (optional):</b><br>"\
-                "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the networks edges."\
-                "<ul><li>Direction field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
+                "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the network's edges."\
+                "<ul><li>Maximum off-graph travel cost (euclidean distance method only)</li><li>Direction field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is a cost surface raster"
 
@@ -135,11 +135,11 @@ class IsoAreaAsCostSurfaceFromPoint(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterPoint(self.ORIGIN_POINT,
                                                       self.tr('Origin point')))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_COST,
-                                                   self.tr('Size of Iso-Area (distance in network csr units or time value in seconds)'),
+                                                   self.tr('Size of Iso-Area (distance in network crs units or time value in seconds)'),
                                                    Qgis.ProcessingNumberParameterType.Double,
                                                    2500.0, False, 0))
         self.addParameter(QgsProcessingParameterEnum(self.ISO_AREA_METHOD,
-                                                 self.tr('Iso-area type'),
+                                                 self.tr('Iso-area method'),
                                                  self.ISO_AREA_METHOD_DEFINITIONS,
                                                  defaultValue=0))
         self.addParameter(QgsProcessingParameterNumber(self.CELL_SIZE,
