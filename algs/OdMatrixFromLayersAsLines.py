@@ -318,6 +318,8 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
                 sink.addFeature(outfeat, QgsFeatureSink.Flag.FastInsert)
                 i += 1
                 od_progress_range.feedback().setProgress(i/total_workload)
+                if od_progress_range.feedback().isCanceled():
+                    raise QgsProcessingException('Calculation of OD matrix was canceled.')
 
         results = {}
         results[self.OUTPUT] = dest_id
