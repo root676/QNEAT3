@@ -441,7 +441,7 @@ class QneatCore():
             raise QgsProcessingException("Cell size for iso area interpolation must be > 0")
         
         #pack iso_point_features in a QgsFeatureSource in order to be usable for QgsInterpolator
-        iso_point_layer: QgsVectorLayer = buildQgsVectorLayer(f'point?crs={self.analysis_crs.authid()}&field=vertex_id:integer&field={cost_field_name}:integer', "iso_points", self.analysis_crs, iso_points)
+        iso_point_layer: QgsVectorLayer = buildQgsVectorLayer(f'point?crs={self.analysis_crs.authid()}&field=vertex_id:integer&field={cost_field_name}:double', "iso_points", self.analysis_crs, iso_points)
         iso_point_layer.updateExtents()
 
         if self.analysis_crs.isGeographic():
