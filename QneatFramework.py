@@ -687,21 +687,44 @@ class QneatCore():
 
             feature_progress_range = ProgressRange(progress_range.feedback(), 0.8, 1.0)
 
-            iso_area_features = list()
+            #each band from ContourGenerateEx only covers the ring between two
+            #consecutive levels - union them in ascending cost order so that
+            #every isochrone incorporates all smaller isochrones too
+            bands = list()
             ogr_layer.ResetReading()
-            for i, ogr_feat in enumerate(ogr_layer):
-                qgs_feat = QgsFeature(iso_area_fields)
-
+            for ogr_feat in ogr_layer:
                 ogr_geom = ogr_feat.GetGeometryRef()
-                if ogr_geom:
-                    qgs_feat.setGeometry(QgsGeometry.fromWkt(ogr_geom.ExportToWkt()))
-
-                    qgs_feat.setAttribute("id", ogr_feat.GetField("id"))
-                    qgs_feat.setAttribute("cost_level", ogr_feat.GetField("cost_level"))
-
-                    iso_area_features.append(qgs_feat)
-                else:
+                if ogr_geom is None:
                     continue
+                bands.append((
+                    ogr_feat.GetField("cost_level"),
+                    ogr_feat.GetField("id"),
+                    QgsGeometry.fromWkt(ogr_geom.ExportToWkt())
+                ))
+            bands.sort(key=lambda band: band[0])
+
+            iso_area_features = list()
+            cumulative_geom = None
+            for i, (cost_level, band_id, geom) in enumerate(bands):
+                if iso_area_type == IsoAreaType.POLYGONS:
+                    if cumulative_geom is None:
+                        cumulative_geom = geom
+                    else:
+                        unioned = cumulative_geom.combine(geom)
+                        if unioned.isEmpty():
+                            unioned = cumulative_geom.makeValid().combine(geom.makeValid())
+                        if unioned.isEmpty():
+                            raise QgsProcessingException(f"Failed to union iso-area band at cost level {cost_level}.")
+                        cumulative_geom = unioned
+                    output_geom = QgsGeometry(cumulative_geom)
+                else:
+                    output_geom = geom
+
+                qgs_feat = QgsFeature(iso_area_fields)
+                qgs_feat.setGeometry(output_geom)
+                qgs_feat.setAttribute("id", band_id)
+                qgs_feat.setAttribute("cost_level", cost_level)
+                iso_area_features.append(qgs_feat)
 
                 progress = (i + 1) / total_workload
                 feature_progress_range.feedback().setProgress(progress)
