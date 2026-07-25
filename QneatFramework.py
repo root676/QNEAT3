@@ -549,7 +549,7 @@ class QneatCore():
                 prox_options += [f'MAXDIST={max_dist}', 'NODATA=-9999']
 
             prox_progress_range = ProgressRange(progress_range.feedback(), 0.1, 0.6)
-            if prox_progress_range.feedback.isCanceled():
+            if prox_progress_range.feedback().isCanceled():
                 raise QgsProcessingException('Calculation of proximity raster was canceled.')
 
             prox_result = gdal.ComputeProximity(seed_ds.GetRasterBand(1),
@@ -729,6 +729,7 @@ class QneatCore():
                 progress = (i + 1) / total_workload
                 feature_progress_range.feedback().setProgress(progress)
 
+            iso_area_features.reverse()
             provider.addFeatures(iso_area_features)
             iso_areas.updateExtents()
         finally:
