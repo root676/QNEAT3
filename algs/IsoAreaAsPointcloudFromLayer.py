@@ -266,7 +266,7 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, fields, Qgis.WkbType.PointM, analysisCrs)
         
         iso_progress_range = ProgressRange(feedback, 0.5, 1.0)
-        iso_points = core.calcIsoPoints(max_cost, iso_progress_range, user_id_field_datatype)
+        iso_points = core.calcIsoPoints(max_cost, iso_progress_range, id_field_datatype=user_id_field_datatype)
         
         sink.addFeatures(iso_points, QgsFeatureSink.Flag.FastInsert)  
         
