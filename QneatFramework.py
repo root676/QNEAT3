@@ -100,6 +100,14 @@ class ProgressProxyFeedback (QgsProcessingFeedback):
         self._parent_feedback = parent_feedback
         self._start = start
         self._width = end - start
+        # QgsFeedback.setProgress() is not virtual, so C++ callers (e.g.
+        # QgsVectorLayerDirector.makeGraph()) update the base class's own state directly
+        # instead of dispatching into our override below - but that still emits
+        # progressChanged, so relay through that too to catch those updates.
+        self.progressChanged.connect(self._relayBaseProgress)
+
+    def _relayBaseProgress(self, progress: float):
+        self.setProgress(progress / 100.0)
 
     def setProgress(self, progress: float):
         # progress comes in as 0 to 1
