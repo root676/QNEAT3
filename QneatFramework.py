@@ -104,8 +104,13 @@ class ProgressProxyFeedback (QgsProcessingFeedback):
     def setProgress(self, progress: float):
         # progress comes in as 0 to 1
         global_progress = self._start + progress * self._span
-        self._parent_feedback.setProgress(global_progress)
-        
+        if isinstance(self._parent_feedback, ProgressProxyFeedback):
+            # nested proxies keep passing 0 to 1 up the chain
+            self._parent_feedback.setProgress(global_progress)
+        else:
+            # only the real QgsProcessingFeedback expects 0 to 100
+            self._parent_feedback.setProgress(global_progress * 100)
+
     def isCanceled(self) -> bool:
         return self._parent_feedback.isCanceled()
 
@@ -116,7 +121,15 @@ class ProgressRange:
 
     def feedback(self) -> ProgressProxyFeedback:
         return self.fb
-    
+
+
+def gdalProgressCallback(feedback: ProgressProxyFeedback):
+    """Build a GDALProgressFunc that relays into a ProgressProxyFeedback and honours cancellation."""
+    def _callback(complete: float, message: str, user_data) -> int:
+        feedback.setProgress(complete)
+        return 0 if feedback.isCanceled() else 1
+    return _callback
+
 
 class QneatAnalysisPoint():
     
@@ -476,7 +489,7 @@ class QneatCore():
         srs.ImportFromWkt(self.analysis_crs.toWkt())
         wkt = srs.ExportToWkt()
 
-        progress_range.feedback().setProgress(0.2)
+        progress_range.feedback().setProgress(0.1)
 
         #seed points as ogr memory layer
         pt_dataset = gdal.GetDriverByName('Memory').Create('', 0,0,0,gdal.GDT_Unknown)
@@ -514,13 +527,18 @@ class QneatCore():
                 max_dist = max_off_graph_travel_cost                 # already map units
             prox_options += [f'MAXDIST={max_dist}', 'NODATA=-9999']
 
-        gdal.ComputeProximity(seed_ds.GetRasterBand(1),
+        prox_progress_range = ProgressRange(progress_range.feedback(), 0.1, 0.5)
+        prox_result = gdal.ComputeProximity(seed_ds.GetRasterBand(1),
                             prox_ds.GetRasterBand(1),
-                            options=prox_options)
+                            options=prox_options,
+                            callback=gdalProgressCallback(prox_progress_range.feedback()))
+        if progress_range.feedback().isCanceled():
+            raise QgsProcessingException('Calculation of proximity raster was canceled.')
+        if prox_result != 0:
+            raise QgsProcessingException('Failed to compute proximity raster.')
         off_network_distance = prox_ds.GetRasterBand(1).ReadAsArray()
 
-        progress_range.feedback().setProgress(0.5)
-
+        grid_progress_range = ProgressRange(progress_range.feedback(), 0.6, 0.3)
         grid_options = gdal.GridOptions(
             format='MEM',
             width=cols, height=rows,
@@ -530,8 +548,13 @@ class QneatCore():
             zfield=cost_field_name,
             # radius 0/0 = search the whole point set -> true nearest neighbour
             algorithm='nearest:radius1=0:radius2=0:nodata=-9999',
+            callback=gdalProgressCallback(grid_progress_range.feedback()),
         )
         alloc_ds = gdal.Grid('', pt_dataset, options=grid_options)
+        if progress_range.feedback().isCanceled():
+            raise QgsProcessingException('Calculation of allocation raster was canceled.')
+        if alloc_ds is None:
+            raise QgsProcessingException('Failed to compute allocation raster.')
         nearest_seed_cost = alloc_ds.GetRasterBand(1).ReadAsArray()
 
         # gdal_grid has a classic gotcha where output can come back south-up
@@ -539,7 +562,7 @@ class QneatCore():
         if alloc_ds.GetGeoTransform()[5] > 0:
             nearest_seed_cost = numpy.flipud(nearest_seed_cost)
 
-        progress_range.feedback().setProgress(0.8)
+        progress_range.feedback().setProgress(0.9)
         beyond_cap = (off_network_distance == -9999)
 
         if self.optimizationStrategy == OptimizationStrategy.TIME:
@@ -597,8 +620,9 @@ class QneatCore():
         ogr_layer.CreateFields(field_list)
 
         levels = [i * interval for i in range(int(max_cost / interval) + 1)]
-        
-        gdal.ContourGenerateEx(
+
+        contour_progress_range = ProgressRange(progress_range.feedback(), 0.0, 0.8)
+        contour_result = gdal.ContourGenerateEx(
             band,
             ogr_layer,
             options=[
@@ -607,8 +631,13 @@ class QneatCore():
                 "ID_FIELD=0",
                 "ELEV_FIELD_MAX=1" if contour_polygonize else "ELEV_FIELD=1",
                 f"POLYGONIZE={'yes' if contour_polygonize else 'no'}"
-            ]
+            ],
+            callback=gdalProgressCallback(contour_progress_range.feedback())
         )
+        if progress_range.feedback().isCanceled():
+            raise QgsProcessingException('Calculation of iso areas was canceled.')
+        if contour_result != 0:
+            raise QgsProcessingException('Failed to generate iso area contours.')
 
         geom_string = "multilinestring" if iso_area_type == IsoAreaType.CONTOURS else "multipolygon"
         iso_areas = QgsVectorLayer(f"{geom_string}?crs={self.analysis_crs.authid()}&field=id:integer&field=cost_level:double&index=yes", "iso_areas", "memory")
@@ -619,6 +648,8 @@ class QneatCore():
         provider = iso_areas.dataProvider()
 
         total_workload = ogr_layer.GetFeatureCount()
+
+        feature_progress_range = ProgressRange(progress_range.feedback(), 0.8, 0.2)
 
         iso_area_features = list()
         ogr_layer.ResetReading()
@@ -637,7 +668,7 @@ class QneatCore():
                 continue
 
             progress = (i + 1) / total_workload
-            progress_range.feedback().setProgress(progress)
+            feature_progress_range.feedback().setProgress(progress)
 
         provider.addFeatures(iso_area_features)
         iso_areas.updateExtents()
