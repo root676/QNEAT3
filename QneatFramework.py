@@ -504,100 +504,114 @@ class QneatCore():
 
         progress_range.feedback().setProgress(0.1)
 
-        #seed points as ogr memory layer
-        pt_dataset = gdal.GetDriverByName('Memory').Create('', 0,0,0,gdal.GDT_Unknown)
-        lyr = pt_dataset.CreateLayer('seeds', srs, ogr.wkbPoint)
-        lyr.CreateField(ogr.FieldDefn(cost_field_name, ogr.OFTReal))
-        for node in iso_points: 
-            pt = node.geometry().asPoint()
-            feat = ogr.Feature(lyr.GetLayerDefn())
-            feat.SetField(cost_field_name, float(node[cost_field_name]))
-            geom = ogr.Geometry(ogr.wkbPoint)
-            geom.AddPoint(pt.x(), pt.y())
-            feat.SetGeometry(geom)
-            lyr.CreateFeature(feat)
-            feat = None
-
-        #binary seed raster for proximity calculation
-        seed_ds = gdal.GetDriverByName('MEM').Create('', cols, rows, 1, gdal.GDT_Byte)
-        seed_ds.SetGeoTransform(geotransform)
-        seed_ds.SetProjection(wkt)
-        gdal.RasterizeLayer(seed_ds, [1], lyr, burn_values=[1])
-
-        prox_ds = gdal.GetDriverByName('MEM').Create('', cols, rows, 1, gdal.GDT_Float32)
-        prox_ds.SetGeoTransform(geotransform)
-        prox_ds.SetProjection(wkt)
-
-        prox_options = ['VALUES=1', 'DISTUNITS=GEO']
-
-        if self.optimizationStrategy == OptimizationStrategy.TIME:
-            time_factor = self.default_speed * self.kmPh_to_unitsPerSecond_factor   # units/s, at default (off-graph) speed
-
-        if limit_off_graph_travel:
-            if self.optimizationStrategy == OptimizationStrategy.TIME:
-                max_dist = max_off_graph_travel_cost * time_factor   # s -> map units
-            else:
-                max_dist = max_off_graph_travel_cost                 # already map units
-            prox_options += [f'MAXDIST={max_dist}', 'NODATA=-9999']
-
-        prox_progress_range = ProgressRange(progress_range.feedback(), 0.1, 0.6)
-        prox_result = gdal.ComputeProximity(seed_ds.GetRasterBand(1),
-                            prox_ds.GetRasterBand(1),
-                            options=prox_options,
-                            callback=gdalProgressCallback(prox_progress_range.feedback()))
-        if progress_range.feedback().isCanceled():
-            raise QgsProcessingException('Calculation of proximity raster was canceled.')
-        if prox_result != 0:
-            raise QgsProcessingException('Failed to compute proximity raster.')
-        off_network_distance = prox_ds.GetRasterBand(1).ReadAsArray()
-
-        grid_progress_range = ProgressRange(progress_range.feedback(), 0.6, 0.9)
-        grid_options = gdal.GridOptions(
-            format='MEM',
-            width=cols, height=rows,
-            outputBounds=[xmin, ymax, xmax, ymin],   # ulx, uly, lrx, lry
-            outputType=gdal.GDT_Float32,
-            outputSRS=srs,
-            zfield=cost_field_name,
-            # radius 0/0 = search the whole point set -> true nearest neighbour
-            algorithm='nearest:radius1=0:radius2=0:nodata=-9999',
-            callback=gdalProgressCallback(grid_progress_range.feedback()),
-        )
-        alloc_ds = gdal.Grid('', pt_dataset, options=grid_options)
-        if progress_range.feedback().isCanceled():
-            raise QgsProcessingException('Calculation of allocation raster was canceled.')
-        if alloc_ds is None:
-            raise QgsProcessingException('Failed to compute allocation raster.')
-        nearest_seed_cost = alloc_ds.GetRasterBand(1).ReadAsArray()
-
-        # gdal_grid has a classic gotcha where output can come back south-up
-        # depending on GDAL version / bounds handling — normalize defensively:
-        if alloc_ds.GetGeoTransform()[5] > 0:
-            nearest_seed_cost = numpy.flipud(nearest_seed_cost)
-
-        progress_range.feedback().setProgress(0.9)
-        beyond_cap = (off_network_distance == -9999)
-
-        if self.optimizationStrategy == OptimizationStrategy.TIME:
-            off_network_cost = off_network_distance / time_factor
-            cost_raster = nearest_seed_cost + off_network_cost
-        else:
-            cost_raster = nearest_seed_cost + off_network_distance
-
-        cost_raster[beyond_cap] = -9999
-        cost_raster[~numpy.isfinite(cost_raster)] = -9999
-
-        # --- 5. write output (unchanged) ------------------------------------
-        out_ds = gdal.GetDriverByName('GTiff').Create(output_path, cols, rows, 1,
-                                                    gdal.GDT_Float32)
-        out_ds.SetGeoTransform(geotransform)
-        out_ds.SetProjection(wkt)
-        band = out_ds.GetRasterBand(1)
-        band.SetNoDataValue(-9999)
-        band.WriteArray(cost_raster)
-        band.FlushCache()
-        band = None
+        pt_dataset = None
+        lyr = None
+        seed_ds = None
+        prox_ds = None
+        alloc_ds = None
         out_ds = None
+        band = None
+        try:
+            #seed points as ogr memory layer
+            pt_dataset = gdal.GetDriverByName('Memory').Create('', 0,0,0,gdal.GDT_Unknown)
+            lyr = pt_dataset.CreateLayer('seeds', srs, ogr.wkbPoint)
+            lyr.CreateField(ogr.FieldDefn(cost_field_name, ogr.OFTReal))
+            for node in iso_points:
+                pt = node.geometry().asPoint()
+                feat = ogr.Feature(lyr.GetLayerDefn())
+                feat.SetField(cost_field_name, float(node[cost_field_name]))
+                geom = ogr.Geometry(ogr.wkbPoint)
+                geom.AddPoint(pt.x(), pt.y())
+                feat.SetGeometry(geom)
+                lyr.CreateFeature(feat)
+                feat = None
+
+            #binary seed raster for proximity calculation
+            seed_ds = gdal.GetDriverByName('MEM').Create('', cols, rows, 1, gdal.GDT_Byte)
+            seed_ds.SetGeoTransform(geotransform)
+            seed_ds.SetProjection(wkt)
+            gdal.RasterizeLayer(seed_ds, [1], lyr, burn_values=[1])
+
+            prox_ds = gdal.GetDriverByName('MEM').Create('', cols, rows, 1, gdal.GDT_Float32)
+            prox_ds.SetGeoTransform(geotransform)
+            prox_ds.SetProjection(wkt)
+
+            prox_options = ['VALUES=1', 'DISTUNITS=GEO']
+
+            if self.optimizationStrategy == OptimizationStrategy.TIME:
+                time_factor = self.default_speed * self.kmPh_to_unitsPerSecond_factor   # units/s, at default (off-graph) speed
+
+            if limit_off_graph_travel:
+                if self.optimizationStrategy == OptimizationStrategy.TIME:
+                    max_dist = max_off_graph_travel_cost * time_factor   # s -> map units
+                else:
+                    max_dist = max_off_graph_travel_cost                 # already map units
+                prox_options += [f'MAXDIST={max_dist}', 'NODATA=-9999']
+
+            prox_progress_range = ProgressRange(progress_range.feedback(), 0.1, 0.6)
+            if prox_progress_range.feedback.isCanceled():
+                raise QgsProcessingException('Calculation of proximity raster was canceled.')
+
+            prox_result = gdal.ComputeProximity(seed_ds.GetRasterBand(1),
+                                prox_ds.GetRasterBand(1),
+                                options=prox_options,
+                                callback=gdalProgressCallback(prox_progress_range.feedback()))
+            if progress_range.feedback().isCanceled():
+                raise QgsProcessingException('Calculation of proximity raster was canceled.')
+            if prox_result != 0:
+                raise QgsProcessingException('Failed to compute proximity raster.')
+            off_network_distance = prox_ds.GetRasterBand(1).ReadAsArray()
+
+            grid_progress_range = ProgressRange(progress_range.feedback(), 0.6, 0.9)
+            grid_options = gdal.GridOptions(
+                format='MEM',
+                width=cols, height=rows,
+                outputBounds=[xmin, ymax, xmax, ymin],
+                outputType=gdal.GDT_Float32,
+                outputSRS=srs,
+                zfield=cost_field_name,
+                # radius 0/0 = search the whole point set -> true nearest neighbour
+                algorithm='nearest:radius1=0:radius2=0:nodata=-9999',
+                callback=gdalProgressCallback(grid_progress_range.feedback()),
+            )
+            alloc_ds = gdal.Grid('', pt_dataset, options=grid_options)
+            if progress_range.feedback().isCanceled():
+                raise QgsProcessingException('Calculation of allocation raster was canceled.')
+            if alloc_ds is None:
+                raise QgsProcessingException('Failed to compute allocation raster.')
+            nearest_seed_cost = alloc_ds.GetRasterBand(1).ReadAsArray()
+
+            if alloc_ds.GetGeoTransform()[5] > 0:
+                nearest_seed_cost = numpy.flipud(nearest_seed_cost)
+
+            progress_range.feedback().setProgress(0.9)
+            beyond_cap = (off_network_distance == -9999)
+
+            if self.optimizationStrategy == OptimizationStrategy.TIME:
+                off_network_cost = off_network_distance / time_factor
+                cost_raster = nearest_seed_cost + off_network_cost
+            else:
+                cost_raster = nearest_seed_cost + off_network_distance
+
+            cost_raster[beyond_cap] = -9999
+            cost_raster[~numpy.isfinite(cost_raster)] = -9999
+
+            out_ds = gdal.GetDriverByName('GTiff').Create(output_path, cols, rows, 1,
+                                                        gdal.GDT_Float32)
+            out_ds.SetGeoTransform(geotransform)
+            out_ds.SetProjection(wkt)
+            band = out_ds.GetRasterBand(1)
+            band.SetNoDataValue(-9999)
+            band.WriteArray(cost_raster)
+            band.FlushCache()
+        finally:
+            band = None
+            out_ds = None
+            alloc_ds = None
+            prox_ds = None
+            seed_ds = None
+            lyr = None
+            pt_dataset = None
 
         output_raster = QgsRasterLayer(output_path, "temp_qneat_euclidean_distance_raster")
         output_raster.setCrs(self.analysis_crs)
@@ -611,88 +625,94 @@ class QneatCore():
         if interval <= 0:
             raise QgsProcessingException("Contour interval for iso area calculation must be > 0")
 
-        interpolation_raster = gdal.Open(input_cost_raster_path)
-        if interpolation_raster is None:
-            raise QgsProcessingException("Could not open Interpolation result, please use another cellsize, iso area extent or obtain a valid interpolation raster with the QNEAT Iso-Area as Interpolation algorithm.")
-
-        band = interpolation_raster.GetRasterBand(1)
-
-        ogr_geom_type = ogr.wkbMultiLineString
-        contour_polygonize = False
-        if iso_area_type == IsoAreaType.POLYGONS:
-            ogr_geom_type = ogr.wkbMultiPolygon
-            contour_polygonize = True
-        
-        srs: osr.SpatialReference = osr.SpatialReference(wkt=interpolation_raster.GetProjection())
-
-        ogr_driver = ogr.GetDriverByName("MEMORY")
-        ogr_ds = ogr_driver.CreateDataSource("iso_areas")
-        ogr_layer = ogr_ds.CreateLayer("iso_areas", srs, geom_type=ogr_geom_type)
-
-        field_list = list()
-        id_field: ogr.FieldDefn = ogr.FieldDefn('id', ogr.OFTInteger)
-        cost_level_field: ogr.FieldDefn = ogr.FieldDefn('cost_level', ogr.OFTReal)
-        field_list.extend([id_field, cost_level_field])
-
-        ogr_layer.CreateFields(field_list)
-
-        levels = [i * interval for i in range(int(max_cost / interval) + 1)]
-
-        contour_progress_range = ProgressRange(progress_range.feedback(), 0.0, 0.8)
-        contour_result = gdal.ContourGenerateEx(
-            band,
-            ogr_layer,
-            options=[
-                f"FIXED_LEVELS={','.join(map(str, levels))}",
-                f"NODATA={band.GetNoDataValue()}",
-                "ID_FIELD=0",
-                "ELEV_FIELD_MAX=1" if contour_polygonize else "ELEV_FIELD=1",
-                f"POLYGONIZE={'yes' if contour_polygonize else 'no'}"
-            ],
-            callback=gdalProgressCallback(contour_progress_range.feedback())
-        )
-        if progress_range.feedback().isCanceled():
-            raise QgsProcessingException('Calculation of iso areas was canceled.')
-        if contour_result != 0:
-            raise QgsProcessingException('Failed to generate iso area contours.')
-
-        geom_string = "multilinestring" if iso_area_type == IsoAreaType.CONTOURS else "multipolygon"
-        iso_areas = QgsVectorLayer(f"{geom_string}?crs={self.analysis_crs.authid()}&field=id:integer&field=cost_level:double&index=yes", "iso_areas", "memory")
-
-        iso_area_fields = QgsFields()
-        iso_area_fields.append(QgsField('id', QMetaType.Type.LongLong))
-        iso_area_fields.append(QgsField('cost_level', QMetaType.Type.Double))
-        provider = iso_areas.dataProvider()
-
-        total_workload = ogr_layer.GetFeatureCount()
-
-        feature_progress_range = ProgressRange(progress_range.feedback(), 0.8, 1.0)
-
-        iso_area_features = list()
-        ogr_layer.ResetReading()
-        for i, ogr_feat in enumerate(ogr_layer):
-            qgs_feat = QgsFeature(iso_area_fields)
-
-            ogr_geom = ogr_feat.GetGeometryRef()
-            if ogr_geom:
-                qgs_feat.setGeometry(QgsGeometry.fromWkt(ogr_geom.ExportToWkt()))
-
-                qgs_feat.setAttribute("id", ogr_feat.GetField("id"))
-                qgs_feat.setAttribute("cost_level", ogr_feat.GetField("cost_level"))
-
-                iso_area_features.append(qgs_feat)
-            else:
-                continue
-
-            progress = (i + 1) / total_workload
-            feature_progress_range.feedback().setProgress(progress)
-
-        provider.addFeatures(iso_area_features)
-        iso_areas.updateExtents()
-
-        band = None
-        ogr_layer = None
         interpolation_raster = None
+        ogr_ds = None
+        ogr_layer = None
+        band = None
+        try:
+            interpolation_raster = gdal.Open(input_cost_raster_path)
+            if interpolation_raster is None:
+                raise QgsProcessingException("Could not open Interpolation result, please use another cellsize, iso area extent or obtain a valid interpolation raster with the QNEAT Iso-Area as Interpolation algorithm.")
+
+            band = interpolation_raster.GetRasterBand(1)
+
+            ogr_geom_type = ogr.wkbMultiLineString
+            contour_polygonize = False
+            if iso_area_type == IsoAreaType.POLYGONS:
+                ogr_geom_type = ogr.wkbMultiPolygon
+                contour_polygonize = True
+
+            srs: osr.SpatialReference = osr.SpatialReference(wkt=interpolation_raster.GetProjection())
+
+            ogr_driver = ogr.GetDriverByName("MEMORY")
+            ogr_ds = ogr_driver.CreateDataSource("iso_areas")
+            ogr_layer = ogr_ds.CreateLayer("iso_areas", srs, geom_type=ogr_geom_type)
+
+            field_list = list()
+            id_field: ogr.FieldDefn = ogr.FieldDefn('id', ogr.OFTInteger)
+            cost_level_field: ogr.FieldDefn = ogr.FieldDefn('cost_level', ogr.OFTReal)
+            field_list.extend([id_field, cost_level_field])
+
+            ogr_layer.CreateFields(field_list)
+
+            levels = [i * interval for i in range(int(max_cost / interval) + 1)]
+
+            contour_progress_range = ProgressRange(progress_range.feedback(), 0.0, 0.8)
+            contour_result = gdal.ContourGenerateEx(
+                band,
+                ogr_layer,
+                options=[
+                    f"FIXED_LEVELS={','.join(map(str, levels))}",
+                    f"NODATA={band.GetNoDataValue()}",
+                    "ID_FIELD=0",
+                    "ELEV_FIELD_MAX=1" if contour_polygonize else "ELEV_FIELD=1",
+                    f"POLYGONIZE={'yes' if contour_polygonize else 'no'}"
+                ],
+                callback=gdalProgressCallback(contour_progress_range.feedback())
+            )
+            if progress_range.feedback().isCanceled():
+                raise QgsProcessingException('Calculation of iso areas was canceled.')
+            if contour_result != 0:
+                raise QgsProcessingException('Failed to generate iso area contours.')
+
+            geom_string = "multilinestring" if iso_area_type == IsoAreaType.CONTOURS else "multipolygon"
+            iso_areas = QgsVectorLayer(f"{geom_string}?crs={self.analysis_crs.authid()}&field=id:integer&field=cost_level:double&index=yes", "iso_areas", "memory")
+
+            iso_area_fields = QgsFields()
+            iso_area_fields.append(QgsField('id', QMetaType.Type.LongLong))
+            iso_area_fields.append(QgsField('cost_level', QMetaType.Type.Double))
+            provider = iso_areas.dataProvider()
+
+            total_workload = ogr_layer.GetFeatureCount()
+
+            feature_progress_range = ProgressRange(progress_range.feedback(), 0.8, 1.0)
+
+            iso_area_features = list()
+            ogr_layer.ResetReading()
+            for i, ogr_feat in enumerate(ogr_layer):
+                qgs_feat = QgsFeature(iso_area_fields)
+
+                ogr_geom = ogr_feat.GetGeometryRef()
+                if ogr_geom:
+                    qgs_feat.setGeometry(QgsGeometry.fromWkt(ogr_geom.ExportToWkt()))
+
+                    qgs_feat.setAttribute("id", ogr_feat.GetField("id"))
+                    qgs_feat.setAttribute("cost_level", ogr_feat.GetField("cost_level"))
+
+                    iso_area_features.append(qgs_feat)
+                else:
+                    continue
+
+                progress = (i + 1) / total_workload
+                feature_progress_range.feedback().setProgress(progress)
+
+            provider.addFeatures(iso_area_features)
+            iso_areas.updateExtents()
+        finally:
+            band = None
+            ogr_layer = None
+            ogr_ds = None
+            interpolation_raster = None
 
         return iso_areas
         
