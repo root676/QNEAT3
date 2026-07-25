@@ -295,24 +295,24 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
                          bothValue, 
                          defaultDirection)
         
-        total_workload = float(pow(len(core.analysis_points),2))
-
         output_fields: QgsFields = getOdMatrixFields(origin_points, origin_id_field, destination_points, destination_id_field)
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, output_fields, Qgis.WkbType.LineString, analysis_crs)
 
-        feedback.pushInfo(f"{int(total_workload)} od pairs will be routed")
         od_progress_range = ProgressRange(feedback, 0.5, 1.0)
 
         o_analysis_points = [o for o in core.analysis_points if o.feature["type"] == 'o']
         d_analysis_points = [d for d in core.analysis_points if d.feature["type"] == 'd']
 
+        total_workload = float(len(o_analysis_points) * len(d_analysis_points))
+        feedback.pushInfo(f"{int(total_workload)} od pairs will be routed")
+
         i: int = 0
         for origin_point in o_analysis_points:
             tree, cost = core.calcDijkstra(origin_point.graph_vertex_id)
             for destination_point in d_analysis_points:
-                outfeat = core.queryOdPair(tree, cost, origin_point, origin_id_field, destination_point, destination_id_field, matrix_geometry_type)                
-                sink.addFeature(outfeat, QgsFeatureSink.Flag.FastInsert)  
-                i+=i
+                outfeat = core.queryOdPair(tree, cost, origin_point, origin_id_field, destination_point, destination_id_field, matrix_geometry_type)
+                sink.addFeature(outfeat, QgsFeatureSink.Flag.FastInsert)
+                i += 1
                 od_progress_range.feedback().setProgress(i/total_workload)
 
         results = {}

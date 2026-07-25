@@ -284,16 +284,16 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
                          bothValue, 
                          defaultDirection)
         
-        total_workload = float(pow(len(core.analysis_points),2))
-
         output_fields: QgsFields = getOdMatrixFields(origin_points, origin_id_field, destination_points, destination_id_field)
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, output_fields, Qgis.WkbType.NoGeometry, analysis_crs)
 
-        feedback.pushInfo(f"{int(total_workload)} od pairs will be routed")
         od_progress_range = ProgressRange(feedback, 0.5, 1.0)
 
         o_analysis_points = [o for o in core.analysis_points if o.feature["type"] == 'o']
         d_analysis_points = [d for d in core.analysis_points if d.feature["type"] == 'd']
+
+        total_workload = float(len(o_analysis_points) * len(d_analysis_points))
+        feedback.pushInfo(f"{int(total_workload)} od pairs will be routed")
 
         i: int = 0
         for origin_point in o_analysis_points:

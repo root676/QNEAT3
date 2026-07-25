@@ -95,15 +95,15 @@ class MatrixType(IntEnum):
 
 class ProgressProxyFeedback (QgsProcessingFeedback):
 
-    def __init__(self, parent_feedback: QgsProcessingFeedback, start: float, span: float):
+    def __init__(self, parent_feedback: QgsProcessingFeedback, start: float, end: float):
         super().__init__()
         self._parent_feedback = parent_feedback
         self._start = start
-        self._span = span
-    
+        self._width = end - start
+
     def setProgress(self, progress: float):
         # progress comes in as 0 to 1
-        global_progress = self._start + progress * self._span
+        global_progress = self._start + progress * self._width
         if isinstance(self._parent_feedback, ProgressProxyFeedback):
             # nested proxies keep passing 0 to 1 up the chain
             self._parent_feedback.setProgress(global_progress)
@@ -116,8 +116,8 @@ class ProgressProxyFeedback (QgsProcessingFeedback):
 
 
 class ProgressRange:
-    def __init__(self, feedback: ProgressProxyFeedback, start, span):
-        self.fb = ProgressProxyFeedback(feedback, start, span)
+    def __init__(self, feedback: ProgressProxyFeedback, start: float, end: float):
+        self.fb = ProgressProxyFeedback(feedback, start, end)
 
     def feedback(self) -> ProgressProxyFeedback:
         return self.fb
@@ -527,7 +527,7 @@ class QneatCore():
                 max_dist = max_off_graph_travel_cost                 # already map units
             prox_options += [f'MAXDIST={max_dist}', 'NODATA=-9999']
 
-        prox_progress_range = ProgressRange(progress_range.feedback(), 0.1, 0.5)
+        prox_progress_range = ProgressRange(progress_range.feedback(), 0.1, 0.6)
         prox_result = gdal.ComputeProximity(seed_ds.GetRasterBand(1),
                             prox_ds.GetRasterBand(1),
                             options=prox_options,
@@ -538,7 +538,7 @@ class QneatCore():
             raise QgsProcessingException('Failed to compute proximity raster.')
         off_network_distance = prox_ds.GetRasterBand(1).ReadAsArray()
 
-        grid_progress_range = ProgressRange(progress_range.feedback(), 0.6, 0.3)
+        grid_progress_range = ProgressRange(progress_range.feedback(), 0.6, 0.9)
         grid_options = gdal.GridOptions(
             format='MEM',
             width=cols, height=rows,
@@ -588,6 +588,7 @@ class QneatCore():
 
         output_raster = QgsRasterLayer(output_path, "temp_qneat_euclidean_distance_raster")
         output_raster.setCrs(self.analysis_crs)
+        progress_range.feedback().setProgress(1.0)
         return output_raster
 
     
@@ -649,7 +650,7 @@ class QneatCore():
 
         total_workload = ogr_layer.GetFeatureCount()
 
-        feature_progress_range = ProgressRange(progress_range.feedback(), 0.8, 0.2)
+        feature_progress_range = ProgressRange(progress_range.feedback(), 0.8, 1.0)
 
         iso_area_features = list()
         ogr_layer.ResetReading()

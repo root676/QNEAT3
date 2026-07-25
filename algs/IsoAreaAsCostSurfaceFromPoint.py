@@ -219,7 +219,7 @@ class IsoAreaAsCostSurfaceFromPoint(QgsProcessingAlgorithm):
 
         input_point_features = [getFeatureFromPoint(0, origin_point)]
 
-        build_progress_range = ProgressRange(feedback, 0.0, 0.3)
+        build_progress_range = ProgressRange(feedback, 0.0, 0.33)
 
         core = QneatCore(network, 
                          input_point_features, 
