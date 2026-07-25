@@ -600,6 +600,9 @@ class QneatCore():
 
     def calcIsoAreas(self, input_cost_raster_path: str, max_cost: float, interval: float, iso_area_type : IsoAreaType, progress_range: ProgressRange) -> QgsVectorLayer:
 
+        if interval <= 0:
+            raise QgsProcessingException("Contour interval for iso area calculation must be > 0")
+
         interpolation_raster = gdal.Open(input_cost_raster_path)
         if interpolation_raster is None:
             raise QgsProcessingException("Could not open Interpolation result, please use another cellsize, iso area extent or obtain a valid interpolation raster with the QNEAT Iso-Area as Interpolation algorithm.")
