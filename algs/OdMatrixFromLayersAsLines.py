@@ -226,7 +226,9 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
         destination_points: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.DESTINATION_POINT_LAYER, context)
         destination_id_field: str = self.parameterAsString(parameters, self.DESTINATION_ID_FIELD, context)
         strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context))
-        matrix_geometry_type: MatrixType =  MatrixType(self.parameterAsEnum(parameters, self.MATRIX_GEOMETRY_TYPE, context))
+        # MATRIX_GEOMETRY_TYPES enum only offers 'Line'/'Route' (indices 0/1), which map to
+        # MatrixType.LINE/MatrixType.ROUTE (values 1/2) - MatrixType.TABLE is not selectable here.
+        matrix_geometry_type: MatrixType =  MatrixType(self.parameterAsEnum(parameters, self.MATRIX_GEOMETRY_TYPE, context) + 1)
 
         entry_cost_calc_method: int = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context) 
         directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context)
@@ -310,7 +312,9 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
         for origin_point in o_analysis_points:
             tree, cost = core.calcDijkstra(origin_point.graph_vertex_id)
             for destination_point in d_analysis_points:
-                outfeat = core.queryOdPair(tree, cost, origin_point, origin_id_field, destination_point, destination_id_field, matrix_geometry_type)
+                # origin_point/destination_point wrap the internal remapped features (fields fid/user_id/type),
+                # not the original source features, so the id lookup must use 'user_id', not origin_id_field/destination_id_field.
+                outfeat = core.queryOdPair(tree, cost, origin_point, 'user_id', destination_point, 'user_id', matrix_geometry_type)
                 sink.addFeature(outfeat, QgsFeatureSink.Flag.FastInsert)
                 i += 1
                 od_progress_range.feedback().setProgress(i/total_workload)

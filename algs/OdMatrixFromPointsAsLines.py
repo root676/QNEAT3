@@ -204,7 +204,9 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
         points: QgsProcessingFeatureSource = self.parameterAsSource(parameters, self.POINTS, context)
         id_field: str = self.parameterAsString(parameters, self.ID_FIELD, context)
         strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context))
-        matrix_type: MatrixType =  MatrixType(self.parameterAsEnum(parameters, self.MATRIX_GEOMETRY_TYPE, context))
+        # MATRIX_GEOMETRY_TYPES enum only offers 'Line'/'Route' (indices 0/1), which map to
+        # MatrixType.LINE/MatrixType.ROUTE (values 1/2) - MatrixType.TABLE is not selectable here.
+        matrix_type: MatrixType =  MatrixType(self.parameterAsEnum(parameters, self.MATRIX_GEOMETRY_TYPE, context) + 1)
 
 
         entry_cost_calc_method: int = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context)

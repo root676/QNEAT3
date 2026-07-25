@@ -239,7 +239,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
         
         o_fields = QgsFields()
         o_fields.append(QgsField('fid', QMetaType.LongLong))
-        o_fields.append(QgsField('user_id'), getFieldDatatype(origin_points, origin_id_field))
+        o_fields.append(QgsField('user_id', getFieldDatatype(origin_points, origin_id_field)))
         o_fields.append(QgsField('type', QMetaType.QString))
 
         #unpack all points into one list
@@ -256,7 +256,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
         
         d_fields = QgsFields()
         d_fields.append(QgsField('fid', QMetaType.LongLong))
-        d_fields.append(QgsField('user_id'), getFieldDatatype(destination_points, destination_id_field))
+        d_fields.append(QgsField('user_id', getFieldDatatype(destination_points, destination_id_field)))
         d_fields.append(QgsField('type', QMetaType.QString))
 
         for f in destination_points.getFeatures():
@@ -300,7 +300,9 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
             tree, cost = core.calcDijkstra(origin_point.graph_vertex_id)
             for destination_point in d_analysis_points:
 
-                outfeat = core.queryOdPair(tree, cost, origin_point, origin_id_field, destination_point, destination_id_field, MatrixType.TABLE)                
+                # origin_point/destination_point wrap the internal remapped features (fields fid/user_id/type),
+                # not the original source features, so the id lookup must use 'user_id', not origin_id_field/destination_id_field.
+                outfeat = core.queryOdPair(tree, cost, origin_point, 'user_id', destination_point, 'user_id', MatrixType.TABLE)
                 sink.addFeature(outfeat, QgsFeatureSink.Flag.FastInsert)  
                 i += 1
                 od_progress_range.feedback().setProgress(i/total_workload)

@@ -290,20 +290,24 @@ class QneatCore():
         elif matrix_type == MatrixType.LINE:
             feat.setGeometry(QgsGeometry().fromPolylineXY([origin_point.feature.geometry().asPoint(), destination_point.feature.geometry().asPoint()]))
         elif matrix_type == MatrixType.ROUTE:
-            route_points: list[QgsPointXY] = list()
-            route_points.append(origin_point.feature.geometry().asPoint())
-            route_points.append(origin_point.graph_vertex_geom)
+            if origin_id != destination_id and tree[destination_point.graph_vertex_id] == -1:
+                # destination is unreachable from origin - no path to walk, leave geometry empty
+                feat.setGeometry(QgsGeometry())
+            else:
+                route_points: list[QgsPointXY] = list()
+                route_points.append(destination_point.graph_vertex_geom)
+                route_points.append(destination_point.feature.geometry().asPoint())
 
-            current_vertex_id = destination_point.graph_vertex_id
-            while current_vertex_id != origin_point.graph_vertex_id:
-                current_vertex_id = self.qgsgraph.edge(tree[current_vertex_id]).fromVertex()
-                route_points.append(self.qgsgraph.vertex(current_vertex_id).point())
-            
-            route_points.append(destination_point.graph_vertex_geom)
-            route_points.append(destination_point.feature.geometry().asPoint())
-            
-            route_geom: QgsGeometry = QgsGeometry().fromPolylineXY(route_points)
-            feat.setGeometry(route_geom)
+                current_vertex_id = destination_point.graph_vertex_id
+                while current_vertex_id != origin_point.graph_vertex_id:
+                    current_vertex_id = self.qgsgraph.edge(tree[current_vertex_id]).fromVertex()
+                    route_points.append(self.qgsgraph.vertex(current_vertex_id).point())
+
+                route_points.append(origin_point.feature.geometry().asPoint())
+                route_points.append(origin_point.graph_vertex_geom)
+
+                route_geom: QgsGeometry = QgsGeometry().fromPolylineXY(route_points)
+                feat.setGeometry(route_geom)
 
         return feat
     
