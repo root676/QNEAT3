@@ -48,7 +48,7 @@ from qgis.core import (Qgis,
 
 from qgis.analysis import QgsVectorLayerDirector
 
-from ..QneatFramework import QneatCore, IsoAreaMethod, EntryCostCalculationMethod, OptimizationStrategy, ProgressRange
+from ..QneatFramework import QneatCore, IsoAreaMethod, OptimizationStrategy, ProgressRange
 from ..QneatUtilities import checkIfAnalysisCrsEqual, getFieldDatatype
 
 from typing import (
@@ -146,7 +146,7 @@ class IsoAreaAsCostSurfaceFromLayer(QgsProcessingAlgorithm):
                                                        self.ORIGIN_POINTS,
                                                        optional=False))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_COST,
-                                                   self.tr('Size of iso-area (distance in network crs units or time in seconds)'),
+                                                   self.tr('Size of iso-area (distance in meters or time in seconds)'),
                                                    Qgis.ProcessingNumberParameterType.Double,
                                                    2500.0, False, 0))
         self.addParameter(QgsProcessingParameterEnum(self.ISO_AREA_METHOD,
@@ -256,10 +256,9 @@ class IsoAreaAsCostSurfaceFromLayer(QgsProcessingAlgorithm):
                          input_point_features, 
                          strategy, 
                          speedFieldName, 
-                         defaultSpeed, 
-                         tolerance, 
-                         EntryCostCalculationMethod.PLANAR, 
-                         build_progress_range, 
+                         defaultSpeed,
+                         tolerance,
+                         build_progress_range,
                          directionFieldName, 
                          forwardValue, 
                          backwardValue, 

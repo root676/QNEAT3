@@ -1,5 +1,5 @@
 .idea
-.settings/org.eclipse.core.resources.prefs
+.settings/
 .project
 .pydevproject
 *.pyc

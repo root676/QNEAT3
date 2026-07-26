@@ -75,7 +75,6 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
     DESTINATION_POINT_LAYER = 'DESTINATION_POINT_LAYER'
     DESTINATION_ID_FIELD = 'DESTINATION_ID_FIELD'    
     STRATEGY = 'STRATEGY'
-    ENTRY_COST_CALCULATION_METHOD = 'ENTRY_COST_CALCULATION_METHOD'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
     VALUE_BACKWARD = 'VALUE_BACKWARD'
@@ -120,7 +119,7 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
                 "<ul><li>Network layer</li><li>From-point layer</li><li>Unique from-point ID field (numerical)</li><li>To-point layer</li><li>Unique to-point ID field (numerical)</li><li>Cost strategy</li></ul><br>"\
                 "<b>Parameters (optional):</b><br>"\
                 "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the network's edges."\
-                "<ul><li>Matrix output type (straight line between origin and destination, or the actual routed path)</li><li>Entry cost calculation method</li><li>Direction field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
+                "<ul><li>Matrix output type (straight line between origin and destination, or the actual routed path)</li><li>Direction field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is one layer:"\
                 "<ul><li>OD-matrix as lines (or routed paths, depending on matrix output type) with network based distances as attributes</li></ul>"
@@ -137,9 +136,6 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
         self.MATRIX_GEOMETRY_TYPES = [self.tr('Line'),
                                       self.tr('Route')]
 
-        self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar'),
-                                               self.tr('Ellipsoidal')]
-            
         self.addParameter(QgsProcessingParameterFeatureSource(self.GRAPH_LAYER,
                                                               self.tr('Graph layer'),
                                                               [Qgis.ProcessingSourceType.VectorLine]))
@@ -170,10 +166,6 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
                                                      defaultValue=0))
 
         params = []
-        params.append(QgsProcessingParameterEnum(self.ENTRY_COST_CALCULATION_METHOD,
-                                                 self.tr('Entry Cost calculation method'),
-                                                 self.ENTRY_COST_CALCULATION_METHODS,
-                                                 defaultValue=0))
         params.append(QgsProcessingParameterEnum(self.MATRIX_GEOMETRY_TYPE,
                                                  self.tr('Matrix output type'),
                                                  self.MATRIX_GEOMETRY_TYPES,
@@ -230,7 +222,6 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
         # MatrixType.LINE/MatrixType.ROUTE (values 1/2) - MatrixType.TABLE is not selectable here.
         matrix_geometry_type: MatrixType =  MatrixType(self.parameterAsEnum(parameters, self.MATRIX_GEOMETRY_TYPE, context) + 1)
 
-        entry_cost_calc_method: int = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context) 
         directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context)
         forwardValue: str = self.parameterAsString(parameters, self.VALUE_FORWARD, context) 
         backwardValue: str = self.parameterAsString(parameters, self.VALUE_BACKWARD, context) 
@@ -287,10 +278,9 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
                          input_point_features, 
                          strategy, 
                          speedFieldName, 
-                         defaultSpeed, 
-                         tolerance, 
-                         entry_cost_calc_method, 
-                         build_progress_range, 
+                         defaultSpeed,
+                         tolerance,
+                         build_progress_range,
                          directionFieldName, 
                          forwardValue, 
                          backwardValue, 

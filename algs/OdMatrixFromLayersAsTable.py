@@ -73,7 +73,6 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
     DESTINATION_POINT_LAYER = 'DESTINATION_POINT_LAYER'
     DESTINATION_ID_FIELD = 'DESTINATION_ID_FIELD'    
     STRATEGY = 'STRATEGY'
-    ENTRY_COST_CALCULATION_METHOD = 'ENTRY_COST_CALCULATION_METHOD'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
     VALUE_BACKWARD = 'VALUE_BACKWARD'
@@ -117,7 +116,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
                 "<ul><li>Network layer</li><li>From-point layer</li><li>Unique from-point ID field (numerical)</li><li>To-point layer</li><li>Unique to-point ID field (numerical)</li><li>Cost strategy</li></ul><br>"\
                 "<b>Parameters (optional):</b><br>"\
                 "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the network's edges."\
-                "<ul><li>Entry cost calculation method</li><li>Direction field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
+                "<ul><li>Direction field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is one table:"\
                 "<ul><li>OD-matrix as table with network based distances as attributes</li></ul>"  
@@ -131,9 +130,6 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
         self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
                            self.tr('Fastest Path (time optimization)')]
         
-        self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar'),
-                                                self.tr('Ellipsoidal')]
-
         self.addParameter(QgsProcessingParameterFeatureSource(self.GRAPH_LAYER,
                                                               self.tr('Graph layer'),
                                                               [Qgis.ProcessingSourceType.VectorLine]))
@@ -164,10 +160,6 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
                                                      defaultValue=0))
 
         params = []
-        params.append(QgsProcessingParameterEnum(self.ENTRY_COST_CALCULATION_METHOD,
-                                                 self.tr('Entry cost calculation method'),
-                                                 self.ENTRY_COST_CALCULATION_METHODS,
-                                                 defaultValue=0))
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
                                                   self.tr('Direction field'),
                                                   None,
@@ -217,7 +209,6 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
         destination_id_field: str = self.parameterAsString(parameters, self.DESTINATION_ID_FIELD, context)
         strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context))
         
-        entry_cost_calc_method: int = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context)
         directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context)
         forwardValue: str = self.parameterAsString(parameters, self.VALUE_FORWARD, context) 
         backwardValue: str = self.parameterAsString(parameters, self.VALUE_BACKWARD, context) 
@@ -274,10 +265,9 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
                          input_point_features, 
                          strategy, 
                          speedFieldName, 
-                         defaultSpeed, 
-                         tolerance, 
-                         entry_cost_calc_method, 
-                         build_progress_range, 
+                         defaultSpeed,
+                         tolerance,
+                         build_progress_range,
                          directionFieldName, 
                          forwardValue, 
                          backwardValue, 

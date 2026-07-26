@@ -72,7 +72,6 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
     ORIGIN_ID_FIELD = 'ORIGIN_ID_FIELD'
     MAX_COST = "MAX_COST"
     STRATEGY = 'STRATEGY'
-    ENTRY_COST_CALCULATION_METHOD = 'ENTRY_COST_CALCULATION_METHOD'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
     VALUE_BACKWARD = 'VALUE_BACKWARD'
@@ -116,7 +115,7 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
                 "<ul><li>Network layer</li><li>Origin-point layer</li><li>Unique point ID field (numerical)</li><li>Maximum cost level for iso-area</li><li>Cost strategy</li></ul><br>"\
                 "<b>Parameters (optional):</b><br>"\
                 "There are also a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the network's edges."\
-                "<ul><li>Entry cost calculation method</li><li>Direction field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
+                "<ul><li>Direction field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is one layer:"\
                 "<ul><li>Point layer of reachable network nodes</li></ul><br>"\
@@ -131,9 +130,6 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
         self.STRATEGIES = [self.tr('Shortest Path (distance optimization)'),
                            self.tr('Fastest Path (time optimization)')]
 
-        self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar'),
-                                                self.tr('Ellipsoidal')]
-    
         self.addParameter(QgsProcessingParameterFeatureSource(self.GRAPH_LAYER,
                                                               self.tr('Network Layer'),
                                                               [Qgis.ProcessingSourceType.VectorLine]))
@@ -146,7 +142,7 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
                                                        self.ORIGIN_POINTS,
                                                        optional=False))
         self.addParameter(QgsProcessingParameterNumber(self.MAX_COST,
-                                                   self.tr('Size of Iso-Area (distance in network crs units or time value in seconds)'),
+                                                   self.tr('Size of Iso-Area (distance in meters or time value in seconds)'),
                                                    Qgis.ProcessingNumberParameterType.Double,
                                                    2500.0, False, 0))
         self.addParameter(QgsProcessingParameterEnum(self.STRATEGY,
@@ -155,10 +151,6 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
                                                      defaultValue=0))
 
         params = []
-        params.append(QgsProcessingParameterEnum(self.ENTRY_COST_CALCULATION_METHOD,
-                                                 self.tr('Entry Cost calculation method'),
-                                                 self.ENTRY_COST_CALCULATION_METHODS,
-                                                 defaultValue=0))
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
                                                   self.tr('Direction field'),
                                                   None,
@@ -209,8 +201,7 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
         max_cost: float = self.parameterAsDouble(parameters, self.MAX_COST, context)
         strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context))
 
-        entry_cost_calc_method: int = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context)
-        directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context) 
+        directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context)
         forwardValue: str = self.parameterAsString(parameters, self.VALUE_FORWARD, context) 
         backwardValue: str = self.parameterAsString(parameters, self.VALUE_BACKWARD, context) 
         bothValue: str = self.parameterAsString(parameters, self.VALUE_BOTH, context) 
@@ -248,10 +239,9 @@ class IsoAreaAsPointcloudFromLayer(QgsProcessingAlgorithm):
                          input_point_features, 
                          strategy, 
                          speedFieldName, 
-                         defaultSpeed, 
-                         tolerance, 
-                         entry_cost_calc_method, 
-                         build_progress_range, 
+                         defaultSpeed,
+                         tolerance,
+                         build_progress_range,
                          directionFieldName, 
                          forwardValue, 
                          backwardValue, 

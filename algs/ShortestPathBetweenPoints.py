@@ -69,7 +69,6 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
     START_POINT = 'START_POINT'
     END_POINT = 'END_POINT'
     STRATEGY = 'STRATEGY'
-    ENTRY_COST_CALCULATION_METHOD = 'ENTRY_COST_CALCULATION_METHOD'
     DIRECTION_FIELD = 'DIRECTION_FIELD'
     VALUE_FORWARD = 'VALUE_FORWARD'
     VALUE_BACKWARD = 'VALUE_BACKWARD'
@@ -114,7 +113,7 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
                 "<ul><li>Network Layer</li><li>Startpoint coordinates</li><li>Endpoint coordinates</li><li>Cost strategy</li></ul><br>"\
                 "<b>Parameters (optional):</b><br>"\
                 "There are a number of <i>optional parameters</i> to implement <b>direction dependent</b> shortest paths and provide information on <b>speeds</b> on the network edges."\
-                "<ul><li>Entry cost calculation method</li><li>Direction Field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
+                "<ul><li>Direction Field</li><li>Value for forward direction</li><li>Value for backward direction</li><li>Value for both directions</li><li>Default direction</li><li>Speed field</li><li>Default speed (affects entry/exit costs)</li><li>Topology tolerance</li></ul><br>"\
                 "<b>Output:</b><br>"\
                 "The output of the algorithm is a layer containing a <b>single linestring</b>, the attributes showcase the"\
                 "<ul><li>name and coordinates of startpoint</li><li>name and coordinates of endpoint</li><li>entry-cost to enter network</li><li>exit-cost to exit network</li><li>cost of shortest path on graph</li><li>total cost as sum of all cost elements</li></ul>"
@@ -129,10 +128,6 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
                            self.tr('Fastest path (time optimization)')
                            ]
 
-        self.ENTRY_COST_CALCULATION_METHODS = [self.tr('Planar'),
-                                                self.tr('Ellipsoidal')]
-            
-
         self.addParameter(QgsProcessingParameterFeatureSource(self.GRAPH_LAYER,
                                                               self.tr('Graph layer'),
                                                               [Qgis.ProcessingSourceType.VectorLine]))
@@ -146,10 +141,6 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
                                                      defaultValue=0))
 
         params = []
-        params.append(QgsProcessingParameterEnum(self.ENTRY_COST_CALCULATION_METHOD,
-                                                 self.tr('Entry Cost calculation method'),
-                                                 self.ENTRY_COST_CALCULATION_METHODS,
-                                                 defaultValue=0))
         params.append(QgsProcessingParameterField(self.DIRECTION_FIELD,
                                                   self.tr('Direction field'),
                                                   None,
@@ -198,7 +189,6 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
         endPoint: QgsPointXY = self.parameterAsPoint(parameters, self.END_POINT, context, network.sourceCrs())
         strategy: OptimizationStrategy = OptimizationStrategy(self.parameterAsEnum(parameters, self.STRATEGY, context))
 
-        entry_cost_calc_method: int = self.parameterAsEnum(parameters, self.ENTRY_COST_CALCULATION_METHOD, context)
         directionFieldName: str = self.parameterAsString(parameters, self.DIRECTION_FIELD, context)
         forwardValue: str = self.parameterAsString(parameters, self.VALUE_FORWARD, context)
         backwardValue: str = self.parameterAsString(parameters, self.VALUE_BACKWARD, context)
@@ -216,10 +206,9 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
                          input_point_features, 
                          strategy, 
                          speedFieldName, 
-                         defaultSpeed, 
-                         tolerance, 
-                         entry_cost_calc_method, 
-                         build_progress_range, 
+                         defaultSpeed,
+                         tolerance,
+                         build_progress_range,
                          directionFieldName, 
                          forwardValue, 
                          backwardValue, 

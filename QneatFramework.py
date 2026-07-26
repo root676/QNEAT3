@@ -56,7 +56,7 @@ from qgis.core import (
 
 from qgis.PyQt.QtCore import QMetaType
 
-from .QneatUtilities import buildQgsVectorLayer, getCellIndexFromPoint
+from .QneatUtilities import buildQgsVectorLayer
 
 from typing import (
     Optional,
@@ -75,10 +75,6 @@ if TYPE_CHECKING:
 class OptimizationStrategy(IntEnum):
     DISTANCE = 0
     TIME = 1
-
-class EntryCostCalculationMethod(IntEnum):
-    PLANAR = 0
-    ELLIPSOID = 1
 
 class IsoAreaMethod(IntEnum):
     EUCLIDEAN_DISTANCE = 0
@@ -102,7 +98,7 @@ class ProgressProxyFeedback (QgsProcessingFeedback):
         self._width = end - start
         # QgsFeedback.setProgress() is not virtual, so C++ callers (e.g.
         # QgsVectorLayerDirector.makeGraph()) update the base class's own state directly
-        # instead of dispatching into our override below - but that still emits
+        # instead of dispatching into QNEATs override below - but that still emits
         # progressChanged, so relay through that too to catch those updates.
         self.progressChanged.connect(self._relayBaseProgress)
 
@@ -123,8 +119,6 @@ class ProgressProxyFeedback (QgsProcessingFeedback):
         return self._parent_feedback.isCanceled()
 
     def pushInfo(self, info: str):
-        # QgsProcessingFeedback.pushInfo() isn't forwarded anywhere on its own - relay it up
-        # the proxy chain so messages actually reach the real algorithm feedback panel.
         self._parent_feedback.pushInfo(info)
 
 
@@ -138,6 +132,7 @@ class ProgressRange:
 
 def gdalProgressCallback(feedback: ProgressProxyFeedback):
     """Build a GDALProgressFunc that relays into a ProgressProxyFeedback and honours cancellation."""
+    
     def _callback(complete: float, message: str, user_data) -> int:
         feedback.setProgress(complete)
         return 0 if feedback.isCanceled() else 1
@@ -170,7 +165,6 @@ class QneatCore():
                  speed_field: str,
                  default_speed: float,
                  tolerance: float,
-                 entry_cost_calculation_method: EntryCostCalculationMethod,
                  buildProgressRange: ProgressRange,
                  directionFieldName: Optional[str] = None, 
                  forwardValue: Optional[str] = None,
@@ -215,8 +209,7 @@ class QneatCore():
         #QgsGraphBuilder measures edge lengths via QgsDistanceArea, which defaults to a
         #hardcoded "WGS84" ellipsoid regardless of analysis_crs unless told otherwise - pass
         #the graph's own ellipsoid explicitly so edge costs are measured against the network's
-        #actual reference ellipsoid instead of a mismatched default. This is kept independent of
-        #entry_cost_calculation_method below, which only concerns tying points onto the graph.
+        #actual reference ellipsoid instead of a mismatched default.
         builder = QgsGraphBuilder(self.analysis_crs, True, tolerance, self.analysis_crs.ellipsoidAcronym())
 
         #tell the graph-director to make the graph using the builder object and tie the start point geometries to the graph
@@ -226,33 +219,28 @@ class QneatCore():
 
         self.analysis_points: list[QneatAnalysisPoint] = list()
 
-        #plain Cartesian distance on a geographic (lat/lon) CRS isn't a meaningful distance at all,
-        #so ellipsoidal entry-cost calculation is forced on regardless of entry_cost_calculation_method
-        #whenever the graph's CRS is geographic - on a projected CRS the parameter still decides.
-        use_ellipsoid_entry_cost = entry_cost_calculation_method == EntryCostCalculationMethod.ELLIPSOID or self.analysis_crs.isGeographic()
-        if entry_cost_calculation_method == EntryCostCalculationMethod.PLANAR and self.analysis_crs.isGeographic():
-            self.feedback.pushInfo("Analysis CRS is geographic - using ellipsoidal entry cost calculation instead of the requested planar method.")
-
-        if use_ellipsoid_entry_cost:
-            dist_calculator = QgsDistanceArea()
-            dist_calculator.setSourceCrs(self.analysis_crs, QgsProject().instance().transformContext())
-            dist_calculator.setEllipsoid(self.analysis_crs.ellipsoidAcronym())
+        #entry cost (tying a point onto the graph) is always measured ellipsoidally, in real
+        #meters, for every analysis_crs - matching graph edge cost above, which is also always
+        #ellipsoidal. This keeps entry_cost, network cost and total_cost on one consistent
+        #scale (real meters for DISTANCE, real seconds for TIME) regardless of CRS, with no
+        #per-CRS branching needed: a plain Cartesian distance in analysis_crs map units would
+        #be meaningless on a geographic CRS and inconsistent with the graph's real-meters cost
+        #on any CRS whose map unit isn't meters, so there's no CRS for which it would be both
+        #meaningful and consistent.
+        dist_calculator = QgsDistanceArea()
+        dist_calculator.setSourceCrs(self.analysis_crs, QgsProject().instance().transformContext())
+        dist_calculator.setEllipsoid(self.analysis_crs.ellipsoidAcronym())
 
         #build snapping info for analysis_points
         for i, tied_point in enumerate(tiedPoints):
             graph_vertex_id: int = self.qgsgraph.findVertex(tied_point)
             input_point: QgsPointXY = xy_points[i]
-            if use_ellipsoid_entry_cost:
-                dist = dist_calculator.measureLine(input_point, tied_point) #always returned in meters, regardless of analysis_crs map units
-            else:
-                dist = input_point.distance(tied_point) #in analysis_crs map units
+            dist = dist_calculator.measureLine(input_point, tied_point) #always returned in meters, regardless of analysis_crs map units
 
             if optimization_strategy == OptimizationStrategy.DISTANCE:
                 entry_cost = dist
-            elif use_ellipsoid_entry_cost:
-                entry_cost = dist / ( self.default_speed * 1000.0 / 3600.0 ) #dist is real meters, so convert speed straight to m/s instead of via the map-unit factor
             else:
-                entry_cost = dist / ( self.default_speed * self.kmPh_to_unitsPerSecond_factor) #output is in seconds
+                entry_cost = dist / ( self.default_speed * 1000.0 / 3600.0 ) #dist is real meters, so convert speed straight to m/s
 
             self.analysis_points.append(QneatAnalysisPoint(point_featurelist[i], graph_vertex_id, tied_point, entry_cost))
             
@@ -261,7 +249,12 @@ class QneatCore():
         if optimization_strategy == OptimizationStrategy.DISTANCE:
             self.strategy = QgsNetworkDistanceStrategy()
         else:
-            self.strategy = QgsNetworkSpeedStrategy(speed_field_index, float(default_speed), self.kmPh_to_unitsPerSecond_factor ) #output is in seconds
+            #QgsGraphBuilder always measures edge lengths ellipsoidally in real meters (see builder
+            #construction above), never in analysis_crs map units, so speed must convert straight to
+            #m/s here - kmPh_to_unitsPerSecond_factor is scaled to analysis_crs map units and is only
+            #correct for the off-graph raster calculation and the planar entry-cost fallback below,
+            #where distances are genuinely measured in map units.
+            self.strategy = QgsNetworkSpeedStrategy(speed_field_index, float(default_speed), 1000.0 / 3600.0) #output is in seconds
 
 
     def calcDijkstra(self, source_vertex_id: int) -> tuple[list[int], list[float]]:
@@ -555,6 +548,12 @@ class QneatCore():
 
             prox_options = ['VALUES=1', 'DISTUNITS=GEO']
 
+            #gdal.ComputeProximity always measures planar distance in the raster's own map units,
+            #but nearest_seed_cost (from the Dijkstra tree) is in the same cost domain as everywhere
+            #else in QNEAT - seconds for TIME, real ellipsoidal meters for DISTANCE (never map units,
+            #since QgsGraphBuilder always measures edges ellipsoidally) - so DISTANCE needs a
+            #map-units<->meters conversion here just like TIME needs map-units<->seconds via time_factor.
+            distance_units_to_meters_factor = QgsUnitTypes.fromUnitToUnitFactor(self.analysis_crs.mapUnits(), Qgis.DistanceUnit.Meters)
             if self.optimizationStrategy == OptimizationStrategy.TIME:
                 time_factor = self.default_speed * self.kmPh_to_unitsPerSecond_factor   # units/s, at default (off-graph) speed
 
@@ -562,7 +561,7 @@ class QneatCore():
                 if self.optimizationStrategy == OptimizationStrategy.TIME:
                     max_dist = max_off_graph_travel_cost * time_factor   # s -> map units
                 else:
-                    max_dist = max_off_graph_travel_cost                 # already map units
+                    max_dist = max_off_graph_travel_cost / distance_units_to_meters_factor   # meters -> map units
                 prox_options += [f'MAXDIST={max_dist}', 'NODATA=-9999']
 
             prox_progress_range = ProgressRange(progress_range.feedback(), 0.1, 0.6)
@@ -606,9 +605,9 @@ class QneatCore():
 
             if self.optimizationStrategy == OptimizationStrategy.TIME:
                 off_network_cost = off_network_distance / time_factor
-                cost_raster = nearest_seed_cost + off_network_cost
             else:
-                cost_raster = nearest_seed_cost + off_network_distance
+                off_network_cost = off_network_distance * distance_units_to_meters_factor   # map units -> meters
+            cost_raster = nearest_seed_cost + off_network_cost
 
             cost_raster[beyond_cap] = -9999
             cost_raster[~numpy.isfinite(cost_raster)] = -9999
