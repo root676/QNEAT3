@@ -23,7 +23,7 @@ __date__ = 'December 2025'
 __copyright__ = '(C) 2025, Clemens Raffler'
 
 # This will get replaced with a git SHA1 when you do a git archive
-t
+
 __revision__ = '$Format:%H$'
 
 import os
