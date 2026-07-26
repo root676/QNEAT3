@@ -110,7 +110,7 @@ class IsoAreaFromLayer(QgsProcessingAlgorithm):
         return 'isoareafromlayer'
 
     def displayName(self):
-        return self.tr('Iso-Area from layer')
+        return self.tr('Iso-area from layer')
     
     def shortHelpString(self):
         return  "<b>General:</b><br>"\

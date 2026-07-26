@@ -100,7 +100,7 @@ class OdMatrixFromPointsAsTable(QgsProcessingAlgorithm):
         return 'OdMatrixFromPointsAsTable'
 
     def displayName(self):
-        return self.tr('OD Matrix from Points as Table (n:n)')
+        return self.tr('OD matrix from points as table (n:n)')
 
     def shortHelpString(self):
         return  "<b>General:</b><br>"\

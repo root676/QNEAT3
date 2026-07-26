@@ -102,7 +102,7 @@ class IsoAreaAsPointcloudFromPoint(QgsProcessingAlgorithm):
         return 'isoareaaspointcloudfrompoint'
 
     def displayName(self):
-        return self.tr('Iso-Area as Pointcloud (from Point)')
+        return self.tr('Iso-Area as pointcloud (from point)')
     
     def shortHelpString(self):
         return  "<b>General:</b><br>"\

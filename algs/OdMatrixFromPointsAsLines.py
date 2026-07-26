@@ -23,7 +23,7 @@ __date__ = 'December 2025'
 __copyright__ = '(C) 2025, Clemens Raffler'
 
 # This will get replaced with a git SHA1 when you do a git archive
-
+t
 __revision__ = '$Format:%H$'
 
 import os
@@ -100,7 +100,7 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
         return 'OdMatrixFromPointsAsLines'
 
     def displayName(self):
-        return self.tr('OD-Matrix from Points as Lines (n:n)')
+        return self.tr('OD matrix from points as lines (n:n)')
 
     def shortHelpString(self):
         return  "<b>General:</b><br>"\

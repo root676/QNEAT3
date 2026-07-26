@@ -105,7 +105,7 @@ class OdMatrixFromLayersAsTable(QgsProcessingAlgorithm):
         return 'OdMatrixFromLayersAsTable'
 
     def displayName(self):
-        return self.tr('OD Matrix from Layers as Table (m:n)')
+        return self.tr('OD matrix from layers as table (m:n)')
 
     def shortHelpString(self):
         return  "<b>General:</b><br>"\

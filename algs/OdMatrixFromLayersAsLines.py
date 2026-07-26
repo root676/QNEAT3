@@ -108,7 +108,7 @@ class OdMatrixFromLayersAsLines(QgsProcessingAlgorithm):
         return 'OdMatrixFromLayersAsLines'
 
     def displayName(self):
-        return self.tr('OD Matrix from Layers as Lines (m:n)')
+        return self.tr('OD matrix from layers as lines (m:n)')
     
     def shortHelpString(self):
         return  "<b>General:</b><br>"\
