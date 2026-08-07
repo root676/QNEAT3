@@ -167,7 +167,7 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
         params.append(QgsProcessingParameterNumber(self.DEFAULT_SPEED,
                                                    self.tr('Default speed (km/h)'),
                                                    Qgis.ProcessingNumberParameterType.Double,
-                                                   5.0, False, 0))
+                                                   5.0, False, 0.0000001))
         params.append(QgsProcessingParameterNumber(self.TOLERANCE,
                                                    self.tr('Topology tolerance'),
                                                    Qgis.ProcessingNumberParameterType.Double,
@@ -234,9 +234,15 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
             if dijkstra_query[0][destination_vertex_id] == -1:
                 raise QgsProcessingException(self.tr('Could not find a path from start point to end point - Check your graph or change the input points.'))
             
+            #the tree is walked backwards, so the route is assembled from the destination towards
+            #the origin and bracketed by the two off-graph legs. graph_vertex_geom is the point
+            #tied onto the graph, so it has to sit between the real point and the walked path - on
+            #the far side it would draw a chord that bypasses the snapping vertex. The walk itself
+            #terminates on the origin's graph vertex, so appending origin graph_vertex_geom
+            #afterwards would retrace the entry leg back onto the graph.
             route_points: list[QgsPointXY] = list()
-            route_points.append(destination_analysis_point.graph_vertex_geom)
             route_points.append(destination_analysis_point.feature.geometry().asPoint())
+            route_points.append(destination_analysis_point.graph_vertex_geom)
 
             current_vertex_id = destination_vertex_id
             while current_vertex_id != origin_vertex_id:
@@ -244,7 +250,6 @@ class ShortestPathBetweenPoints(QgsProcessingAlgorithm):
                 route_points.append(core.qgsgraph.vertex(current_vertex_id).point())
 
             route_points.append(origin_analysis_point.feature.geometry().asPoint())
-            route_points.append(origin_analysis_point.graph_vertex_geom)
 
             route_geom: QgsGeometry = QgsGeometry().fromPolylineXY(route_points)
 

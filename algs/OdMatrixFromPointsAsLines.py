@@ -176,7 +176,7 @@ class OdMatrixFromPointsAsLines(QgsProcessingAlgorithm):
         params.append(QgsProcessingParameterNumber(self.DEFAULT_SPEED,
                                                    self.tr('Default speed (km/h)'),
                                                    Qgis.ProcessingNumberParameterType.Double,
-                                                   5.0, False, 0))
+                                                   5.0, False, 0.0000001))
         params.append(QgsProcessingParameterNumber(self.TOLERANCE,
                                                    self.tr('Topology tolerance'),
                                                    Qgis.ProcessingNumberParameterType.Double,

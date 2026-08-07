@@ -68,10 +68,14 @@ if TYPE_CHECKING:
         QgsProcessingFeedback,
         QgsProcessingFeatureSource
         )
-    
+
     from qgis.analysis import (
         QgsGraph
     )
+
+#GDAL 3.11 folded the in-memory vector driver ("Memory"/"MEMORY") into "MEM" and deprecated the old
+#names; on older GDAL builds "MEM" is raster-only and cannot create layers. Pick what this build offers.
+MEMORY_VECTOR_DRIVER = 'MEM' if int(gdal.VersionInfo('VERSION_NUM')) >= 3110000 else 'Memory'
 class OptimizationStrategy(IntEnum):
     DISTANCE = 0
     TIME = 1
@@ -118,8 +122,29 @@ class ProgressProxyFeedback (QgsProcessingFeedback):
     def isCanceled(self) -> bool:
         return self._parent_feedback.isCanceled()
 
+    #every message channel has to be relayed explicitly: a proxy is what gets handed to
+    #makeGraph(), QgsTinInterpolator and the GDAL callbacks, so anything not forwarded here never
+    #reaches the algorithm's log - reportError() in particular would drop failures silently.
     def pushInfo(self, info: str):
         self._parent_feedback.pushInfo(info)
+
+    def pushWarning(self, warning: str):
+        self._parent_feedback.pushWarning(warning)
+
+    def pushDebugInfo(self, info: str):
+        self._parent_feedback.pushDebugInfo(info)
+
+    def pushCommandInfo(self, info: str):
+        self._parent_feedback.pushCommandInfo(info)
+
+    def pushConsoleInfo(self, info: str):
+        self._parent_feedback.pushConsoleInfo(info)
+
+    def reportError(self, error: str, fatalError: bool = False):
+        self._parent_feedback.reportError(error, fatalError)
+
+    def setProgressText(self, text: str):
+        self._parent_feedback.setProgressText(text)
 
 
 class ProgressRange:
@@ -196,6 +221,12 @@ class QneatCore():
                                     )
     
         #Setup cost-strategy pattern.
+        #default_speed is a divisor for every entry/exit cost and for the off-graph raster cost
+        #below, so a zero speed would blow up with a bare ZeroDivisionError deep inside the
+        #analysis - reject it up front with an error the user can act on.
+        if optimization_strategy == OptimizationStrategy.TIME and default_speed <= 0:
+            raise QgsProcessingException("Default speed must be greater than 0 km/h when optimizing for time.")
+
         self.default_speed = default_speed
         speed_field_id = graph_source.fields().lookupField(speed_field)
 
@@ -279,24 +310,35 @@ class QneatCore():
         fields.append(QgsField('total_cost', QMetaType.Double, '', 20,7))
         feat.setFields(fields)
 
-        if origin_id == destination_id:
-            feat['origin_id'] = origin_id
-            feat['destination_id'] = destination_id
+        #"origin is destination" must be decided on the analysis point itself, never on the id
+        #value: the m:n algorithms feed origin and destination from two different layers, where
+        #two equal id values describe two completely unrelated points. Only the n:n algorithms
+        #iterate one and the same list twice, so identity is exactly the case where both sides
+        #are the very same QneatAnalysisPoint object.
+        is_same_point = origin_point is destination_point
+
+        #dijkstra leaves tree[source] == -1 because the source vertex has no incoming edge, so an
+        #unreachable destination can only be diagnosed for a destination vertex that is not the
+        #source itself - two distinct points snapped onto the same graph vertex are reachable at
+        #zero network cost, not unreachable.
+        is_unreachable = (origin_point.graph_vertex_id != destination_point.graph_vertex_id
+                          and tree[destination_point.graph_vertex_id] == -1)
+
+        feat['origin_id'] = origin_id
+        feat['destination_id'] = destination_id
+
+        if is_same_point:
             feat['entry_cost'] = 0.0
             feat['network_cost'] = 0.0
             feat['exit_cost'] = 0.0
             feat['total_cost'] = 0.0
-        elif tree[destination_point.graph_vertex_id] == -1:
-            feat['origin_id'] = origin_id
-            feat['destination_id'] = destination_id
+        elif is_unreachable:
             feat['entry_cost'] = None
             feat['network_cost'] = None
             feat['exit_cost'] = None
             feat['total_cost'] = None
         else:
             network_cost = cost[destination_point.graph_vertex_id]
-            feat['origin_id'] = origin_id
-            feat['destination_id'] = destination_id
             feat['entry_cost'] = origin_point.graph_entry_cost
             feat['network_cost'] = network_cost
             feat['exit_cost'] = destination_point.graph_entry_cost
@@ -308,13 +350,19 @@ class QneatCore():
         elif matrix_type == MatrixType.LINE:
             feat.setGeometry(QgsGeometry().fromPolylineXY([origin_point.feature.geometry().asPoint(), destination_point.feature.geometry().asPoint()]))
         elif matrix_type == MatrixType.ROUTE:
-            if origin_id != destination_id and tree[destination_point.graph_vertex_id] == -1:
+            if is_unreachable:
                 # destination is unreachable from origin - no path to walk, leave geometry empty
                 feat.setGeometry(QgsGeometry())
             else:
+                #the tree is walked backwards, so the route is assembled from the destination
+                #towards the origin and bracketed by the two off-graph legs. graph_vertex_geom is
+                #the point tied onto the graph, so it has to sit between the real point and the
+                #walked path - on the far side it would draw a chord that bypasses the snapping
+                #vertex. The walk itself terminates on the origin's graph vertex, so appending
+                #origin graph_vertex_geom afterwards would retrace the entry leg back onto the graph.
                 route_points: list[QgsPointXY] = list()
-                route_points.append(destination_point.graph_vertex_geom)
                 route_points.append(destination_point.feature.geometry().asPoint())
+                route_points.append(destination_point.graph_vertex_geom)
 
                 current_vertex_id = destination_point.graph_vertex_id
                 while current_vertex_id != origin_point.graph_vertex_id:
@@ -322,7 +370,6 @@ class QneatCore():
                     route_points.append(self.qgsgraph.vertex(current_vertex_id).point())
 
                 route_points.append(origin_point.feature.geometry().asPoint())
-                route_points.append(origin_point.graph_vertex_geom)
 
                 route_geom: QgsGeometry = QgsGeometry().fromPolylineXY(route_points)
                 feat.setGeometry(route_geom)
@@ -344,19 +391,26 @@ class QneatCore():
 
             entry_cost = origin_point.graph_entry_cost
             if entry_cost > max_cost:
+                #a skipped origin is still workload - report it, otherwise the bar stalls
+                #whenever a run contains many out-of-range origins
+                progress_range.feedback().setProgress((i + 1) / total_workload)
                 continue
 
             tree, cost = self.calcDijkstra(origin_point.graph_vertex_id)
 
+            in_range_vertices: list[int] = list()
+
             #add all reachable vertices
             for v in range(len(cost)):
 
-                if math.isinf(cost[v]): 
+                if math.isinf(cost[v]):
                     continue
 
                 real_cost = cost[v] + entry_cost
                 if real_cost > max_cost:
                     continue
+
+                in_range_vertices.append(v)
 
                 p = self.qgsgraph.vertex(v).point()
 
@@ -376,31 +430,46 @@ class QneatCore():
             #densify
             if densify_distance:
 
-                edge_count = self.qgsgraph.edgeCount()
+                #an edge can only carry an interpolated point inside the iso-area if at least one
+                #of its endpoints is itself inside it, so collect the candidates from the in-range
+                #vertices instead of rescanning the whole graph once per origin. This is the same
+                #edge set the old full scan kept after its "both endpoints outside" skip, which is
+                #why that skip is gone below - it can no longer trigger.
+                candidate_edge_ids: set[int] = set()
+                for v in in_range_vertices:
+                    graph_vertex = self.qgsgraph.vertex(v)
+                    candidate_edge_ids.update(graph_vertex.incomingEdges())
+                    candidate_edge_ids.update(graph_vertex.outgoingEdges())
 
-                for edge_id in range(edge_count):
+                #a bidirectional network carries two directed edges per segment. Both interpolate
+                #the same locations at the same costs (min(cost_from_u, cost_from_v) is symmetric
+                #under reversal), so walk each segment once, always oriented from the lower to the
+                #higher vertex id. Keying on that canonical pair instead of the edge id also lets
+                #points from different origins - which may have arrived over opposite directions of
+                #the same segment - dedupe against each other.
+                processed_segments: set[tuple[int, int]] = set()
+
+                for edge_id in candidate_edge_ids:
 
                     edge = self.qgsgraph.edge(edge_id)
-                    u = edge.fromVertex()
-                    v = edge.toVertex()
+
+                    segment = (edge.fromVertex(), edge.toVertex())
+                    if segment[0] > segment[1]:
+                        segment = (segment[1], segment[0])
+                    if segment in processed_segments:
+                        continue
+                    processed_segments.add(segment)
+
+                    u, v = segment
 
                     Cu = cost[u]
                     Cv = cost[v]
-
-                    # If both unreachable → skip
-                    if math.isinf(Cu) and math.isinf(Cv):
-                        continue
 
                     # Convert to real costs
                     if not math.isinf(Cu):
                         Cu += entry_cost
                     if not math.isinf(Cv):
                         Cv += entry_cost
-
-                    # If both outside isochrone → skip
-                    if (math.isinf(Cu) or Cu > max_cost) and \
-                    (math.isinf(Cv) or Cv > max_cost):
-                        continue
 
                     p_u = self.qgsgraph.vertex(u).point()
                     p_v = self.qgsgraph.vertex(v).point()
@@ -442,7 +511,7 @@ class QneatCore():
                         feat['origin_point_id'] = origin_point.feature['user_id']
                         feat.setGeometry(QgsGeometry(pt_m))
 
-                        key = (edge_id, j)
+                        key = (segment, j)
 
                         existing = iso_points.get(key)
                         if existing is None or existing['cost'] > interpolated_cost:
@@ -506,6 +575,17 @@ class QneatCore():
 
         cols = int(math.ceil((xmax - xmin) / cellsize))
         rows = int(math.ceil((ymax - ymin) / cellsize))
+
+        #ceil() rounds the cell counts up, so cols/rows cells of cellsize reach past the requested
+        #extent. Snap xmax/ymin onto that rounded grid before anything uses them: the seed,
+        #proximity and output rasters are all built from geotransform below, and gdal.Grid is
+        #handed the same corner. Passing the unrounded corner instead would make gdal.Grid squeeze
+        #cols x rows cells into a slightly smaller extent, giving the allocation raster a different
+        #pixel size than the proximity raster it is summed with - a sub-pixel stretch that grows
+        #from zero at the top-left corner and misplaces costs along the allocation boundaries.
+        xmax = xmin + cols * cellsize
+        ymin = ymax - rows * cellsize
+
         geotransform = (xmin, cellsize, 0, ymax, 0, -cellsize)
 
         srs = osr.SpatialReference()
@@ -523,7 +603,7 @@ class QneatCore():
         band = None
         try:
             #seed points as ogr memory layer
-            pt_dataset = gdal.GetDriverByName('Memory').Create('', 0,0,0,gdal.GDT_Unknown)
+            pt_dataset = gdal.GetDriverByName(MEMORY_VECTOR_DRIVER).Create('', 0,0,0,gdal.GDT_Unknown)
             lyr = pt_dataset.CreateLayer('seeds', srs, ogr.wkbPoint)
             lyr.CreateField(ogr.FieldDefn(cost_field_name, ogr.OFTReal))
             for node in iso_points:
@@ -660,7 +740,7 @@ class QneatCore():
 
             srs: osr.SpatialReference = osr.SpatialReference(wkt=interpolation_raster.GetProjection())
 
-            ogr_driver = ogr.GetDriverByName("MEMORY")
+            ogr_driver = ogr.GetDriverByName(MEMORY_VECTOR_DRIVER)
             ogr_ds = ogr_driver.CreateDataSource("iso_areas")
             ogr_layer = ogr_ds.CreateLayer("iso_areas", srs, geom_type=ogr_geom_type)
 
